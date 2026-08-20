@@ -12,7 +12,17 @@ verdad si algo aquí queda ambiguo.
 
 ## Stack y arquitectura (ya implementados en Sprint 1, no cambiar sin razón)
 - Node.js + Express, arquitectura en capas: `rutas → controladores → servicios → modelos → SQLite`.
-- `better-sqlite3`, `bcryptjs` (hash de contraseñas), `jsonwebtoken` (auth).
+- `node:sqlite` (`DatabaseSync`, nativo desde Node 22.5+, sin flags desde 22.13/23.4),
+  `bcryptjs` (hash de contraseñas), `jsonwebtoken` (auth). No usamos `better-sqlite3`:
+  requiere compilar un binario nativo (node-gyp + Python + build tools de C++) que no
+  están disponibles en todos los entornos de desarrollo del proyecto.
+- `node:sqlite` no trae el helper `db.transaction()` de `better-sqlite3`. Cualquier
+  operación multi-paso que deba ser atómica (p. ej. ajustar `stock_actual` +
+  registrar en `movimientos_inventario`, como en `movimientoInventarioModel.js`)
+  envuelve `BEGIN`/`COMMIT`/`ROLLBACK` a mano en el modelo con un helper tipo
+  `conTransaccion(fn)`. Mismo patrón aplica en Sprint 3-4 para el cierre de cuenta
+  por mesa (US-14: sumar `PEDIDO_DETALLE` en `VENTA_DETALLE` + total) y el
+  descuento automático de inventario en ventas (US-16).
 - Middlewares en `src/middlewares/`: `auth.js` (verifica JWT), `roles.js` (RBAC por rol),
   `auditoria.js` (escribe en `log_auditoria` automáticamente cuando un controlador
   fija `req.auditoria = { accion, entidad, id_entidad }` — no lo hagas manualmente
