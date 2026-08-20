@@ -7,6 +7,8 @@ const auditoria = require("./middlewares/auditoria");
 const authRoutes = require("./routes/auth.routes");
 const usuariosRoutes = require("./routes/usuarios.routes");
 const auditoriaRoutes = require("./routes/auditoria.routes");
+const categoriasRoutes = require("./routes/categorias.routes");
+const productosRoutes = require("./routes/productos.routes");
 const inventarioRoutes = require("./routes/inventario.routes");
 
 const app = express();
@@ -18,6 +20,8 @@ app.use(auditoria); // se activa solo cuando un controlador fija req.auditoria
 app.use("/api/auth", authRoutes);
 app.use("/api/usuarios", usuariosRoutes);
 app.use("/api/auditoria", auditoriaRoutes);
+app.use("/api/categorias", categoriasRoutes);
+app.use("/api/productos", productosRoutes);
 app.use("/api/inventario", inventarioRoutes); // placeholder de Sprint 2
 
 app.use("/panel", express.static(path.join(__dirname, "..", "public", "panel")));

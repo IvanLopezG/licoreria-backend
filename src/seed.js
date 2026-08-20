@@ -1,6 +1,15 @@
 require("dotenv").config();
 const bcrypt = require("bcryptjs");
 const usuarioModel = require("./models/usuarioModel");
+const categoriaModel = require("./models/categoriaModel");
+
+const CATEGORIAS_INICIALES = ["Licor", "Paquetería"];
+for (const nombreCategoria of CATEGORIAS_INICIALES) {
+  if (!categoriaModel.buscarPorNombre(nombreCategoria)) {
+    categoriaModel.crear({ nombre: nombreCategoria });
+  }
+}
+console.log(`Categorías iniciales verificadas: ${CATEGORIAS_INICIALES.join(", ")}`);
 
 const nombre = process.env.ADMIN_NOMBRE || "Administrador";
 const usuario_login = process.env.ADMIN_LOGIN || "admin";
