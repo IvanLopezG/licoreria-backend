@@ -13,4 +13,16 @@ function entrada(req, res) {
   }
 }
 
-module.exports = { entrada };
+function salida(req, res) {
+  try {
+    const movimiento = movimientoService.registrarSalida(req.body, req.usuario.id_usuario);
+
+    req.auditoria = { accion: "crear", entidad: "movimientos_inventario", id_entidad: movimiento.id_movimiento };
+
+    return res.status(201).json(movimiento);
+  } catch (err) {
+    return res.status(err.status || 400).json({ error: err.message });
+  }
+}
+
+module.exports = { entrada, salida };
