@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Licorería — Panel (prueba de Auth)</title>
+<style>
+  body { font-family: Calibri, Arial, sans-serif; max-width: 420px; margin: 60px auto; color: #1F3864; }
+  h1 { font-size: 20px; }
+  label { display: block; margin-top: 12px; font-size: 14px; }
+  input { width: 100%; padding: 8px; box-sizing: border-box; margin-top: 4px; }
+  button { margin-top: 16px; padding: 8px 16px; background: #1F3864; color: white; border: none; cursor: pointer; }
+  button:hover { background: #2E5395; }
+  #resultado, #estado { margin-top: 20px; padding: 12px; background: #f1f1f1; white-space: pre-wrap; font-size: 13px; }
+  .oculto { display: none; }
+</style>
+</head>
+<body>
+  <h1>Módulo de Autenticación — Sprint 1</h1>
+
+  <div id="bloqueLogin">
+    <label>Usuario
+      <input id="usuario_login" value="admin">
+    </label>
+    <label>Contraseña
+      <input id="password" type="password">
+    </label>
+    <button onclick="login()">Iniciar sesión</button>
+  </div>
+
+  <div id="bloqueSesion" class="oculto">
+    <p id="estado"></p>
+    <button onclick="probarInventario()">Probar acceso a /api/inventario/ping</button>
+    <button onclick="cerrarSesion()">Cerrar sesión</button>
+  </div>
+
+  <pre id="resultado"></pre>
+
+<script>
+  const API = "";
+
+  function guardarSesion(token, usuario) {
+    localStorage.setItem("token", token);
+    localStorage.setItem("usuario", JSON.stringify(usuario));
+  }
+
+  function sesionActual() {
+    const token = localStorage.getItem("token");
+    const usuario = JSON.parse(localStorage.getItem("usuario") || "null");
+    return { token, usuario };
+  }
+
+  function mostrarSesion() {
+    const { usuario } = sesionActual();
+    if (usuario) {
+      document.getElementById("bloqueLogin").classList.add("oculto");
+      document.getElementById("bloqueSesion").classList.remove("oculto");
+      document.getElementById("estado").textContent =
+        `Sesión activa: ${usuario.nombre} (${usuario.usuario_login}) — rol: ${usuario.rol}`;
+    } else {
+      document.getElementById("bloqueLogin").classList.remove("oculto");
+      document.getElementById("bloqueSesion").classList.add("oculto");
+    }
+  }
+
+  async function login() {
+    const usuario_login = document.getElementById("usuario_login").value;
+    const password = document.getElementById("password").value;
+    const res = await fetch(`${API}/api/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ usuario_login, password }),
+    });
+    const data = await res.json();
+    document.getElementById("resultado").textContent = JSON.stringify(data, null, 2);
+    if (res.ok) {
+      guardarSesion(data.token, data.usuario);
+      mostrarSesion();
+    }
+  }
+
+  async function probarInventario() {
+    const { token } = sesionActual();
+    const res = await fetch(`${API}/api/inventario/ping`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const data = await res.json();
+    document.getElementById("resultado").textContent =
+      `HTTP ${res.status}\n` + JSON.stringify(data, null, 2);
+  }
+
+  function cerrarSesion() {
+    localStorage.removeItem("token");
+    localStorage.removeItem("usuario");
+    document.getElementById("resultado").textContent = "";
+    mostrarSesion();
+  }
+
+  mostrarSesion();
+</script>
+</body>
+</html>
