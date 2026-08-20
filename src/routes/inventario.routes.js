@@ -7,8 +7,9 @@ const router = express.Router();
 
 router.use(auth, requireRole("administrador", "cajero"));
 
-// RF-06 / RF-07: entradas y salidas de inventario.
+// RF-06 / RF-07 / RF-09: entradas, salidas e historial de movimientos.
 router.post("/entradas", movimientoController.entrada);
 router.post("/salidas", movimientoController.salida);
+router.get("/movimientos", movimientoController.historial);
 
 module.exports = router;

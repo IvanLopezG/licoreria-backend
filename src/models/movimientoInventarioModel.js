@@ -59,4 +59,29 @@ function registrarSalida({ id_producto, cantidad, motivo, id_usuario }) {
   });
 }
 
-module.exports = { registrarEntrada, registrarSalida };
+function listar({ id_producto, desde, hasta } = {}) {
+  let query = `
+    SELECT m.*, u.nombre AS usuario_nombre, p.nombre AS producto_nombre
+    FROM movimientos_inventario m
+    JOIN usuarios u ON u.id_usuario = m.id_usuario
+    JOIN productos p ON p.id_producto = m.id_producto
+    WHERE 1 = 1
+  `;
+  const params = {};
+  if (id_producto) {
+    query += " AND m.id_producto = @id_producto";
+    params.id_producto = id_producto;
+  }
+  if (desde) {
+    query += " AND date(m.fecha_hora) >= date(@desde)";
+    params.desde = desde;
+  }
+  if (hasta) {
+    query += " AND date(m.fecha_hora) <= date(@hasta)";
+    params.hasta = hasta;
+  }
+  query += " ORDER BY m.fecha_hora DESC";
+  return db.prepare(query).all(params);
+}
+
+module.exports = { registrarEntrada, registrarSalida, listar };

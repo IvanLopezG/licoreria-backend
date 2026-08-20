@@ -25,4 +25,9 @@ function salida(req, res) {
   }
 }
 
-module.exports = { entrada, salida };
+function historial(req, res) {
+  const { id_producto, desde, hasta } = req.query;
+  return res.json(movimientoService.historial({ id_producto, desde, hasta }));
+}
+
+module.exports = { entrada, salida, historial };
