@@ -26,7 +26,8 @@ function editar(req, res) {
 }
 
 function listar(req, res) {
-  return res.json(productoService.listarProductos());
+  const soloAlerta = req.query.bajo_stock === "true";
+  return res.json(productoService.listarProductos({ soloAlerta }));
 }
 
 function obtener(req, res) {

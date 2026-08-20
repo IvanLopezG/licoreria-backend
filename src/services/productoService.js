@@ -78,8 +78,9 @@ function editarProducto(id_producto, { nombre, id_categoria, unidad_medida, prec
   return agregarAlerta(producto);
 }
 
-function listarProductos() {
-  return productoModel.listar().map(agregarAlerta);
+function listarProductos({ soloAlerta } = {}) {
+  const productos = productoModel.listar().map(agregarAlerta);
+  return soloAlerta ? productos.filter((p) => p.alerta_stock_bajo) : productos;
 }
 
 function obtenerProducto(id_producto) {
