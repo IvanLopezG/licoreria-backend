@@ -11,6 +11,7 @@ const categoriasRoutes = require("./routes/categorias.routes");
 const productosRoutes = require("./routes/productos.routes");
 const proveedoresRoutes = require("./routes/proveedores.routes");
 const inventarioRoutes = require("./routes/inventario.routes");
+const mesasRoutes = require("./routes/mesas.routes");
 
 const app = express();
 
@@ -24,7 +25,8 @@ app.use("/api/auditoria", auditoriaRoutes);
 app.use("/api/categorias", categoriasRoutes);
 app.use("/api/productos", productosRoutes);
 app.use("/api/proveedores", proveedoresRoutes);
-app.use("/api/inventario", inventarioRoutes); // placeholder de Sprint 2
+app.use("/api/inventario", inventarioRoutes);
+app.use("/api/mesas", mesasRoutes);
 
 app.use("/panel", express.static(path.join(__dirname, "..", "public", "panel")));
 

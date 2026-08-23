@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Licorería — Panel de Mesas</title>
+<style>
+  body { font-family: Calibri, Arial, sans-serif; max-width: 720px; margin: 40px auto; color: #1F3864; }
+  h1 { font-size: 20px; }
+  nav a { margin-right: 12px; font-size: 13px; }
+  label { display: block; margin-top: 12px; font-size: 14px; }
+  input { padding: 8px; box-sizing: border-box; margin-top: 4px; }
+  button { margin-top: 16px; padding: 8px 16px; background: #1F3864; color: white; border: none; cursor: pointer; }
+  button:hover { background: #2E5395; }
+  table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+  th, td { border: 1px solid #ccc; padding: 8px; font-size: 13px; text-align: left; }
+  #resultado { margin-top: 20px; padding: 12px; background: #f1f1f1; white-space: pre-wrap; font-size: 13px; }
+  #qrBox { margin-top: 16px; text-align: center; }
+  #qrBox img { max-width: 260px; }
+  .oculto { display: none; }
+  @media print {
+    body * { visibility: hidden; }
+    #qrBox, #qrBox * { visibility: visible; }
+    #qrBox { position: absolute; top: 0; left: 0; }
+  }
+</style>
+</head>
+<body>
+  <nav>
+    <a href="login.html">Login</a>
+    <a href="mesas.html">Mesas</a>
+    <a href="pedidos.html">Pedidos entrantes</a>
+  </nav>
+  <h1>Panel de Mesas — Sprint 3</h1>
+
+  <div>
+    <label>Número de mesa
+      <input id="numero" type="number" min="1">
+    </label>
+    <button onclick="crearMesa()">Crear mesa</button>
+  </div>
+
+  <table>
+    <thead><tr><th>Número</th><th>Estado</th><th>Acción</th></tr></thead>
+    <tbody id="filas"></tbody>
+  </table>
+
+  <div id="qrBox" class="oculto">
+    <p id="qrInfo"></p>
+    <img id="qrImg">
+    <br><button onclick="window.print()">Imprimir QR</button>
+  </div>
+
+  <pre id="resultado"></pre>
+
+<script>
+  function token() { return localStorage.getItem("token"); }
+
+  async function cargarMesas() {
+    const res = await fetch("/api/mesas", { headers: { Authorization: `Bearer ${token()}` } });
+    const mesas = await res.json();
+    if (!res.ok) {
+      document.getElementById("resultado").textContent = JSON.stringify(mesas, null, 2);
+      return;
+    }
+    const filas = document.getElementById("filas");
+    filas.innerHTML = "";
+    for (const m of mesas) {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td>${m.numero}</td><td>${m.estado}</td>
+        <td><button onclick="verQR(${m.id_mesa})">Ver / imprimir QR</button></td>`;
+      filas.appendChild(tr);
+    }
+  }
+
+  async function crearMesa() {
+    const numero = document.getElementById("numero").value;
+    const res = await fetch("/api/mesas", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token()}` },
+      body: JSON.stringify({ numero: Number(numero) }),
+    });
+    const data = await res.json();
+    document.getElementById("resultado").textContent = JSON.stringify(data, null, 2);
+    if (res.ok) cargarMesas();
+  }
+
+  async function verQR(id_mesa) {
+    const res = await fetch(`/api/mesas/${id_mesa}/qr`, { headers: { Authorization: `Bearer ${token()}` } });
+    const data = await res.json();
+    if (!res.ok) {
+      document.getElementById("resultado").textContent = JSON.stringify(data, null, 2);
+      return;
+    }
+    document.getElementById("qrInfo").textContent = `Mesa ${data.mesa_numero} — ${data.url}`;
+    document.getElementById("qrImg").src = data.qr_data_url;
+    document.getElementById("qrBox").classList.remove("oculto");
+  }
+
+  if (!token()) {
+    document.body.innerHTML = "<p>Debes iniciar sesión primero en <a href='login.html'>login.html</a>.</p>";
+  } else {
+    cargarMesas();
+  }
+</script>
+</body>
+</html>
