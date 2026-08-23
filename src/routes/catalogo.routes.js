@@ -5,5 +5,7 @@ const router = express.Router();
 
 // RF-11: catálogo público sin login, identificado por el token de la mesa.
 router.get("/:token", catalogoController.obtener);
+// RF-12: autopedido del cliente, sin login, asociado a la mesa del QR escaneado.
+router.post("/:token/pedidos", catalogoController.crearPedido);
 
 module.exports = router;

@@ -1,5 +1,6 @@
 const mesaModel = require("../models/mesaModel");
 const productoModel = require("../models/productoModel");
+const pedidoModel = require("../models/pedidoModel");
 
 function buscarMesaPorToken(token) {
   const mesa = mesaModel.buscarPorToken(token);
@@ -29,4 +30,40 @@ function obtenerCatalogo(token) {
   return { mesa: { numero: mesa.numero }, productos };
 }
 
-module.exports = { obtenerCatalogo, buscarMesaPorToken };
+// RF-12: valida cada línea contra el producto real y copia precio_unitario
+// al momento del pedido (regla de negocio ya decidida, no se normaliza).
+function crearPedido(token, items) {
+  const mesa = buscarMesaPorToken(token);
+
+  if (!Array.isArray(items) || items.length === 0) {
+    const err = new Error("El pedido debe tener al menos un producto.");
+    err.status = 400;
+    throw err;
+  }
+
+  const lineas = items.map(({ id_producto, cantidad }) => {
+    if (!id_producto || cantidad === undefined || cantidad === null || Number(cantidad) <= 0) {
+      const err = new Error("Cada línea del pedido requiere id_producto y cantidad mayor a 0.");
+      err.status = 400;
+      throw err;
+    }
+
+    const producto = productoModel.buscarPorId(id_producto);
+    if (!producto) {
+      const err = new Error(`Producto ${id_producto} no encontrado.`);
+      err.status = 404;
+      throw err;
+    }
+    if (producto.stock_actual <= 0) {
+      const err = new Error(`${producto.nombre} ya no está disponible.`);
+      err.status = 400;
+      throw err;
+    }
+
+    return { id_producto, cantidad: Number(cantidad), precio_unitario: producto.precio };
+  });
+
+  return pedidoModel.crear({ id_mesa: mesa.id_mesa, items: lineas });
+}
+
+module.exports = { obtenerCatalogo, crearPedido, buscarMesaPorToken };

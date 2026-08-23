@@ -6,14 +6,25 @@
 <title>Licorería — Catálogo</title>
 <style>
   * { box-sizing: border-box; }
-  body { font-family: Calibri, Arial, sans-serif; max-width: 480px; margin: 0 auto; padding: 16px; color: #1F3864; }
+  body { font-family: Calibri, Arial, sans-serif; max-width: 480px; margin: 0 auto; padding: 16px 16px 120px; color: #1F3864; }
   h1 { font-size: 18px; margin-bottom: 0; }
   #mesaInfo { font-size: 13px; color: #666; margin-top: 4px; }
   .categoria { margin-top: 20px; font-size: 15px; font-weight: bold; border-bottom: 1px solid #ccc; padding-bottom: 4px; }
-  .producto { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #eee; }
-  .producto .nombre { font-size: 14px; }
+  .producto { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #eee; gap: 8px; }
+  .producto .info { flex: 1; }
+  .producto .nombre { font-size: 14px; display: block; }
   .producto .precio { font-size: 13px; color: #444; }
+  .producto input { width: 50px; padding: 6px; text-align: center; }
+  .producto button { padding: 6px 10px; background: #1F3864; color: white; border: none; cursor: pointer; }
   #estado { margin-top: 30px; text-align: center; color: #666; }
+  #carrito { position: fixed; bottom: 0; left: 0; right: 0; background: white; border-top: 2px solid #1F3864;
+             padding: 12px 16px; max-width: 480px; margin: 0 auto; }
+  #carritoLista { max-height: 120px; overflow-y: auto; font-size: 13px; margin-bottom: 8px; }
+  #carritoLista div { display: flex; justify-content: space-between; padding: 2px 0; }
+  #totalCarrito { font-weight: bold; }
+  #confirmarBtn { width: 100%; padding: 12px; background: #1F3864; color: white; border: none; cursor: pointer; font-size: 15px; }
+  #confirmarBtn:disabled { background: #aaa; cursor: not-allowed; }
+  .oculto { display: none; }
 </style>
 </head>
 <body>
@@ -22,13 +33,79 @@
   <div id="listado"></div>
   <p id="estado"></p>
 
+  <div id="carrito" class="oculto">
+    <div id="carritoLista"></div>
+    <p id="totalCarrito"></p>
+    <button id="confirmarBtn" onclick="confirmarPedido()">Confirmar pedido</button>
+  </div>
+
 <script>
+  const carrito = {}; // id_producto -> { producto, cantidad }
+
   function obtenerToken() {
     return new URLSearchParams(window.location.search).get("token");
   }
+  const token = obtenerToken();
+
+  function agregarAlCarrito(producto, cantidadInput) {
+    const cantidad = Number(cantidadInput.value);
+    if (!cantidad || cantidad <= 0) return;
+    carrito[producto.id_producto] = { producto, cantidad };
+    cantidadInput.value = 1;
+    renderCarrito();
+  }
+
+  function renderCarrito() {
+    const items = Object.values(carrito);
+    const box = document.getElementById("carrito");
+    if (items.length === 0) {
+      box.classList.add("oculto");
+      return;
+    }
+    box.classList.remove("oculto");
+
+    const lista = document.getElementById("carritoLista");
+    lista.innerHTML = "";
+    let total = 0;
+    for (const { producto, cantidad } of items) {
+      const subtotal = producto.precio * cantidad;
+      total += subtotal;
+      const fila = document.createElement("div");
+      fila.innerHTML = `<span>${cantidad} x ${producto.nombre}</span><span>$${subtotal.toLocaleString("es-CO")}</span>`;
+      lista.appendChild(fila);
+    }
+    document.getElementById("totalCarrito").textContent = `Total: $${total.toLocaleString("es-CO")}`;
+  }
+
+  async function confirmarPedido() {
+    const items = Object.values(carrito).map(({ producto, cantidad }) => ({
+      id_producto: producto.id_producto,
+      cantidad,
+    }));
+    if (items.length === 0) return;
+
+    const btn = document.getElementById("confirmarBtn");
+    btn.disabled = true;
+
+    const res = await fetch(`/api/catalogo/${token}/pedidos`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ items }),
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      alert(data.error || "No se pudo enviar el pedido.");
+      btn.disabled = false;
+      return;
+    }
+
+    document.getElementById("carrito").classList.add("oculto");
+    document.getElementById("estado").textContent = "¡Pedido enviado! Ya lo están preparando.";
+    Object.keys(carrito).forEach((k) => delete carrito[k]);
+  }
 
   async function cargarCatalogo() {
-    const token = obtenerToken();
     if (!token) {
       document.getElementById("estado").textContent = "QR inválido: falta el token de la mesa.";
       return;
@@ -61,7 +138,16 @@
       for (const p of productos) {
         const fila = document.createElement("div");
         fila.className = "producto";
-        fila.innerHTML = `<span class="nombre">${p.nombre}</span><span class="precio">$${p.precio.toLocaleString("es-CO")} / ${p.unidad_medida}</span>`;
+        fila.innerHTML = `
+          <span class="info">
+            <span class="nombre">${p.nombre}</span>
+            <span class="precio">$${p.precio.toLocaleString("es-CO")} / ${p.unidad_medida}</span>
+          </span>
+          <input type="number" min="1" value="1">
+          <button>Agregar</button>
+        `;
+        const input = fila.querySelector("input");
+        fila.querySelector("button").addEventListener("click", () => agregarAlCarrito(p, input));
         listado.appendChild(fila);
       }
     }

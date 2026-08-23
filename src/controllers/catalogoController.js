@@ -8,4 +8,13 @@ function obtener(req, res) {
   }
 }
 
-module.exports = { obtener };
+function crearPedido(req, res) {
+  try {
+    const pedido = catalogoService.crearPedido(req.params.token, req.body.items);
+    return res.status(201).json(pedido);
+  } catch (err) {
+    return res.status(err.status || 400).json({ error: err.message });
+  }
+}
+
+module.exports = { obtener, crearPedido };
