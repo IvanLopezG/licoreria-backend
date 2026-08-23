@@ -1,4 +1,5 @@
 const db = require("../db/db");
+const movimientoInventarioModel = require("./movimientoInventarioModel");
 
 // node:sqlite (DatabaseSync) no trae db.transaction(); se envuelve
 // BEGIN/COMMIT/ROLLBACK a mano, igual que en movimientoInventarioModel.js
@@ -65,6 +66,15 @@ function cerrarCuentaMesa(id_mesa, id_usuario) {
           precio_unitario: linea.precio_unitario,
         });
         total += linea.cantidad * linea.precio_unitario;
+
+        // RF-16: el descuento de stock ocurre en la misma transacción que la
+        // venta; si no hay stock suficiente, todo el cierre de cuenta se revierte.
+        movimientoInventarioModel.descontarPorVenta({
+          id_producto: linea.id_producto,
+          cantidad: linea.cantidad,
+          id_venta,
+          id_usuario,
+        });
       }
       stmtMarcarPedidoFacturado.run(id_venta, pedido.id_pedido);
     }
@@ -92,6 +102,14 @@ function crearVentaMostrador({ items, id_usuario }) {
         precio_unitario: item.precio_unitario,
       });
       total += item.cantidad * item.precio_unitario;
+
+      // RF-16: mismo descuento atómico que en el cierre de cuenta por mesa.
+      movimientoInventarioModel.descontarPorVenta({
+        id_producto: item.id_producto,
+        cantidad: item.cantidad,
+        id_venta,
+        id_usuario,
+      });
     }
 
     stmtActualizarTotal.run(total, id_venta);

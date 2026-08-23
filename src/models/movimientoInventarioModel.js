@@ -15,10 +15,10 @@ function conTransaccion(fn) {
   }
 }
 
-function _registrar({ id_producto, tipo, motivo, cantidad, id_proveedor, id_usuario }) {
+function _registrar({ id_producto, tipo, motivo, cantidad, id_proveedor, id_venta, id_usuario }) {
   const stmt = db.prepare(`
-    INSERT INTO movimientos_inventario (id_producto, tipo, motivo, cantidad, id_proveedor, id_usuario)
-    VALUES (@id_producto, @tipo, @motivo, @cantidad, @id_proveedor, @id_usuario)
+    INSERT INTO movimientos_inventario (id_producto, tipo, motivo, cantidad, id_proveedor, id_venta, id_usuario)
+    VALUES (@id_producto, @tipo, @motivo, @cantidad, @id_proveedor, @id_venta, @id_usuario)
   `);
   const info = stmt.run({
     id_producto,
@@ -26,6 +26,7 @@ function _registrar({ id_producto, tipo, motivo, cantidad, id_proveedor, id_usua
     motivo,
     cantidad,
     id_proveedor: id_proveedor || null,
+    id_venta: id_venta || null,
     id_usuario,
   });
   return buscarPorId(info.lastInsertRowid);
@@ -59,7 +60,7 @@ function registrarSalida({ id_producto, cantidad, motivo, id_usuario }) {
   });
 }
 
-function listar({ id_producto, desde, hasta } = {}) {
+function listar({ id_producto, desde, hasta, id_usuario } = {}) {
   let query = `
     SELECT m.*, u.nombre AS usuario_nombre, p.nombre AS producto_nombre
     FROM movimientos_inventario m
@@ -80,8 +81,35 @@ function listar({ id_producto, desde, hasta } = {}) {
     query += " AND date(m.fecha_hora) <= date(@hasta)";
     params.hasta = hasta;
   }
+  // RF-18: filtrar el historial por usuario responsable.
+  if (id_usuario) {
+    query += " AND m.id_usuario = @id_usuario";
+    params.id_usuario = id_usuario;
+  }
   query += " ORDER BY m.fecha_hora DESC";
   return db.prepare(query).all(params);
 }
 
-module.exports = { registrarEntrada, registrarSalida, listar };
+// RF-16: descuenta stock por una venta (mesa o mostrador) reutilizando la
+// misma validación de stock suficiente que registrarSalida (US-07), pero SIN
+// abrir su propia transacción: quien llama (ventaModel) ya tiene un
+// BEGIN/COMMIT abierto y esta llamada debe participar de esa transacción para
+// que la venta y el descuento de inventario sean atómicos.
+function descontarPorVenta({ id_producto, cantidad, id_venta, id_usuario }) {
+  const producto = productoModel.buscarPorId(id_producto);
+  if (!producto) {
+    const err = new Error(`Producto ${id_producto} no encontrado.`);
+    err.status = 404;
+    throw err;
+  }
+  if (producto.stock_actual < cantidad) {
+    const err = new Error(`No hay stock suficiente de "${producto.nombre}" para completar la venta.`);
+    err.status = 400;
+    throw err;
+  }
+
+  productoModel.ajustarStock(id_producto, -cantidad);
+  return _registrar({ id_producto, tipo: "salida", motivo: "venta", cantidad, id_proveedor: null, id_venta, id_usuario });
+}
+
+module.exports = { registrarEntrada, registrarSalida, listar, descontarPorVenta };
