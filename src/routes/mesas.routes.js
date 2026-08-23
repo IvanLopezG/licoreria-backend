@@ -12,5 +12,7 @@ router.post("/", requireRole("administrador"), mesaController.crear);
 router.get("/", requireRole("administrador", "mesero", "cajero"), mesaController.listar);
 router.get("/:id", requireRole("administrador", "mesero", "cajero"), mesaController.obtener);
 router.get("/:id/qr", requireRole("administrador", "mesero", "cajero"), mesaController.qr);
+// RF-14: solo quien cobra (cajero/administrador) cierra la cuenta de una mesa.
+router.post("/:id/cerrar-cuenta", requireRole("administrador", "cajero"), mesaController.cerrarCuenta);
 
 module.exports = router;

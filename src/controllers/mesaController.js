@@ -1,4 +1,5 @@
 const mesaService = require("../services/mesaService");
+const ventaService = require("../services/ventaService");
 
 function crear(req, res) {
   try {
@@ -35,4 +36,16 @@ async function qr(req, res) {
   }
 }
 
-module.exports = { crear, listar, obtener, qr };
+function cerrarCuenta(req, res) {
+  try {
+    const venta = ventaService.cerrarCuentaMesa(Number(req.params.id), req.usuario.id_usuario);
+
+    req.auditoria = { accion: "crear", entidad: "ventas", id_entidad: venta.id_venta };
+
+    return res.status(201).json(venta);
+  } catch (err) {
+    return res.status(err.status || 400).json({ error: err.message });
+  }
+}
+
+module.exports = { crear, listar, obtener, qr, cerrarCuenta };
