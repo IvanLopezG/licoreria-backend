@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Licorería — Pedidos entrantes</title>
+<style>
+  body { font-family: Calibri, Arial, sans-serif; max-width: 720px; margin: 40px auto; color: #1F3864; }
+  h1 { font-size: 20px; }
+  nav a { margin-right: 12px; font-size: 13px; }
+  .mesa { border: 1px solid #ccc; border-radius: 6px; padding: 12px; margin-top: 16px; }
+  .mesa h2 { font-size: 16px; margin: 0 0 8px; }
+  .pedido { border-top: 1px dashed #ccc; padding: 8px 0; font-size: 13px; }
+  .pedido ul { margin: 4px 0; padding-left: 18px; }
+  .pedido .meta { color: #666; font-size: 12px; }
+  button { padding: 6px 10px; background: #1F3864; color: white; border: none; cursor: pointer; margin-top: 4px; }
+  button:hover { background: #2E5395; }
+  .cerrar { background: #8B0000; }
+  .cerrar:hover { background: #a80000; }
+  #resultado { margin-top: 20px; padding: 12px; background: #f1f1f1; white-space: pre-wrap; font-size: 13px; }
+  #vacio { color: #666; margin-top: 20px; }
+</style>
+</head>
+<body>
+  <nav>
+    <a href="login.html">Login</a>
+    <a href="mesas.html">Mesas</a>
+    <a href="pedidos.html">Pedidos entrantes</a>
+  </nav>
+  <h1>Pedidos entrantes — se actualiza cada 5s</h1>
+  <div id="mesas"></div>
+  <p id="vacio" class="oculto">No hay pedidos pendientes.</p>
+  <pre id="resultado"></pre>
+
+<script>
+  function token() { return localStorage.getItem("token"); }
+
+  async function cargarPedidos() {
+    const res = await fetch("/api/pedidos?estado=pendiente", { headers: { Authorization: `Bearer ${token()}` } });
+    const pedidos = await res.json();
+    if (!res.ok) {
+      document.getElementById("resultado").textContent = JSON.stringify(pedidos, null, 2);
+      return;
+    }
+
+    const porMesa = {};
+    for (const p of pedidos) {
+      (porMesa[p.id_mesa] ||= { mesa_numero: p.mesa_numero, pedidos: [] }).pedidos.push(p);
+    }
+
+    const contenedor = document.getElementById("mesas");
+    contenedor.innerHTML = "";
+    document.getElementById("vacio").style.display = Object.keys(porMesa).length === 0 ? "block" : "none";
+
+    for (const [id_mesa, grupo] of Object.entries(porMesa)) {
+      const div = document.createElement("div");
+      div.className = "mesa";
+      let html = `<h2>Mesa ${grupo.mesa_numero}</h2>`;
+      for (const pedido of grupo.pedidos) {
+        html += `<div class="pedido">
+          <span class="meta">Pedido #${pedido.id_pedido} — ${pedido.fecha_hora}</span>
+          <ul>${pedido.items.map((it) => `<li>${it.cantidad} x ${it.producto_nombre}</li>`).join("")}</ul>
+          <button onclick="marcarEntregado(${pedido.id_pedido})">Marcar entregado</button>
+        </div>`;
+      }
+      html += `<button class="cerrar" onclick="cerrarCuenta(${id_mesa})">Cerrar cuenta de la mesa</button>`;
+      div.innerHTML = html;
+      contenedor.appendChild(div);
+    }
+  }
+
+  async function marcarEntregado(id_pedido) {
+    const res = await fetch(`/api/pedidos/${id_pedido}/entregado`, {
+      method: "PUT",
+      headers: { Authorization: `Bearer ${token()}` },
+    });
+    const data = await res.json();
+    document.getElementById("resultado").textContent = JSON.stringify(data, null, 2);
+    cargarPedidos();
+  }
+
+  async function cerrarCuenta(id_mesa) {
+    const res = await fetch(`/api/mesas/${id_mesa}/cerrar-cuenta`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token()}` },
+    });
+    const data = await res.json();
+    document.getElementById("resultado").textContent = JSON.stringify(data, null, 2);
+    cargarPedidos();
+  }
+
+  if (!token()) {
+    document.body.innerHTML = "<p>Debes iniciar sesión primero en <a href='login.html'>login.html</a>.</p>";
+  } else {
+    cargarPedidos();
+    setInterval(cargarPedidos, 5000);
+  }
+</script>
+</body>
+</html>
