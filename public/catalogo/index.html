@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Licorería — Catálogo</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: Calibri, Arial, sans-serif; max-width: 480px; margin: 0 auto; padding: 16px; color: #1F3864; }
+  h1 { font-size: 18px; margin-bottom: 0; }
+  #mesaInfo { font-size: 13px; color: #666; margin-top: 4px; }
+  .categoria { margin-top: 20px; font-size: 15px; font-weight: bold; border-bottom: 1px solid #ccc; padding-bottom: 4px; }
+  .producto { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #eee; }
+  .producto .nombre { font-size: 14px; }
+  .producto .precio { font-size: 13px; color: #444; }
+  #estado { margin-top: 30px; text-align: center; color: #666; }
+</style>
+</head>
+<body>
+  <h1>Menú</h1>
+  <p id="mesaInfo">Cargando...</p>
+  <div id="listado"></div>
+  <p id="estado"></p>
+
+<script>
+  function obtenerToken() {
+    return new URLSearchParams(window.location.search).get("token");
+  }
+
+  async function cargarCatalogo() {
+    const token = obtenerToken();
+    if (!token) {
+      document.getElementById("estado").textContent = "QR inválido: falta el token de la mesa.";
+      return;
+    }
+
+    const res = await fetch(`/api/catalogo/${token}`);
+    const data = await res.json();
+
+    if (!res.ok) {
+      document.getElementById("mesaInfo").textContent = "";
+      document.getElementById("estado").textContent = data.error || "No se pudo cargar el catálogo.";
+      return;
+    }
+
+    document.getElementById("mesaInfo").textContent = `Mesa ${data.mesa.numero}`;
+
+    const porCategoria = {};
+    for (const p of data.productos) {
+      (porCategoria[p.categoria_nombre] ||= []).push(p);
+    }
+
+    const listado = document.getElementById("listado");
+    listado.innerHTML = "";
+    for (const [categoria, productos] of Object.entries(porCategoria)) {
+      const h = document.createElement("div");
+      h.className = "categoria";
+      h.textContent = categoria;
+      listado.appendChild(h);
+
+      for (const p of productos) {
+        const fila = document.createElement("div");
+        fila.className = "producto";
+        fila.innerHTML = `<span class="nombre">${p.nombre}</span><span class="precio">$${p.precio.toLocaleString("es-CO")} / ${p.unidad_medida}</span>`;
+        listado.appendChild(fila);
+      }
+    }
+
+    if (data.productos.length === 0) {
+      document.getElementById("estado").textContent = "No hay productos disponibles en este momento.";
+    }
+  }
+
+  cargarCatalogo();
+</script>
+</body>
+</html>
