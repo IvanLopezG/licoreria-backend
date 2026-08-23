@@ -64,8 +64,8 @@ function registrarSalida({ id_producto, cantidad, motivo }, id_usuario) {
   });
 }
 
-function historial({ id_producto, desde, hasta }) {
-  return movimientoModel.listar({ id_producto, desde, hasta });
+function historial({ id_producto, desde, hasta, id_usuario }) {
+  return movimientoModel.listar({ id_producto, desde, hasta, id_usuario });
 }
 
 module.exports = { registrarEntrada, registrarSalida, historial };
