@@ -1,4 +1,14 @@
 const ventaService = require("../services/ventaService");
+const { aCSV } = require("../utils/csv");
+
+const COLUMNAS_CSV = [
+  { titulo: "id_venta", campo: "id_venta" },
+  { titulo: "tipo", campo: "tipo" },
+  { titulo: "mesa_numero", campo: "mesa_numero" },
+  { titulo: "usuario", campo: "usuario_nombre" },
+  { titulo: "total", campo: "total" },
+  { titulo: "fecha_hora", campo: "fecha_hora" },
+];
 
 function crearMostrador(req, res) {
   try {
@@ -13,9 +23,18 @@ function crearMostrador(req, res) {
   }
 }
 
+// US-19 (opcional): ?formato=csv reutiliza el mismo filtro que el JSON normal.
 function listar(req, res) {
-  const { desde, hasta, tipo } = req.query;
-  return res.json(ventaService.listarVentas({ desde, hasta, tipo }));
+  const { desde, hasta, tipo, formato } = req.query;
+  const ventas = ventaService.listarVentas({ desde, hasta, tipo });
+
+  if (formato === "csv") {
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", "attachment; filename=reporte_ventas.csv");
+    return res.send(aCSV(ventas, COLUMNAS_CSV));
+  }
+
+  return res.json(ventas);
 }
 
 module.exports = { crearMostrador, listar };
