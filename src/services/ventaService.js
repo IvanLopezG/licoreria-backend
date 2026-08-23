@@ -51,4 +51,8 @@ function crearVentaMostrador({ items }, id_usuario) {
   return ventaModel.crearVentaMostrador({ items: lineas, id_usuario });
 }
 
-module.exports = { cerrarCuentaMesa, crearVentaMostrador };
+function listarVentas({ desde, hasta, tipo }) {
+  return ventaModel.listar({ desde, hasta, tipo });
+}
+
+module.exports = { cerrarCuentaMesa, crearVentaMostrador, listarVentas };

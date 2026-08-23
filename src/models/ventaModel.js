@@ -146,4 +146,30 @@ function buscarPorId(id_venta) {
   return { ...venta, detalle };
 }
 
-module.exports = { cerrarCuentaMesa, crearVentaMostrador, buscarPorId };
+// RF-17: filtra por rango de fechas y por tipo (mesa/mostrador).
+function listar({ desde, hasta, tipo } = {}) {
+  let query = `
+    SELECT v.*, u.nombre AS usuario_nombre, m.numero AS mesa_numero
+    FROM ventas v
+    JOIN usuarios u ON u.id_usuario = v.id_usuario
+    LEFT JOIN mesas m ON m.id_mesa = v.id_mesa
+    WHERE 1 = 1
+  `;
+  const params = {};
+  if (desde) {
+    query += " AND date(v.fecha_hora) >= date(@desde)";
+    params.desde = desde;
+  }
+  if (hasta) {
+    query += " AND date(v.fecha_hora) <= date(@hasta)";
+    params.hasta = hasta;
+  }
+  if (tipo) {
+    query += " AND v.tipo = @tipo";
+    params.tipo = tipo;
+  }
+  query += " ORDER BY v.fecha_hora DESC";
+  return db.prepare(query).all(params);
+}
+
+module.exports = { cerrarCuentaMesa, crearVentaMostrador, listar, buscarPorId };

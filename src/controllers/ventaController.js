@@ -13,4 +13,9 @@ function crearMostrador(req, res) {
   }
 }
 
-module.exports = { crearMostrador };
+function listar(req, res) {
+  const { desde, hasta, tipo } = req.query;
+  return res.json(ventaService.listarVentas({ desde, hasta, tipo }));
+}
+
+module.exports = { crearMostrador, listar };
