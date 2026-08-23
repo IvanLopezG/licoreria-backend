@@ -12,6 +12,8 @@
   .pedido { border-top: 1px dashed #ccc; padding: 8px 0; font-size: 13px; }
   .pedido ul { margin: 4px 0; padding-left: 18px; }
   .pedido .meta { color: #666; font-size: 12px; }
+  .pedido.nuevo { background: #fff6d8; border-left: 4px solid #d4a017; padding-left: 8px; }
+  .pedido.nuevo .badge { background: #d4a017; color: white; font-size: 11px; padding: 1px 6px; border-radius: 3px; margin-left: 6px; }
   button { padding: 6px 10px; background: #1F3864; color: white; border: none; cursor: pointer; margin-top: 4px; }
   button:hover { background: #2E5395; }
   .cerrar { background: #8B0000; }
@@ -33,6 +35,11 @@
 
 <script>
   function token() { return localStorage.getItem("token"); }
+
+  // US-14b: sin WebSockets: cada poll compara contra los ids ya vistos para
+  // saber cuáles pedidos son nuevos desde la última actualización.
+  let idsVistos = new Set();
+  let primeraCarga = true;
 
   async function cargarPedidos() {
     const res = await fetch("/api/pedidos?estado=pendiente", { headers: { Authorization: `Bearer ${token()}` } });
@@ -56,8 +63,9 @@
       div.className = "mesa";
       let html = `<h2>Mesa ${grupo.mesa_numero}</h2>`;
       for (const pedido of grupo.pedidos) {
-        html += `<div class="pedido">
-          <span class="meta">Pedido #${pedido.id_pedido} — ${pedido.fecha_hora}</span>
+        const esNuevo = !primeraCarga && !idsVistos.has(pedido.id_pedido);
+        html += `<div class="pedido${esNuevo ? " nuevo" : ""}">
+          <span class="meta">Pedido #${pedido.id_pedido} — ${pedido.fecha_hora}${esNuevo ? '<span class="badge">NUEVO</span>' : ""}</span>
           <ul>${pedido.items.map((it) => `<li>${it.cantidad} x ${it.producto_nombre}</li>`).join("")}</ul>
           <button onclick="marcarEntregado(${pedido.id_pedido})">Marcar entregado</button>
         </div>`;
@@ -66,6 +74,9 @@
       div.innerHTML = html;
       contenedor.appendChild(div);
     }
+
+    idsVistos = new Set(pedidos.map((p) => p.id_pedido));
+    primeraCarga = false;
   }
 
   async function marcarEntregado(id_pedido) {
