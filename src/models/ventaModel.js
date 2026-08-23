@@ -76,6 +76,30 @@ function cerrarCuentaMesa(id_mesa, id_usuario) {
   });
 }
 
+// US-15 / RF-15: venta sin mesa asociada; queda igual que una venta por mesa
+// salvo por id_mesa = null (mismo esquema, mismo venta_detalle, sin pedido).
+function crearVentaMostrador({ items, id_usuario }) {
+  return conTransaccion(() => {
+    const id_venta = stmtCrearVenta.run({ tipo: "mostrador", id_mesa: null, id_usuario }).lastInsertRowid;
+
+    let total = 0;
+    for (const item of items) {
+      stmtCopiarLinea.run({
+        id_venta,
+        id_pedido_detalle: null,
+        id_producto: item.id_producto,
+        cantidad: item.cantidad,
+        precio_unitario: item.precio_unitario,
+      });
+      total += item.cantidad * item.precio_unitario;
+    }
+
+    stmtActualizarTotal.run(total, id_venta);
+
+    return buscarPorId(id_venta);
+  });
+}
+
 function buscarPorId(id_venta) {
   const venta = db
     .prepare(
@@ -104,4 +128,4 @@ function buscarPorId(id_venta) {
   return { ...venta, detalle };
 }
 
-module.exports = { cerrarCuentaMesa, buscarPorId };
+module.exports = { cerrarCuentaMesa, crearVentaMostrador, buscarPorId };
