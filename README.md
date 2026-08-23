@@ -1,7 +1,8 @@
-# Licorería — Backend (Sprint 1 + Sprint 2)
+# Licorería — Backend (Sprint 1 + Sprint 2 + Sprint 3)
 
 Sprint 1 implementa US-01, US-02 y US-03 (RF-01 a RF-03). Sprint 2 agrega
-US-04 a US-09 (RF-04 a RF-09, Módulo de Inventario). Todo sobre la arquitectura
+US-04 a US-09 (RF-04 a RF-09, Módulo de Inventario). Sprint 3 agrega US-10 a
+US-14 (RF-10 a RF-14, Mesas y Pedidos por QR). Todo sobre la arquitectura
 y el modelo de datos definidos en `08_Modelo_de_Datos_y_Arquitectura.docx`.
 
 ## Instalación
@@ -19,6 +20,7 @@ compilar un binario nativo (node-gyp + Python + build tools de C++), que no
 están disponibles en todos los entornos de desarrollo. Requiere Node 22.5+.
 
 Panel de prueba en el navegador: **http://localhost:3000/panel/login.html**
+Catálogo de cliente (Sprint 3), vía QR: **http://localhost:3000/catalogo/index.html?token=&lt;codigo_qr_token de la mesa&gt;**
 
 ## Estructura
 
@@ -26,22 +28,30 @@ Panel de prueba en el navegador: **http://localhost:3000/panel/login.html**
 src/
   db/            conexión SQLite (node:sqlite) + schema.sql (las 12 tablas del modelo completo)
   models/        usuarioModel, logAuditoriaModel, categoriaModel, productoModel,
-                  proveedorModel, movimientoInventarioModel
+                  proveedorModel, movimientoInventarioModel, mesaModel, pedidoModel,
+                  ventaModel
   services/      authService, usuarioService, categoriaService, productoService,
-                  proveedorService, movimientoInventarioService
+                  proveedorService, movimientoInventarioService, mesaService,
+                  catalogoService, pedidoService, ventaService
   controllers/   authController, usuarioController, auditoriaController,
                   categoriaController, productoController, proveedorController,
-                  movimientoInventarioController
+                  movimientoInventarioController, mesaController, catalogoController,
+                  pedidoController
   middlewares/   auth.js (JWT), roles.js (RBAC), auditoria.js (bitácora automática)
   routes/        auth, usuarios, auditoria, categorias, productos, proveedores,
-                  inventario (entradas/salidas/historial)
+                  inventario (entradas/salidas/historial), mesas, catalogo (público),
+                  pedidos
   app.js / server.js
-public/panel/    login.html — panel mínimo para probar el flujo a mano
+public/panel/    login.html, mesas.html (crear mesas / imprimir QR), pedidos.html
+                  (panel de pedidos entrantes, con polling) — panel mínimo para
+                  probar el flujo a mano
+public/catalogo/ index.html — catálogo público del cliente (sin login), abierto
+                  al escanear el QR de una mesa
 ```
 
-Sprint 1 y 2 ya tienen lógica de negocio completa. El resto de tablas del
-modelo (mesas, ventas, pedidos, etc.) ya existen en `schema.sql` para que los
-próximos sprints no tengan que tocar el esquema, solo agregar sus propios
+Sprint 1, 2 y 3 ya tienen lógica de negocio completa. El resto de tablas del
+modelo (ventas de mostrador para Sprint 4) ya existen en `schema.sql` para que
+los próximos sprints no tengan que tocar el esquema, solo agregar sus propios
 modelos/servicios/rutas.
 
 ## Endpoints
@@ -66,6 +76,15 @@ modelos/servicios/rutas.
 | POST | `/api/inventario/entradas` | administrador, cajero | RF-06. Registra entrada (`id_producto`, `cantidad`, `id_proveedor`); aumenta stock. |
 | POST | `/api/inventario/salidas` | administrador, cajero | RF-07. Registra salida (`id_producto`, `cantidad`, `motivo`: venta/ajuste); disminuye stock. |
 | GET | `/api/inventario/movimientos` | administrador, cajero | RF-09. Historial filtrable por `?id_producto=`, `?desde=`, `?hasta=`. |
+| POST | `/api/mesas` | administrador | RF-10. Crea una mesa (`numero`); genera `codigo_qr_token` único. |
+| GET | `/api/mesas` | administrador, mesero, cajero | Lista mesas con su estado (`libre`/`ocupada`). |
+| GET | `/api/mesas/:id` | administrador, mesero, cajero | Detalle de una mesa. |
+| GET | `/api/mesas/:id/qr` | administrador, mesero, cajero | RF-10. Devuelve `{ url, qr_data_url }` (PNG en base64) para imprimir. |
+| POST | `/api/mesas/:id/cerrar-cuenta` | administrador, cajero | RF-14. Consolida los pedidos abiertos de la mesa en una venta y libera la mesa (transacción). |
+| GET | `/api/catalogo/:token` | público (sin login) | RF-11. Catálogo de la mesa identificada por su `codigo_qr_token`; solo productos con `stock_actual > 0`, sin exponer el stock exacto. |
+| POST | `/api/catalogo/:token/pedidos` | público (sin login) | RF-12. Autopedido del cliente (`items: [{ id_producto, cantidad }]`); asocia el pedido a la mesa del token y la marca `ocupada`. |
+| GET | `/api/pedidos` | administrador, mesero, cajero | RF-13. Panel de pedidos entrantes, filtrable por `?estado=` y `?id_mesa=`. |
+| PUT | `/api/pedidos/:id/entregado` | administrador, mesero, cajero | Marca un pedido como entregado. |
 
 ## Cómo se verificó cada criterio de aceptación del Backlog
 
@@ -102,8 +121,24 @@ modelos/servicios/rutas.
 **US-08 — Alertas de stock bajo**
 - `alerta_stock_bajo` (`stock_actual <= umbral_alerta`) se calcula en cada producto listado; `umbral_alerta` es configurable por producto vía `PUT /api/productos/:id`. `?bajo_stock=true` filtra solo los productos en alerta. Probado (un producto entra y sale de alerta al cambiar su stock o su umbral).
 
-## Pendiente para Sprint 3
+**US-10 — QR por mesa**
+- Cada mesa se crea con un `codigo_qr_token` único (aleatorio, no expone `id_mesa`). `GET /api/mesas/:id/qr` devuelve la URL del catálogo y un PNG en base64 (`qrcode`), listo para imprimir desde `public/panel/mesas.html`. Probado.
 
-Mesas, QR por mesa, catálogo público y pedidos (US-10 a US-14) — las tablas
-`mesas`, `pedidos` y `pedido_detalle` ya existen en `schema.sql`, falta su
-lógica de negocio.
+**US-11 — Catálogo web por QR**
+- `GET /api/catalogo/:token` devuelve el número de mesa y solo los productos con `stock_actual > 0` (sin `stock_actual` ni `umbral_alerta` en la respuesta). Un token inválido devuelve `404`. Probado (un producto con stock 0 no aparece en el listado).
+
+**US-12 — Autopedido del cliente**
+- `POST /api/catalogo/:token/pedidos` valida cada línea contra el producto real, copia `precio_unitario` al momento del pedido y crea `pedidos` + `pedido_detalle` en una transacción; la mesa pasa a `ocupada` si estaba `libre`. Rechaza pedidos vacíos y productos sin disponibilidad. Probado.
+
+**US-13 — Panel de pedidos entrantes**
+- `GET /api/pedidos?estado=pendiente` lista los pedidos con sus líneas; `public/panel/pedidos.html` los agrupa por mesa en el cliente y hace polling cada 5s (sin WebSockets, según lo definido en CLAUDE.md). `PUT /api/pedidos/:id/entregado` marca la entrega. Probado.
+
+**US-14 — Cierre de cuenta por mesa**
+- `POST /api/mesas/:id/cerrar-cuenta` consolida **todos** los pedidos abiertos de la mesa (`id_venta IS NULL`) en una única `venta`: crea la venta, copia cada línea de `pedido_detalle` a `venta_detalle`, marca cada pedido con su `id_venta` y libera la mesa — todo dentro de un `BEGIN/COMMIT/ROLLBACK` manual (`ventaModel.cerrarCuentaMesa`, mismo patrón que `movimientoInventarioModel`). Si la mesa no está `ocupada`, o no tiene pedidos pendientes de cobro, no se crea nada. Probado con dos pedidos de la misma mesa: el total sumó correctamente ambos, la mesa quedó `libre` y ambos pedidos quedaron con el mismo `id_venta`.
+
+## Pendiente para Sprint 4
+
+Venta rápida sin mesa, descuento automático de inventario y reportes
+(US-15 a US-19) — `ventaModel` ya existe y `VENTA_DETALLE` ya es la fuente
+única de líneas vendidas, así que Sprint 4 solo agrega el flujo de venta de
+mostrador y la lógica de reportes/exportación sobre las tablas existentes.

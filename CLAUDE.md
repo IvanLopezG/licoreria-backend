@@ -57,7 +57,11 @@ verdad si algo aquí queda ambiguo.
 
 ## Estado actual
 **Sprint 1 — Auth y Usuarios: COMPLETO.** US-01, US-02, US-03 implementadas y
-probadas end-to-end (login, roles, bitácora automática). Ver `README.md`.
+probadas end-to-end (login, roles, bitácora automática).
+**Sprint 2 — Inventario: COMPLETO.** US-04 a US-09 implementadas y probadas.
+**Sprint 3 — Mesas y Pedidos por QR: COMPLETO.** US-10 a US-14 implementadas y
+probadas end-to-end (QR por mesa, catálogo público, autopedido, panel de
+pedidos con polling, cierre de cuenta transaccional). Ver `README.md`.
 
 ---
 
