@@ -12,14 +12,26 @@ definidos en `08_Modelo_de_Datos_y_Arquitectura.docx`.
 ```bash
 npm install
 cp .env.example .env        # y cambia JWT_SECRET por un valor propio
-npm run seed                # crea el primer administrador y las categorías iniciales
 npm start                   # http://localhost:3000
 ```
+
+`npm start` ejecuta `node src/seed.js` antes de levantar el servidor
+(`usuarioModel.existeAdministrador()` evita duplicar el admin si ya existe),
+así que no hace falta correr `npm run seed` aparte — queda disponible solo
+para volver a verificar el seed manualmente sin reiniciar el servidor. Esto
+es clave en Render (plan gratuito, disco no persistente entre despliegues):
+cada arranque recrea el admin y las categorías iniciales si el disco se
+reinició.
 
 La base de datos usa `node:sqlite` (nativo desde Node 22.5, sin flags desde
 Node 22.13/23.4). Se eligió sobre `better-sqlite3` porque este último requiere
 compilar un binario nativo (node-gyp + Python + build tools de C++), que no
 están disponibles en todos los entornos de desarrollo. Requiere Node 22.5+.
+
+`BASE_URL` (en `.env`, por defecto `http://localhost:3000`) es la URL pública
+usada para construir el link del QR de cada mesa (`GET /api/mesas/:id/qr`,
+US-10) — en Render se configura como variable de entorno con la URL real del
+servicio, sin tocar código.
 
 Panel de prueba en el navegador: **http://localhost:3000/panel/login.html**
 Catálogo de cliente (Sprint 3), vía QR: **http://localhost:3000/catalogo/index.html?token=&lt;codigo_qr_token de la mesa&gt;**
@@ -79,7 +91,7 @@ esquema (`schema.sql`) definido desde Sprint 1.
 | POST | `/api/mesas` | administrador | RF-10. Crea una mesa (`numero`); genera `codigo_qr_token` único. |
 | GET | `/api/mesas` | administrador, mesero, cajero | Lista mesas con su estado (`libre`/`ocupada`). |
 | GET | `/api/mesas/:id` | administrador, mesero, cajero | Detalle de una mesa. |
-| GET | `/api/mesas/:id/qr` | administrador, mesero, cajero | RF-10. Devuelve `{ url, qr_data_url }` (PNG en base64) para imprimir. |
+| GET | `/api/mesas/:id/qr` | administrador, cajero | RF-10. Devuelve `{ url, qr_data_url }` (PNG en base64) para imprimir; `url` se arma con `BASE_URL` del `.env`. |
 | POST | `/api/mesas/:id/cerrar-cuenta` | administrador, cajero | RF-14. Consolida los pedidos abiertos de la mesa en una venta y libera la mesa (transacción). |
 | GET | `/api/catalogo/:token` | público (sin login) | RF-11. Catálogo de la mesa identificada por su `codigo_qr_token`; solo productos con `stock_actual > 0`, sin exponer el stock exacto. |
 | POST | `/api/catalogo/:token/pedidos` | público (sin login) | RF-12. Autopedido del cliente (`items: [{ id_producto, cantidad }]`); asocia el pedido a la mesa del token y la marca `ocupada`. |

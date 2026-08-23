@@ -28,8 +28,7 @@ function obtener(req, res) {
 
 async function qr(req, res) {
   try {
-    const baseUrl = `${req.protocol}://${req.get("host")}`;
-    const data = await mesaService.generarQR(Number(req.params.id), baseUrl);
+    const data = await mesaService.generarQR(Number(req.params.id));
     return res.json(data);
   } catch (err) {
     return res.status(err.status || 400).json({ error: err.message });

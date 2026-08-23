@@ -4,7 +4,7 @@
   "description": "Backend - Aplicacion de gestion de inventario y ventas por mesa (Licoreria)",
   "main": "src/server.js",
   "scripts": {
-    "start": "node src/server.js",
+    "start": "node src/seed.js && node src/server.js",
     "seed": "node src/seed.js"
   },
   "license": "UNLICENSED",
