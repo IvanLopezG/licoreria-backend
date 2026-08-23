@@ -5,6 +5,8 @@ const { DatabaseSync } = require("node:sqlite");
 const DB_PATH = process.env.DB_PATH || path.join(__dirname, "..", "..", "data", "licoreria.db");
 const SCHEMA_PATH = path.join(__dirname, "schema.sql");
 
+fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
+
 const db = new DatabaseSync(DB_PATH);
 db.exec("PRAGMA foreign_keys = ON;");
 
