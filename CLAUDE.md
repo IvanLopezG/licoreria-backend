@@ -61,7 +61,12 @@ probadas end-to-end (login, roles, bitácora automática).
 **Sprint 2 — Inventario: COMPLETO.** US-04 a US-09 implementadas y probadas.
 **Sprint 3 — Mesas y Pedidos por QR: COMPLETO.** US-10 a US-14 implementadas y
 probadas end-to-end (QR por mesa, catálogo público, autopedido, panel de
-pedidos con polling, cierre de cuenta transaccional). Ver `README.md`.
+pedidos con polling, cierre de cuenta transaccional).
+**Sprint 4 — Venta sin Mesa y Reportes: COMPLETO.** US-15 a US-19 implementadas
+y probadas, incluyendo las dos opcionales (US-14b, US-19). El descuento de
+inventario (US-16) quedó dentro de la misma transacción que crea la venta,
+tanto en la venta de mostrador como en el cierre de cuenta por mesa. No queda
+ninguna historia pendiente del Backlog Priorizado. Ver `README.md`.
 
 ---
 

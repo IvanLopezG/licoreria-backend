@@ -1,9 +1,11 @@
-# Licorería — Backend (Sprint 1 + Sprint 2 + Sprint 3)
+# Licorería — Backend (Sprint 1 a Sprint 4, completo)
 
 Sprint 1 implementa US-01, US-02 y US-03 (RF-01 a RF-03). Sprint 2 agrega
 US-04 a US-09 (RF-04 a RF-09, Módulo de Inventario). Sprint 3 agrega US-10 a
-US-14 (RF-10 a RF-14, Mesas y Pedidos por QR). Todo sobre la arquitectura
-y el modelo de datos definidos en `08_Modelo_de_Datos_y_Arquitectura.docx`.
+US-14 (RF-10 a RF-14, Mesas y Pedidos por QR). Sprint 4 agrega US-15 a US-19
+(RF-15 a RF-19, Venta sin Mesa y Reportes), incluyendo las dos historias
+opcionales (US-14b, US-19). Todo sobre la arquitectura y el modelo de datos
+definidos en `08_Modelo_de_Datos_y_Arquitectura.docx`.
 
 ## Instalación
 
@@ -36,23 +38,22 @@ src/
   controllers/   authController, usuarioController, auditoriaController,
                   categoriaController, productoController, proveedorController,
                   movimientoInventarioController, mesaController, catalogoController,
-                  pedidoController
+                  pedidoController, ventaController
   middlewares/   auth.js (JWT), roles.js (RBAC), auditoria.js (bitácora automática)
+  utils/         csv.js (serialización CSV para los reportes exportables, US-19)
   routes/        auth, usuarios, auditoria, categorias, productos, proveedores,
                   inventario (entradas/salidas/historial), mesas, catalogo (público),
-                  pedidos
+                  pedidos, ventas (venta de mostrador + reporte de ventas)
   app.js / server.js
 public/panel/    login.html, mesas.html (crear mesas / imprimir QR), pedidos.html
-                  (panel de pedidos entrantes, con polling) — panel mínimo para
-                  probar el flujo a mano
+                  (panel de pedidos entrantes, con polling y resaltado de pedidos
+                  nuevos) — panel mínimo para probar el flujo a mano
 public/catalogo/ index.html — catálogo público del cliente (sin login), abierto
                   al escanear el QR de una mesa
 ```
 
-Sprint 1, 2 y 3 ya tienen lógica de negocio completa. El resto de tablas del
-modelo (ventas de mostrador para Sprint 4) ya existen en `schema.sql` para que
-los próximos sprints no tengan que tocar el esquema, solo agregar sus propios
-modelos/servicios/rutas.
+Los cuatro sprints ya tienen lógica de negocio completa sobre el mismo
+esquema (`schema.sql`) definido desde Sprint 1.
 
 ## Endpoints
 
@@ -75,7 +76,6 @@ modelos/servicios/rutas.
 | POST | `/api/proveedores/:id/productos` | administrador, cajero | Asocia un producto (`id_producto`) al proveedor. |
 | POST | `/api/inventario/entradas` | administrador, cajero | RF-06. Registra entrada (`id_producto`, `cantidad`, `id_proveedor`); aumenta stock. |
 | POST | `/api/inventario/salidas` | administrador, cajero | RF-07. Registra salida (`id_producto`, `cantidad`, `motivo`: venta/ajuste); disminuye stock. |
-| GET | `/api/inventario/movimientos` | administrador, cajero | RF-09. Historial filtrable por `?id_producto=`, `?desde=`, `?hasta=`. |
 | POST | `/api/mesas` | administrador | RF-10. Crea una mesa (`numero`); genera `codigo_qr_token` único. |
 | GET | `/api/mesas` | administrador, mesero, cajero | Lista mesas con su estado (`libre`/`ocupada`). |
 | GET | `/api/mesas/:id` | administrador, mesero, cajero | Detalle de una mesa. |
@@ -85,6 +85,9 @@ modelos/servicios/rutas.
 | POST | `/api/catalogo/:token/pedidos` | público (sin login) | RF-12. Autopedido del cliente (`items: [{ id_producto, cantidad }]`); asocia el pedido a la mesa del token y la marca `ocupada`. |
 | GET | `/api/pedidos` | administrador, mesero, cajero | RF-13. Panel de pedidos entrantes, filtrable por `?estado=` y `?id_mesa=`. |
 | PUT | `/api/pedidos/:id/entregado` | administrador, mesero, cajero | Marca un pedido como entregado. |
+| POST | `/api/ventas` | administrador, cajero | RF-15. Venta rápida sin mesa (`items: [{ id_producto, cantidad }]`); descuenta stock (RF-16) en la misma transacción. |
+| GET | `/api/ventas` | administrador, cajero | RF-17. Reporte de ventas, filtrable por `?desde=`, `?hasta=`, `?tipo=` (mesa/mostrador); `?formato=csv` lo descarga como CSV (RF-19). |
+| GET | `/api/inventario/movimientos` | administrador, cajero | RF-09/RF-18. Historial filtrable por `?id_producto=`, `?desde=`, `?hasta=` y `?id_usuario=` (responsable); `?formato=csv` lo descarga como CSV (RF-19). |
 
 ## Cómo se verificó cada criterio de aceptación del Backlog
 
@@ -136,9 +139,25 @@ modelos/servicios/rutas.
 **US-14 — Cierre de cuenta por mesa**
 - `POST /api/mesas/:id/cerrar-cuenta` consolida **todos** los pedidos abiertos de la mesa (`id_venta IS NULL`) en una única `venta`: crea la venta, copia cada línea de `pedido_detalle` a `venta_detalle`, marca cada pedido con su `id_venta` y libera la mesa — todo dentro de un `BEGIN/COMMIT/ROLLBACK` manual (`ventaModel.cerrarCuentaMesa`, mismo patrón que `movimientoInventarioModel`). Si la mesa no está `ocupada`, o no tiene pedidos pendientes de cobro, no se crea nada. Probado con dos pedidos de la misma mesa: el total sumó correctamente ambos, la mesa quedó `libre` y ambos pedidos quedaron con el mismo `id_venta`.
 
-## Pendiente para Sprint 4
+**US-15 — Venta rápida sin mesa**
+- `POST /api/ventas` crea una venta `tipo: "mostrador"` con `id_mesa: null`; mismo esquema y mismo `venta_detalle` que una venta por mesa. Rechaza ventas sin items (`400`) y bloquea al mesero (`403`, solo administrador/cajero). Probado.
 
-Venta rápida sin mesa, descuento automático de inventario y reportes
-(US-15 a US-19) — `ventaModel` ya existe y `VENTA_DETALLE` ya es la fuente
-única de líneas vendidas, así que Sprint 4 solo agrega el flujo de venta de
-mostrador y la lógica de reportes/exportación sobre las tablas existentes.
+**US-16 — Descuento automático de inventario**
+- El descuento **no es una función aparte**: `movimientoInventarioModel.descontarPorVenta` (sin transacción propia) se invoca desde dentro de la transacción de `ventaModel.crearVentaMostrador` (US-15) **y** de `ventaModel.cerrarCuentaMesa` (US-14), reutilizando la misma validación de stock suficiente que `registrarSalida` (US-07). Si una línea no tiene stock suficiente, toda la venta/cierre se revierte (`ROLLBACK`): probado con una venta de mostrador (200 unidades pedidas contra 50 en stock → `400`, stock intacto) y con un cierre de cuenta (5 unidades pedidas contra 3 en stock → `400`, la mesa siguió `ocupada` y el pedido siguió con `id_venta: null`). Cada descuento queda también en `movimientos_inventario` con `motivo: "venta"` e `id_venta` poblado.
+- **Regresión de Sprint 3 repetida tras el cambio**: dos pedidos de la misma mesa (1 Ron + 2 Hielo, y 1 Ron + 1 Hielo) cerrados en una sola cuenta siguen consolidando en un total correcto ($120.000), la mesa vuelve a `libre` y ambos pedidos comparten `id_venta` — igual que en Sprint 3, ahora además con el stock descontado correctamente (Ron 5→3, Hielo 47→44).
+
+**US-17 — Reporte de ventas**
+- `GET /api/ventas?desde=&hasta=&tipo=` filtra por rango de fechas y diferencia `mesa` de `mostrador` vía el campo `tipo` (ya existente en el esquema). Bloqueado para mesero. Probado.
+
+**US-18 — Reporte de movimientos de inventario**
+- Se reutilizó `GET /api/inventario/movimientos` de Sprint 2 (no se creó un endpoint nuevo): solo se le agregó el filtro `?id_usuario=` que faltaba, en el modelo, servicio y controlador. Ya mostraba tipo, cantidad, producto, fecha y usuario. Probado combinado con `?id_producto=`.
+
+**US-14b — Notificación de nuevo pedido (opcional, implementada)**
+- `public/panel/pedidos.html` compara, en cada poll de 5s, los `id_pedido` recibidos contra los vistos en el poll anterior; los que no estaban se resaltan con una franja de color y una etiqueta "NUEVO". Sin WebSockets, solo polling.
+
+**US-19 — Exportación de reportes (opcional, implementada)**
+- `GET /api/ventas?formato=csv` y `GET /api/inventario/movimientos?formato=csv` devuelven el mismo listado filtrado ya soportado, serializado como CSV (`src/utils/csv.js`, compartido entre ambos reportes) con `Content-Disposition: attachment`. El modo JSON normal (sin `?formato=csv`) no cambió. Probado con y sin filtros.
+
+## Sprint 4 completo
+
+No queda pendiente ninguna historia del Backlog Priorizado (US-01 a US-19).
