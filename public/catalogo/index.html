@@ -9,6 +9,13 @@
   body { font-family: Calibri, Arial, sans-serif; max-width: 480px; margin: 0 auto; padding: 16px 16px 120px; color: #1F3864; }
   h1 { font-size: 18px; margin-bottom: 0; }
   #mesaInfo { font-size: 13px; color: #666; margin-top: 4px; }
+  .historial { margin-top: 16px; border: 1px solid #ccc; border-radius: 6px; padding: 10px 12px; background: #fafafa; }
+  .historial-titulo { font-weight: bold; font-size: 14px; margin-bottom: 6px; }
+  .historial-pedido { font-size: 13px; margin-bottom: 8px; }
+  .historial-pedido:last-child { margin-bottom: 0; }
+  .historial-pedido .hora { color: #666; font-size: 11px; margin-bottom: 2px; }
+  .historial-pedido div { display: flex; justify-content: space-between; }
+  #historialTotal { font-weight: bold; font-size: 13px; margin-top: 8px; border-top: 1px dashed #ccc; padding-top: 6px; }
   .categoria { margin-top: 20px; font-size: 15px; font-weight: bold; border-bottom: 1px solid #ccc; padding-bottom: 4px; }
   .producto { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #eee; gap: 8px; }
   .producto .info { flex: 1; }
@@ -30,6 +37,13 @@
 <body>
   <h1>Menú</h1>
   <p id="mesaInfo">Cargando...</p>
+
+  <div id="historial" class="oculto">
+    <div class="historial-titulo">Tu pedido hasta ahora</div>
+    <div id="historialLista"></div>
+    <p id="historialTotal"></p>
+  </div>
+
   <div id="listado"></div>
   <p id="estado"></p>
 
@@ -101,8 +115,48 @@
     }
 
     document.getElementById("carrito").classList.add("oculto");
-    document.getElementById("estado").textContent = "¡Pedido enviado! Ya lo están preparando.";
+    document.getElementById("estado").textContent = "¡Pedido enviado! Ya lo están preparando. Puedes seguir agregando productos para una nueva ronda.";
     Object.keys(carrito).forEach((k) => delete carrito[k]);
+    // El botón queda deshabilitado desde antes del fetch; si no se reactiva
+    // aquí, la próxima vez que el carrito vuelva a tener productos el botón
+    // reaparece pero sigue bloqueado, y el cliente no puede confirmar una
+    // segunda ronda sin recargar la página.
+    btn.disabled = false;
+
+    cargarHistorial();
+  }
+
+  async function cargarHistorial() {
+    if (!token) return;
+
+    const res = await fetch(`/api/catalogo/${token}/pedidos`);
+    const pedidos = await res.json();
+    if (!res.ok) return;
+
+    const caja = document.getElementById("historial");
+    const lista = document.getElementById("historialLista");
+    lista.innerHTML = "";
+
+    if (pedidos.length === 0) {
+      caja.classList.add("oculto");
+      return;
+    }
+    caja.classList.remove("oculto");
+
+    let total = 0;
+    for (const pedido of pedidos) {
+      const div = document.createElement("div");
+      div.className = "historial-pedido";
+      const lineas = pedido.items
+        .map((it) => {
+          total += it.cantidad * it.precio_unitario;
+          return `<div><span>${it.cantidad} x ${it.producto_nombre}</span><span>$${(it.cantidad * it.precio_unitario).toLocaleString("es-CO")}</span></div>`;
+        })
+        .join("");
+      div.innerHTML = `<div class="hora">${pedido.fecha_hora}</div>${lineas}`;
+      lista.appendChild(div);
+    }
+    document.getElementById("historialTotal").textContent = `Total acumulado: $${total.toLocaleString("es-CO")}`;
   }
 
   async function cargarCatalogo() {
@@ -158,6 +212,7 @@
   }
 
   cargarCatalogo();
+  cargarHistorial();
 </script>
 </body>
 </html>

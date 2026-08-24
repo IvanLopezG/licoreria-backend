@@ -66,4 +66,14 @@ function crearPedido(token, items) {
   return pedidoModel.crear({ id_mesa: mesa.id_mesa, items: lineas });
 }
 
-module.exports = { obtenerCatalogo, crearPedido, buscarMesaPorToken };
+// Permite que el cliente vea su historial de pedidos en esa mesa (aunque
+// recargue la página o vuelva a abrir el link más tarde), sin exponer
+// pedidos de otras mesas. Solo los abiertos (id_venta nulo): una vez cerrada
+// la cuenta, la mesa vuelve a quedar libre para un cliente nuevo, que no
+// debe ver pedidos ya cobrados de quien estuvo antes en esa misma mesa.
+function listarPedidos(token) {
+  const mesa = buscarMesaPorToken(token);
+  return pedidoModel.listar({ id_mesa: mesa.id_mesa }).filter((p) => p.id_venta === null);
+}
+
+module.exports = { obtenerCatalogo, crearPedido, listarPedidos, buscarMesaPorToken };

@@ -17,4 +17,12 @@ function crearPedido(req, res) {
   }
 }
 
-module.exports = { obtener, crearPedido };
+function listarPedidos(req, res) {
+  try {
+    return res.json(catalogoService.listarPedidos(req.params.token));
+  } catch (err) {
+    return res.status(err.status || 400).json({ error: err.message });
+  }
+}
+
+module.exports = { obtener, crearPedido, listarPedidos };
