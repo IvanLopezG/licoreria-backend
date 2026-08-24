@@ -42,8 +42,9 @@ function crearPedido(token, items) {
   }
 
   const lineas = items.map(({ id_producto, cantidad }) => {
-    if (!id_producto || cantidad === undefined || cantidad === null || Number(cantidad) <= 0) {
-      const err = new Error("Cada línea del pedido requiere id_producto y cantidad mayor a 0.");
+    const cantidadNum = Number(cantidad);
+    if (!id_producto || cantidad === undefined || cantidad === null || !Number.isInteger(cantidadNum) || cantidadNum < 1) {
+      const err = new Error("Cada línea del pedido requiere id_producto y una cantidad entera mayor o igual a 1.");
       err.status = 400;
       throw err;
     }
@@ -54,13 +55,13 @@ function crearPedido(token, items) {
       err.status = 404;
       throw err;
     }
-    if (Number(cantidad) > producto.stock_actual) {
+    if (cantidadNum > producto.stock_actual) {
       const err = new Error(`Solo quedan ${producto.stock_actual} unidades de ${producto.nombre}.`);
       err.status = 400;
       throw err;
     }
 
-    return { id_producto, cantidad: Number(cantidad), precio_unitario: producto.precio };
+    return { id_producto, cantidad: cantidadNum, precio_unitario: producto.precio };
   });
 
   return pedidoModel.crear({ id_mesa: mesa.id_mesa, items: lineas });

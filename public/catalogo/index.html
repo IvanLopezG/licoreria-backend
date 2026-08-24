@@ -63,7 +63,10 @@
 
   function agregarAlCarrito(producto, cantidadInput) {
     const cantidad = Number(cantidadInput.value);
-    if (!cantidad || cantidad <= 0) return;
+    if (!Number.isInteger(cantidad) || cantidad < 1) {
+      alert("La cantidad debe ser un número entero de al menos 1.");
+      return;
+    }
     carrito[producto.id_producto] = { producto, cantidad };
     cantidadInput.value = 1;
     renderCarrito();
