@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Licorería — Productos</title>
+<style>
+  body { font-family: Calibri, Arial, sans-serif; max-width: 820px; margin: 40px auto; color: #1F3864; }
+  h1 { font-size: 20px; }
+  nav a { margin-right: 12px; font-size: 13px; }
+  label { display: block; margin-top: 12px; font-size: 14px; }
+  input, select { padding: 8px; box-sizing: border-box; margin-top: 4px; width: 100%; }
+  .fila-form { display: flex; gap: 16px; flex-wrap: wrap; }
+  .fila-form label { flex: 1; min-width: 160px; }
+  button { margin-top: 16px; padding: 8px 16px; background: #1F3864; color: white; border: none; cursor: pointer; }
+  button:hover { background: #2E5395; }
+  .cancelar { background: #666; }
+  .cancelar:hover { background: #888; }
+  table { width: 100%; border-collapse: collapse; margin-top: 24px; }
+  th, td { border: 1px solid #ccc; padding: 8px; font-size: 13px; text-align: left; }
+  tr.alerta { background: #ffe1e1; }
+  tr.alerta td:first-child { border-left: 4px solid #8B0000; }
+  .badge-alerta { background: #8B0000; color: white; font-size: 11px; padding: 1px 6px; border-radius: 3px; margin-left: 6px; }
+  #resultado { margin-top: 20px; padding: 12px; background: #f1f1f1; white-space: pre-wrap; font-size: 13px; }
+  .filtro { margin-top: 20px; font-size: 13px; }
+  .oculto { display: none; }
+</style>
+</head>
+<body>
+  <nav>
+    <a href="login.html">Login</a>
+    <a href="mesas.html">Mesas</a>
+    <a href="pedidos.html">Pedidos entrantes</a>
+    <a href="productos.html">Productos</a>
+  </nav>
+  <h1>Productos — Sprint 2</h1>
+
+  <form id="formProducto" onsubmit="return guardarProducto(event)">
+    <input type="hidden" id="id_producto">
+    <div class="fila-form">
+      <label>Nombre
+        <input id="nombre" required>
+      </label>
+      <label>Categoría
+        <select id="id_categoria" required></select>
+      </label>
+      <label>Unidad de medida
+        <input id="unidad_medida" placeholder="botella, caja, unidad..." required>
+      </label>
+    </div>
+    <div class="fila-form">
+      <label>Precio
+        <input id="precio" type="number" min="0.01" step="0.01" required>
+      </label>
+      <label id="labelStock">Stock inicial
+        <input id="stock_actual" type="number" min="0" step="1" value="0">
+      </label>
+      <label>Umbral de alerta
+        <input id="umbral_alerta" type="number" min="0" step="1" value="0">
+      </label>
+    </div>
+    <button type="submit" id="btnGuardar">Crear producto</button>
+    <button type="button" class="cancelar oculto" id="btnCancelar" onclick="cancelarEdicion()">Cancelar edición</button>
+  </form>
+
+  <label class="filtro">
+    <input type="checkbox" id="soloAlerta" onchange="cargarProductos()" style="width:auto;">
+    Mostrar solo productos en alerta de stock bajo
+  </label>
+
+  <table>
+    <thead>
+      <tr><th>Nombre</th><th>Categoría</th><th>Unidad</th><th>Precio</th><th>Stock</th><th>Umbral</th><th>Acción</th></tr>
+    </thead>
+    <tbody id="filas"></tbody>
+  </table>
+
+  <pre id="resultado"></pre>
+
+<script>
+  function token() { return localStorage.getItem("token"); }
+
+  function escapeHtml(texto) {
+    return String(texto).replace(/[&<>"']/g, (c) => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+    }[c]));
+  }
+
+  async function cargarCategorias() {
+    const res = await fetch("/api/categorias", { headers: { Authorization: `Bearer ${token()}` } });
+    const categorias = await res.json();
+    const select = document.getElementById("id_categoria");
+    select.innerHTML = categorias.map((c) => `<option value="${c.id_categoria}">${escapeHtml(c.nombre)}</option>`).join("");
+  }
+
+  // Se cachean los productos cargados para poder rellenar el formulario de
+  // edición por id sin tener que serializar el objeto dentro de un onclick
+  // (un nombre de producto con comillas rompería el atributo HTML).
+  let productosCache = {};
+
+  async function cargarProductos() {
+    const soloAlerta = document.getElementById("soloAlerta").checked;
+    const url = soloAlerta ? "/api/productos?bajo_stock=true" : "/api/productos";
+    const res = await fetch(url, { headers: { Authorization: `Bearer ${token()}` } });
+    const productos = await res.json();
+    if (!res.ok) {
+      document.getElementById("resultado").textContent = JSON.stringify(productos, null, 2);
+      return;
+    }
+
+    productosCache = {};
+    const filas = document.getElementById("filas");
+    filas.innerHTML = "";
+    for (const p of productos) {
+      productosCache[p.id_producto] = p;
+      const tr = document.createElement("tr");
+      if (p.alerta_stock_bajo) tr.className = "alerta";
+      tr.innerHTML = `
+        <td>${escapeHtml(p.nombre)}${p.alerta_stock_bajo ? '<span class="badge-alerta">STOCK BAJO</span>' : ""}</td>
+        <td>${escapeHtml(p.categoria_nombre)}</td>
+        <td>${escapeHtml(p.unidad_medida)}</td>
+        <td>$${Number(p.precio).toFixed(2)}</td>
+        <td>${p.stock_actual}</td>
+        <td>${p.umbral_alerta}</td>
+        <td><button type="button" onclick="editarProducto(${p.id_producto})">Editar</button></td>
+      `;
+      filas.appendChild(tr);
+    }
+  }
+
+  function editarProducto(id_producto) {
+    const p = productosCache[id_producto];
+    document.getElementById("id_producto").value = p.id_producto;
+    document.getElementById("nombre").value = p.nombre;
+    document.getElementById("id_categoria").value = p.id_categoria;
+    document.getElementById("unidad_medida").value = p.unidad_medida;
+    document.getElementById("precio").value = p.precio;
+    document.getElementById("umbral_alerta").value = p.umbral_alerta;
+
+    // El stock solo cambia vía entradas/salidas (US-06/US-07), nunca al editar
+    // el producto, así que se muestra el valor actual pero no se envía al guardar.
+    document.getElementById("stock_actual").value = p.stock_actual;
+    document.getElementById("stock_actual").disabled = true;
+    document.getElementById("labelStock").textContent = "Stock actual (editar solo vía entradas/salidas)";
+
+    document.getElementById("btnGuardar").textContent = "Actualizar producto";
+    document.getElementById("btnCancelar").classList.remove("oculto");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function cancelarEdicion() {
+    document.getElementById("formProducto").reset();
+    document.getElementById("id_producto").value = "";
+    document.getElementById("stock_actual").disabled = false;
+    document.getElementById("labelStock").textContent = "Stock inicial";
+    document.getElementById("btnGuardar").textContent = "Crear producto";
+    document.getElementById("btnCancelar").classList.add("oculto");
+  }
+
+  async function guardarProducto(evento) {
+    evento.preventDefault();
+    const id_producto = document.getElementById("id_producto").value;
+
+    const cuerpo = {
+      nombre: document.getElementById("nombre").value,
+      id_categoria: Number(document.getElementById("id_categoria").value),
+      unidad_medida: document.getElementById("unidad_medida").value,
+      precio: Number(document.getElementById("precio").value),
+      umbral_alerta: Number(document.getElementById("umbral_alerta").value),
+    };
+    if (!id_producto) {
+      cuerpo.stock_actual = Number(document.getElementById("stock_actual").value);
+    }
+
+    const url = id_producto ? `/api/productos/${id_producto}` : "/api/productos";
+    const method = id_producto ? "PUT" : "POST";
+
+    const res = await fetch(url, {
+      method,
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token()}` },
+      body: JSON.stringify(cuerpo),
+    });
+    const data = await res.json();
+    document.getElementById("resultado").textContent = JSON.stringify(data, null, 2);
+    if (res.ok) {
+      cancelarEdicion();
+      cargarProductos();
+    }
+  }
+
+  if (!token()) {
+    document.body.innerHTML = "<p>Debes iniciar sesión primero en <a href='login.html'>login.html</a>.</p>";
+  } else {
+    cargarCategorias().then(cargarProductos);
+  }
+</script>
+</body>
+</html>
