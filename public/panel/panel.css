@@ -217,6 +217,22 @@ tbody tr:last-child td { border-bottom: none; }
 }
 .badge-alerta { background: #FBE4E4; color: var(--rojo); }
 .badge-nuevo { background: #FDF0CE; color: #8A6100; }
+.badge-entrada { background: #E3F5E9; color: #1E7A42; }
+.badge-salida { background: #FBE4E4; color: var(--rojo); }
+.badge-mesa { background: #E7ECF6; color: var(--azul-oscuro); }
+.badge-mostrador { background: #F0EAF9; color: #5B3A8E; }
+
+/* ---------- Secciones (formularios en caja) ---------- */
+
+.seccion {
+  border: 1px solid var(--gris-borde);
+  border-radius: 8px;
+  padding: 16px 20px;
+  margin-top: 16px;
+}
+.seccion h2 { font-size: 15px; margin: 0; }
+.secciones-lado-a-lado { display: flex; gap: 16px; flex-wrap: wrap; }
+.secciones-lado-a-lado .seccion { flex: 1; min-width: 280px; }
 
 /* ---------- Utilidades ---------- */
 

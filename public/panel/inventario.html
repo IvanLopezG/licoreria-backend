@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Licorería — Inventario</title>
+<link rel="stylesheet" href="panel.css">
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="sidebar-marca">Licorería</div>
+    <nav class="sidebar-nav">
+      <a href="login.html" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 24 24"><path d="M12 4h6a1 1 0 0 1 1 1v14a1 1 0 0 1 -1 1h-6" /><path d="M3 12h13" /><path d="M13 15l3 -3l-3 -3" /></svg>
+        <span>Login</span>
+      </a>
+      <a href="mesas.html" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 24 24"><rect x="4" y="4" width="6" height="6" rx="1" /><rect x="14" y="4" width="6" height="6" rx="1" /><rect x="4" y="14" width="6" height="6" rx="1" /><rect x="14" y="14" width="6" height="6" rx="1" /></svg>
+        <span>Mesas</span>
+      </a>
+      <a href="pedidos.html" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 24 24"><path d="M4 8l2 -4h12l2 4" /><path d="M4 8h4l2 3h4l2 -3h4" /><path d="M4 8v9a1 1 0 0 0 1 1h14a1 1 0 0 0 1 -1v-9" /></svg>
+        <span>Pedidos entrantes</span>
+      </a>
+      <a href="productos.html" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 24 24"><path d="M12 3l8 4.5v9l-8 4.5l-8 -4.5v-9z" /><path d="M12 12l8 -4.5" /><path d="M12 12v9" /><path d="M12 12l-8 -4.5" /></svg>
+        <span>Productos</span>
+      </a>
+      <a href="proveedores.html" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 24 24"><rect x="3" y="9" width="10" height="7" rx="1" /><path d="M13 12h4l3 3v1h-7z" /><circle cx="7" cy="17.5" r="1.5" /><circle cx="17" cy="17.5" r="1.5" /></svg>
+        <span>Proveedores</span>
+      </a>
+      <a href="inventario.html" class="nav-item activo">
+        <svg class="nav-icon" viewBox="0 0 24 24"><rect x="6" y="4" width="12" height="16" rx="2" /><path d="M9 4a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v1a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z" /><path d="M9 11h6" /><path d="M9 15h6" /></svg>
+        <span>Inventario</span>
+      </a>
+      <a href="ventas.html" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 24 24"><path d="M5 3h14v18l-3 -2l-2 2l-2 -2l-2 2l-2 -2l-3 2z" /><path d="M8 8h8" /><path d="M8 12h8" /></svg>
+        <span>Ventas</span>
+      </a>
+    </nav>
+  </aside>
+
+  <main class="contenido-principal">
+    <h1>Inventario — Sprint 2</h1>
+
+    <div id="contenido">
+      <div class="tarjetas">
+        <div class="tarjeta">
+          <div class="numero" id="cardEntradas">0</div>
+          <div class="etiqueta">Unidades ingresadas (filtro actual)</div>
+        </div>
+        <div class="tarjeta">
+          <div class="numero" id="cardSalidas">0</div>
+          <div class="etiqueta">Unidades retiradas (filtro actual)</div>
+        </div>
+        <div class="tarjeta">
+          <div class="numero" id="cardTotal">0</div>
+          <div class="etiqueta">Movimientos (filtro actual)</div>
+        </div>
+      </div>
+
+      <div class="secciones-lado-a-lado">
+        <div class="seccion">
+          <h2>Registrar entrada</h2>
+          <form id="formEntrada" onsubmit="return registrarEntrada(event)">
+            <label>Producto
+              <select id="entradaProducto" required></select>
+            </label>
+            <label>Cantidad
+              <input id="entradaCantidad" type="number" min="1" step="1" required>
+            </label>
+            <label>Proveedor
+              <select id="entradaProveedor" required></select>
+            </label>
+            <button type="submit" class="btn btn-primario">Registrar entrada</button>
+          </form>
+        </div>
+
+        <div class="seccion">
+          <h2>Registrar salida</h2>
+          <form id="formSalida" onsubmit="return registrarSalida(event)">
+            <label>Producto
+              <select id="salidaProducto" required></select>
+            </label>
+            <label>Cantidad
+              <input id="salidaCantidad" type="number" min="1" step="1" required>
+            </label>
+            <label>Motivo
+              <select id="salidaMotivo" required>
+                <option value="ajuste">Ajuste</option>
+                <option value="venta">Venta</option>
+              </select>
+            </label>
+            <button type="submit" class="btn">Registrar salida</button>
+          </form>
+        </div>
+      </div>
+
+      <div class="seccion">
+        <h2>Historial de movimientos</h2>
+        <form id="formFiltro" onsubmit="return aplicarFiltro(event)">
+          <div class="fila-form">
+            <label>Producto
+              <select id="filtroProducto"></select>
+            </label>
+            <label>Desde
+              <input id="filtroDesde" type="date">
+            </label>
+            <label>Hasta
+              <input id="filtroHasta" type="date">
+            </label>
+          </div>
+          <button type="submit" class="btn">Filtrar</button>
+        </form>
+
+        <table>
+          <thead>
+            <tr><th>Fecha</th><th>Producto</th><th>Tipo</th><th>Motivo</th><th>Cantidad</th><th>Usuario</th></tr>
+          </thead>
+          <tbody id="filas"></tbody>
+        </table>
+      </div>
+
+      <pre id="resultado"></pre>
+    </div>
+  </main>
+
+<script>
+  function token() { return localStorage.getItem("token"); }
+
+  function escapeHtml(texto) {
+    return String(texto).replace(/[&<>"']/g, (c) => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+    }[c]));
+  }
+
+  function mostrarPermisoDenegado() {
+    document.getElementById("contenido").innerHTML =
+      '<p class="error-permiso">No tienes permiso para ver esta sección.</p>';
+  }
+
+  async function cargarProductos() {
+    const res = await fetch("/api/productos", { headers: { Authorization: `Bearer ${token()}` } });
+    if (res.status === 403) {
+      mostrarPermisoDenegado();
+      return;
+    }
+    const productos = await res.json();
+    const opciones = productos.map((p) => `<option value="${p.id_producto}">${escapeHtml(p.nombre)}</option>`).join("");
+    document.getElementById("entradaProducto").innerHTML = opciones;
+    document.getElementById("salidaProducto").innerHTML = opciones;
+    document.getElementById("filtroProducto").innerHTML = `<option value="">Todos los productos</option>${opciones}`;
+  }
+
+  async function cargarProveedores() {
+    const res = await fetch("/api/proveedores", { headers: { Authorization: `Bearer ${token()}` } });
+    if (res.status === 403) {
+      mostrarPermisoDenegado();
+      return;
+    }
+    const proveedores = await res.json();
+    document.getElementById("entradaProveedor").innerHTML = proveedores
+      .map((p) => `<option value="${p.id_proveedor}">${escapeHtml(p.nombre)}</option>`)
+      .join("");
+  }
+
+  async function registrarEntrada(evento) {
+    evento.preventDefault();
+    const cuerpo = {
+      id_producto: Number(document.getElementById("entradaProducto").value),
+      cantidad: Number(document.getElementById("entradaCantidad").value),
+      id_proveedor: Number(document.getElementById("entradaProveedor").value),
+    };
+    const res = await fetch("/api/inventario/entradas", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token()}` },
+      body: JSON.stringify(cuerpo),
+    });
+    if (res.status === 403) {
+      mostrarPermisoDenegado();
+      return;
+    }
+    const data = await res.json();
+    document.getElementById("resultado").textContent = JSON.stringify(data, null, 2);
+    if (res.ok) {
+      document.getElementById("formEntrada").reset();
+      cargarHistorial();
+    }
+  }
+
+  async function registrarSalida(evento) {
+    evento.preventDefault();
+    const cuerpo = {
+      id_producto: Number(document.getElementById("salidaProducto").value),
+      cantidad: Number(document.getElementById("salidaCantidad").value),
+      motivo: document.getElementById("salidaMotivo").value,
+    };
+    const res = await fetch("/api/inventario/salidas", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token()}` },
+      body: JSON.stringify(cuerpo),
+    });
+    if (res.status === 403) {
+      mostrarPermisoDenegado();
+      return;
+    }
+    const data = await res.json();
+    document.getElementById("resultado").textContent = JSON.stringify(data, null, 2);
+    if (res.ok) {
+      document.getElementById("formSalida").reset();
+      cargarHistorial();
+    }
+  }
+
+  function aplicarFiltro(evento) {
+    evento.preventDefault();
+    cargarHistorial();
+  }
+
+  async function cargarHistorial() {
+    const params = new URLSearchParams();
+    const id_producto = document.getElementById("filtroProducto").value;
+    const desde = document.getElementById("filtroDesde").value;
+    const hasta = document.getElementById("filtroHasta").value;
+    if (id_producto) params.set("id_producto", id_producto);
+    if (desde) params.set("desde", desde);
+    if (hasta) params.set("hasta", hasta);
+
+    const res = await fetch(`/api/inventario/movimientos?${params}`, { headers: { Authorization: `Bearer ${token()}` } });
+    if (res.status === 403) {
+      mostrarPermisoDenegado();
+      return;
+    }
+    const movimientos = await res.json();
+    if (!res.ok) {
+      document.getElementById("resultado").textContent = JSON.stringify(movimientos, null, 2);
+      return;
+    }
+
+    let entradas = 0;
+    let salidas = 0;
+    const filas = document.getElementById("filas");
+    filas.innerHTML = "";
+    for (const m of movimientos) {
+      if (m.tipo === "entrada") entradas += m.cantidad;
+      else salidas += m.cantidad;
+
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${m.fecha_hora}</td>
+        <td>${escapeHtml(m.producto_nombre)}</td>
+        <td><span class="badge badge-${m.tipo}">${m.tipo}</span></td>
+        <td>${escapeHtml(m.motivo || "—")}</td>
+        <td>${m.cantidad}</td>
+        <td>${escapeHtml(m.usuario_nombre)}</td>
+      `;
+      filas.appendChild(tr);
+    }
+
+    document.getElementById("cardEntradas").textContent = entradas;
+    document.getElementById("cardSalidas").textContent = salidas;
+    document.getElementById("cardTotal").textContent = movimientos.length;
+  }
+
+  if (!token()) {
+    document.body.innerHTML = "<p>Debes iniciar sesión primero en <a href='login.html'>login.html</a>.</p>";
+  } else {
+    Promise.all([cargarProductos(), cargarProveedores()]).then(cargarHistorial);
+  }
+</script>
+</body>
+</html>
