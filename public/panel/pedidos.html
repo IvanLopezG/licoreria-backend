@@ -6,7 +6,8 @@
 <link rel="stylesheet" href="panel.css">
 <style>
   .mesa { border: 1px solid var(--gris-borde); border-radius: 6px; padding: 12px; margin-top: 16px; }
-  .mesa h2 { font-size: 16px; margin: 0 0 8px; }
+  .mesa h2 { font-size: 16px; margin: 0 0 8px; display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+  .mesa .total-mesa { font-size: 15px; color: var(--azul-medio); }
   .pedido { border-top: 1px dashed var(--gris-borde); padding: 8px 0; font-size: 13px; }
   .pedido ul { margin: 4px 0; padding-left: 18px; }
   .pedido .meta { color: #666; font-size: 12px; }
@@ -15,6 +16,7 @@
   .badge-entregado { background: #E3F5E9; color: #1E7A42; }
   .todos-entregados { color: #666; font-size: 13px; font-style: italic; margin: 4px 0; }
   #vacio { color: #666; margin-top: 20px; }
+  #error { margin-top: 20px; padding: 10px 14px; background: #FBE4E4; color: var(--rojo); border-left: 4px solid var(--rojo); border-radius: 4px; font-size: 13px; }
   #modalCierre {
     position: fixed; top: 0; left: 0; width: 100%; height: 100%;
     background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center;
@@ -66,7 +68,7 @@
     <h1>Pedidos entrantes — se actualiza cada 5s</h1>
     <div id="mesas"></div>
     <p id="vacio" class="oculto">No hay cuentas abiertas.</p>
-    <pre id="resultado"></pre>
+    <p id="error" class="oculto"></p>
   </main>
 
   <div id="modalCierre" class="oculto">
@@ -82,10 +84,24 @@
 <script>
   function token() { return localStorage.getItem("token"); }
 
+  function mostrarError(mensaje) {
+    const el = document.getElementById("error");
+    el.textContent = mensaje;
+    el.classList.remove("oculto");
+  }
+
+  function ocultarError() {
+    document.getElementById("error").classList.add("oculto");
+  }
+
   // US-14b: sin WebSockets: cada poll compara contra los ids ya vistos para
   // saber cuáles pedidos son nuevos desde la última actualización.
   let idsVistos = new Set();
   let primeraCarga = true;
+
+  function totalMesa(pedidos) {
+    return pedidos.reduce((suma, p) => suma + p.items.reduce((s, it) => s + it.cantidad * it.precio_unitario, 0), 0);
+  }
 
   async function cargarPedidos() {
     // Se piden TODOS los pedidos (sin filtrar por estado) y se filtra en el
@@ -96,9 +112,10 @@
     const res = await fetch("/api/pedidos", { headers: { Authorization: `Bearer ${token()}` } });
     const todos = await res.json();
     if (!res.ok) {
-      document.getElementById("resultado").textContent = JSON.stringify(todos, null, 2);
+      mostrarError(todos.error || "No se pudieron cargar los pedidos.");
       return;
     }
+    ocultarError();
     const pedidos = todos.filter((p) => p.id_venta === null || p.id_venta === undefined);
 
     const porMesa = {};
@@ -113,20 +130,22 @@
     for (const [id_mesa, grupo] of Object.entries(porMesa)) {
       const div = document.createElement("div");
       div.className = "mesa";
-      let html = `<h2>Mesa ${grupo.mesa_numero}</h2>`;
       const todosEntregados = grupo.pedidos.every((p) => p.estado === "entregado");
+      // La lista de ítems se mantiene visible aunque todo esté "entregado":
+      // el mesero necesita verla para verificar antes de cobrar. El aviso de
+      // "todo entregado" va aparte, nunca reemplazando la lista.
+      let html = `<h2>Mesa ${grupo.mesa_numero} <span class="total-mesa">$${totalMesa(grupo.pedidos).toFixed(2)}</span></h2>`;
       if (todosEntregados) {
         html += `<p class="todos-entregados">Todos los pedidos fueron entregados.</p>`;
-      } else {
-        for (const pedido of grupo.pedidos) {
-          const esNuevo = !primeraCarga && !idsVistos.has(pedido.id_pedido);
-          const yaEntregado = pedido.estado === "entregado";
-          html += `<div class="pedido${esNuevo ? " nuevo" : ""}">
-            <span class="meta">Pedido #${pedido.id_pedido} — ${pedido.fecha_hora}${esNuevo ? '<span class="badge">NUEVO</span>' : ""}${yaEntregado ? '<span class="badge badge-entregado">ENTREGADO</span>' : ""}</span>
-            <ul>${pedido.items.map((it) => `<li>${it.cantidad} x ${it.producto_nombre}</li>`).join("")}</ul>
-            ${yaEntregado ? "" : `<button class="btn" onclick="marcarEntregado(${pedido.id_pedido})">Marcar entregado</button>`}
-          </div>`;
-        }
+      }
+      for (const pedido of grupo.pedidos) {
+        const esNuevo = !primeraCarga && !idsVistos.has(pedido.id_pedido);
+        const yaEntregado = pedido.estado === "entregado";
+        html += `<div class="pedido${esNuevo ? " nuevo" : ""}">
+          <span class="meta">Pedido #${pedido.id_pedido} — ${pedido.fecha_hora}${esNuevo ? '<span class="badge">NUEVO</span>' : ""}${yaEntregado ? '<span class="badge badge-entregado">ENTREGADO</span>' : ""}</span>
+          <ul>${pedido.items.map((it) => `<li>${it.cantidad} x ${it.producto_nombre}</li>`).join("")}</ul>
+          ${yaEntregado ? "" : `<button class="btn" onclick="marcarEntregado(${pedido.id_pedido})">Marcar entregado</button>`}
+        </div>`;
       }
       html += `<button class="btn btn-peligro" onclick="cerrarCuenta(${id_mesa}, ${grupo.mesa_numero})">Cerrar cuenta de la mesa</button>`;
       div.innerHTML = html;
@@ -142,8 +161,11 @@
       method: "PUT",
       headers: { Authorization: `Bearer ${token()}` },
     });
-    const data = await res.json();
-    document.getElementById("resultado").textContent = JSON.stringify(data, null, 2);
+    if (!res.ok) {
+      const data = await res.json();
+      mostrarError(data.error || "No se pudo marcar el pedido como entregado.");
+      return;
+    }
     cargarPedidos();
   }
 
@@ -158,15 +180,13 @@
     });
     const pedidos = await res.json();
     if (!res.ok) {
-      document.getElementById("resultado").textContent = JSON.stringify(pedidos, null, 2);
+      mostrarError(pedidos.error || "No se pudo calcular el total de la mesa.");
       return;
     }
+    ocultarError();
 
     const abiertos = pedidos.filter((p) => p.id_venta === null || p.id_venta === undefined);
-    const total = abiertos.reduce(
-      (suma, p) => suma + p.items.reduce((s, it) => s + it.cantidad * it.precio_unitario, 0),
-      0
-    );
+    const total = totalMesa(abiertos);
 
     mesaPendienteCierre = id_mesa;
     document.getElementById("modalMesaTexto").textContent = `Mesa ${mesa_numero}`;
@@ -188,8 +208,12 @@
       method: "POST",
       headers: { Authorization: `Bearer ${token()}` },
     });
-    const data = await res.json();
-    document.getElementById("resultado").textContent = JSON.stringify(data, null, 2);
+    if (!res.ok) {
+      const data = await res.json();
+      mostrarError(data.error || "No se pudo cerrar la cuenta de la mesa.");
+    } else {
+      ocultarError();
+    }
     mesaPendienteCierre = null;
     cargarPedidos();
   }
