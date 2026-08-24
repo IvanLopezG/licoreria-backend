@@ -37,6 +37,10 @@ app.use("/api/ventas", ventasRoutes);
 app.use("/panel", express.static(path.join(__dirname, "..", "public", "panel")));
 app.use("/catalogo", express.static(path.join(__dirname, "..", "public", "catalogo")));
 
+// Quien entra directo al dominio cae en el login del panel, en vez de ver
+// el JSON crudo de "ruta no encontrada".
+app.get("/", (req, res) => res.redirect("/panel/login.html"));
+
 app.get("/api/salud", (req, res) => res.json({ estado: "ok" }));
 
 app.use((req, res) => res.status(404).json({ error: "Ruta no encontrada." }));
