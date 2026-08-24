@@ -29,6 +29,7 @@
     <a href="login.html">Login</a>
     <a href="mesas.html">Mesas</a>
     <a href="pedidos.html">Pedidos entrantes</a>
+    <a href="productos.html">Productos</a>
   </nav>
   <h1>Panel de Mesas — Sprint 3</h1>
 
@@ -100,6 +101,9 @@
     document.body.innerHTML = "<p>Debes iniciar sesión primero en <a href='login.html'>login.html</a>.</p>";
   } else {
     cargarMesas();
+    // Sin WebSockets (RF-13/RF-14b): se refresca por polling para que una mesa
+    // recién cerrada en pedidos.html se vea libre aquí sin recargar manualmente.
+    setInterval(cargarMesas, 5000);
   }
 </script>
 </body>

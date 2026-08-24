@@ -20,6 +20,20 @@
   .cerrar:hover { background: #a80000; }
   #resultado { margin-top: 20px; padding: 12px; background: #f1f1f1; white-space: pre-wrap; font-size: 13px; }
   #vacio { color: #666; margin-top: 20px; }
+  #modalCierre {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center;
+  }
+  .oculto, #modalCierre.oculto { display: none; }
+  #modalCierre .caja {
+    background: white; padding: 24px; border-radius: 6px; max-width: 320px; text-align: center;
+  }
+  #modalCierre .total { font-size: 22px; font-weight: bold; margin: 12px 0; }
+  #modalCierre button { margin: 4px; }
+  #modalCierre .confirmar { background: #8B0000; }
+  #modalCierre .confirmar:hover { background: #a80000; }
+  #modalCierre .cancelar { background: #666; }
+  #modalCierre .cancelar:hover { background: #888; }
 </style>
 </head>
 <body>
@@ -27,11 +41,22 @@
     <a href="login.html">Login</a>
     <a href="mesas.html">Mesas</a>
     <a href="pedidos.html">Pedidos entrantes</a>
+    <a href="productos.html">Productos</a>
   </nav>
   <h1>Pedidos entrantes — se actualiza cada 5s</h1>
   <div id="mesas"></div>
   <p id="vacio" class="oculto">No hay pedidos pendientes.</p>
   <pre id="resultado"></pre>
+
+  <div id="modalCierre" class="oculto">
+    <div class="caja">
+      <p id="modalMesaTexto"></p>
+      <p>Total consolidado de todos los pedidos abiertos:</p>
+      <p class="total" id="modalTotal"></p>
+      <button class="confirmar" onclick="confirmarCierre()">Confirmar cierre</button>
+      <button class="cancelar" onclick="cancelarCierre()">Cancelar</button>
+    </div>
+  </div>
 
 <script>
   function token() { return localStorage.getItem("token"); }
@@ -70,7 +95,7 @@
           <button onclick="marcarEntregado(${pedido.id_pedido})">Marcar entregado</button>
         </div>`;
       }
-      html += `<button class="cerrar" onclick="cerrarCuenta(${id_mesa})">Cerrar cuenta de la mesa</button>`;
+      html += `<button class="cerrar" onclick="cerrarCuenta(${id_mesa}, ${grupo.mesa_numero})">Cerrar cuenta de la mesa</button>`;
       div.innerHTML = html;
       contenedor.appendChild(div);
     }
@@ -89,13 +114,50 @@
     cargarPedidos();
   }
 
-  async function cerrarCuenta(id_mesa) {
+  // US-14: antes de cerrar, se consolidan TODOS los pedidos abiertos de la mesa
+  // (id_venta nulo), no solo los pendientes que se ven en pantalla — un pedido
+  // ya "entregado" sigue abierto hasta que se cobra.
+  let mesaPendienteCierre = null;
+
+  async function cerrarCuenta(id_mesa, mesa_numero) {
+    const res = await fetch(`/api/pedidos?id_mesa=${id_mesa}`, {
+      headers: { Authorization: `Bearer ${token()}` },
+    });
+    const pedidos = await res.json();
+    if (!res.ok) {
+      document.getElementById("resultado").textContent = JSON.stringify(pedidos, null, 2);
+      return;
+    }
+
+    const abiertos = pedidos.filter((p) => p.id_venta === null || p.id_venta === undefined);
+    const total = abiertos.reduce(
+      (suma, p) => suma + p.items.reduce((s, it) => s + it.cantidad * it.precio_unitario, 0),
+      0
+    );
+
+    mesaPendienteCierre = id_mesa;
+    document.getElementById("modalMesaTexto").textContent = `Mesa ${mesa_numero}`;
+    document.getElementById("modalTotal").textContent = `$${total.toFixed(2)}`;
+    document.getElementById("modalCierre").classList.remove("oculto");
+  }
+
+  function cancelarCierre() {
+    mesaPendienteCierre = null;
+    document.getElementById("modalCierre").classList.add("oculto");
+  }
+
+  async function confirmarCierre() {
+    const id_mesa = mesaPendienteCierre;
+    document.getElementById("modalCierre").classList.add("oculto");
+    if (!id_mesa) return;
+
     const res = await fetch(`/api/mesas/${id_mesa}/cerrar-cuenta`, {
       method: "POST",
       headers: { Authorization: `Bearer ${token()}` },
     });
     const data = await res.json();
     document.getElementById("resultado").textContent = JSON.stringify(data, null, 2);
+    mesaPendienteCierre = null;
     cargarPedidos();
   }
 
