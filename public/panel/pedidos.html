@@ -84,6 +84,18 @@
 <script>
   function token() { return localStorage.getItem("token"); }
 
+  // Cancelar un pedido es tarea de administrador/cajero (igual que cobrar);
+  // se oculta el botón para mesero en vez de dejar que lo intente y reciba
+  // un 403.
+  function puedeCancelar() {
+    try {
+      const usuario = JSON.parse(localStorage.getItem("usuario") || "null");
+      return !!usuario && ["administrador", "cajero"].includes(usuario.rol);
+    } catch {
+      return false;
+    }
+  }
+
   function mostrarError(mensaje) {
     const el = document.getElementById("error");
     el.textContent = mensaje;
@@ -145,6 +157,7 @@
           <span class="meta">Pedido #${pedido.id_pedido} — ${pedido.fecha_hora}${esNuevo ? '<span class="badge">NUEVO</span>' : ""}${yaEntregado ? '<span class="badge badge-entregado">ENTREGADO</span>' : ""}</span>
           <ul>${pedido.items.map((it) => `<li>${it.cantidad} x ${it.producto_nombre}</li>`).join("")}</ul>
           ${yaEntregado ? "" : `<button class="btn" onclick="marcarEntregado(${pedido.id_pedido})">Marcar entregado</button>`}
+          ${puedeCancelar() ? `<button class="btn btn-peligro" onclick="cancelarPedido(${pedido.id_pedido})">Cancelar pedido</button>` : ""}
         </div>`;
       }
       html += `<button class="btn btn-peligro" onclick="cerrarCuenta(${id_mesa}, ${grupo.mesa_numero})">Cerrar cuenta de la mesa</button>`;
@@ -166,6 +179,22 @@
       mostrarError(data.error || "No se pudo marcar el pedido como entregado.");
       return;
     }
+    cargarPedidos();
+  }
+
+  async function cancelarPedido(id_pedido) {
+    if (!confirm(`¿Cancelar el pedido #${id_pedido}? Esta acción no se puede deshacer.`)) return;
+
+    const res = await fetch(`/api/pedidos/${id_pedido}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token()}` },
+    });
+    if (!res.ok) {
+      const data = await res.json();
+      mostrarError(data.error || "No se pudo cancelar el pedido.");
+      return;
+    }
+    ocultarError();
     cargarPedidos();
   }
 

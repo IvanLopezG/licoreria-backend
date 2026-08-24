@@ -54,8 +54,8 @@ function crearPedido(token, items) {
       err.status = 404;
       throw err;
     }
-    if (producto.stock_actual <= 0) {
-      const err = new Error(`${producto.nombre} ya no está disponible.`);
+    if (Number(cantidad) > producto.stock_actual) {
+      const err = new Error(`Solo quedan ${producto.stock_actual} unidades de ${producto.nombre}.`);
       err.status = 400;
       throw err;
     }

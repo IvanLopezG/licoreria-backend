@@ -17,4 +17,18 @@ function entregado(req, res) {
   }
 }
 
-module.exports = { listar, entregado };
+function cancelar(req, res) {
+  try {
+    const id_pedido = Number(req.params.id);
+    const resultado = pedidoService.cancelar(id_pedido);
+
+    // El middleware de auditoría escribe el registro al ver este campo.
+    req.auditoria = { accion: "eliminar", entidad: "pedidos", id_entidad: id_pedido };
+
+    return res.json(resultado);
+  } catch (err) {
+    return res.status(err.status || 400).json({ error: err.message });
+  }
+}
+
+module.exports = { listar, entregado, cancelar };

@@ -93,4 +93,16 @@ function marcarEntregado(id_pedido) {
   return buscarPorId(id_pedido);
 }
 
-module.exports = { crear, buscarPorId, listar, marcarEntregado };
+const stmtBorrarDetalle = db.prepare("DELETE FROM pedido_detalle WHERE id_pedido = ?");
+const stmtBorrarPedido = db.prepare("DELETE FROM pedidos WHERE id_pedido = ?");
+
+// No hay ON DELETE CASCADE en el esquema: se borra el detalle antes que el
+// pedido, en la misma transacción, para no dejar líneas huérfanas.
+function cancelar(id_pedido) {
+  return conTransaccion(() => {
+    stmtBorrarDetalle.run(id_pedido);
+    stmtBorrarPedido.run(id_pedido);
+  });
+}
+
+module.exports = { crear, buscarPorId, listar, marcarEntregado, cancelar };
