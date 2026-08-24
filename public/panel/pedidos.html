@@ -12,6 +12,8 @@
   .pedido .meta { color: #666; font-size: 12px; }
   .pedido.nuevo { background: #fff6d8; border-left: 4px solid #d4a017; padding-left: 8px; }
   .pedido.nuevo .badge { background: #d4a017; color: white; }
+  .badge-entregado { background: #E3F5E9; color: #1E7A42; }
+  .todos-entregados { color: #666; font-size: 13px; font-style: italic; margin: 4px 0; }
   #vacio { color: #666; margin-top: 20px; }
   #modalCierre {
     position: fixed; top: 0; left: 0; width: 100%; height: 100%;
@@ -63,7 +65,7 @@
   <main class="contenido-principal">
     <h1>Pedidos entrantes — se actualiza cada 5s</h1>
     <div id="mesas"></div>
-    <p id="vacio" class="oculto">No hay pedidos pendientes.</p>
+    <p id="vacio" class="oculto">No hay cuentas abiertas.</p>
     <pre id="resultado"></pre>
   </main>
 
@@ -86,12 +88,18 @@
   let primeraCarga = true;
 
   async function cargarPedidos() {
-    const res = await fetch("/api/pedidos?estado=pendiente", { headers: { Authorization: `Bearer ${token()}` } });
-    const pedidos = await res.json();
+    // Se piden TODOS los pedidos (sin filtrar por estado) y se filtra en el
+    // cliente a los abiertos (id_venta nulo): un pedido "entregado" sigue sin
+    // cobrar hasta el cierre de cuenta, así que la mesa no puede desaparecer
+    // de esta pantalla solo porque ya no tiene nada "pendiente" (bug: la
+    // tarjeta de la mesa, y con ella el botón de cerrar cuenta, se perdía).
+    const res = await fetch("/api/pedidos", { headers: { Authorization: `Bearer ${token()}` } });
+    const todos = await res.json();
     if (!res.ok) {
-      document.getElementById("resultado").textContent = JSON.stringify(pedidos, null, 2);
+      document.getElementById("resultado").textContent = JSON.stringify(todos, null, 2);
       return;
     }
+    const pedidos = todos.filter((p) => p.id_venta === null || p.id_venta === undefined);
 
     const porMesa = {};
     for (const p of pedidos) {
@@ -106,13 +114,19 @@
       const div = document.createElement("div");
       div.className = "mesa";
       let html = `<h2>Mesa ${grupo.mesa_numero}</h2>`;
-      for (const pedido of grupo.pedidos) {
-        const esNuevo = !primeraCarga && !idsVistos.has(pedido.id_pedido);
-        html += `<div class="pedido${esNuevo ? " nuevo" : ""}">
-          <span class="meta">Pedido #${pedido.id_pedido} — ${pedido.fecha_hora}${esNuevo ? '<span class="badge">NUEVO</span>' : ""}</span>
-          <ul>${pedido.items.map((it) => `<li>${it.cantidad} x ${it.producto_nombre}</li>`).join("")}</ul>
-          <button class="btn" onclick="marcarEntregado(${pedido.id_pedido})">Marcar entregado</button>
-        </div>`;
+      const todosEntregados = grupo.pedidos.every((p) => p.estado === "entregado");
+      if (todosEntregados) {
+        html += `<p class="todos-entregados">Todos los pedidos fueron entregados.</p>`;
+      } else {
+        for (const pedido of grupo.pedidos) {
+          const esNuevo = !primeraCarga && !idsVistos.has(pedido.id_pedido);
+          const yaEntregado = pedido.estado === "entregado";
+          html += `<div class="pedido${esNuevo ? " nuevo" : ""}">
+            <span class="meta">Pedido #${pedido.id_pedido} — ${pedido.fecha_hora}${esNuevo ? '<span class="badge">NUEVO</span>' : ""}${yaEntregado ? '<span class="badge badge-entregado">ENTREGADO</span>' : ""}</span>
+            <ul>${pedido.items.map((it) => `<li>${it.cantidad} x ${it.producto_nombre}</li>`).join("")}</ul>
+            ${yaEntregado ? "" : `<button class="btn" onclick="marcarEntregado(${pedido.id_pedido})">Marcar entregado</button>`}
+          </div>`;
+        }
       }
       html += `<button class="btn btn-peligro" onclick="cerrarCuenta(${id_mesa}, ${grupo.mesa_numero})">Cerrar cuenta de la mesa</button>`;
       div.innerHTML = html;
