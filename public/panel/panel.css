@@ -1,0 +1,242 @@
+/* Licorería — hoja de estilos compartida del panel (mesero/cajero/admin).
+   Barra lateral fija + tarjetas de resumen + tablas limpias + botones. */
+
+:root {
+  --azul-oscuro: #1F3864;
+  --azul-medio: #2E5395;
+  --gris-fondo: #F4F5F7;
+  --gris-borde: #E2E5EA;
+  --gris-texto: #5B6B82;
+  --rojo: #8B0000;
+  --ancho-sidebar: 232px;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  font-family: Calibri, Arial, sans-serif;
+  color: var(--azul-oscuro);
+  background: #fff;
+}
+
+body {
+  display: flex;
+  align-items: stretch;
+  min-height: 100vh;
+}
+
+/* ---------- Barra lateral ---------- */
+
+.sidebar {
+  width: var(--ancho-sidebar);
+  flex: 0 0 var(--ancho-sidebar);
+  background: var(--azul-oscuro);
+  color: #fff;
+  position: sticky;
+  top: 0;
+  align-self: flex-start;
+  height: 100vh;
+  overflow-y: auto;
+  padding: 20px 12px;
+}
+
+.sidebar-marca {
+  font-size: 15px;
+  font-weight: bold;
+  padding: 8px 12px 20px;
+  letter-spacing: .02em;
+}
+
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.82);
+  text-decoration: none;
+  font-size: 13px;
+}
+
+.nav-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+
+.nav-item.activo {
+  background: var(--azul-medio);
+  color: #fff;
+  font-weight: bold;
+}
+
+.nav-icon {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.75;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* ---------- Contenido principal ---------- */
+
+.contenido-principal {
+  flex: 1;
+  min-width: 0;
+  padding: 32px 40px 60px;
+  max-width: 980px;
+}
+
+.contenido-principal h1 {
+  font-size: 20px;
+  margin: 0 0 24px;
+}
+
+/* ---------- Tarjetas de resumen ---------- */
+
+.tarjetas {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+}
+
+.tarjeta {
+  background: var(--gris-fondo);
+  border-radius: 8px;
+  padding: 16px 20px;
+  min-width: 150px;
+  flex: 1;
+}
+
+.tarjeta .numero {
+  font-size: 28px;
+  font-weight: bold;
+  color: var(--azul-oscuro);
+  line-height: 1.2;
+}
+
+.tarjeta .etiqueta {
+  font-size: 12px;
+  color: var(--gris-texto);
+  margin-top: 4px;
+}
+
+/* ---------- Formularios ---------- */
+
+label { display: block; margin-top: 12px; font-size: 14px; }
+input, select {
+  padding: 8px;
+  box-sizing: border-box;
+  margin-top: 4px;
+  width: 100%;
+  border: 1px solid var(--gris-borde);
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 14px;
+}
+.fila-form { display: flex; gap: 16px; flex-wrap: wrap; }
+.fila-form label { flex: 1; min-width: 160px; }
+
+/* ---------- Botones ---------- */
+/* Como máximo un .btn-primario por página; el resto usa .btn (u otra
+   variante) con borde y fondo transparente. */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 16px;
+  padding: 8px 16px;
+  font-family: inherit;
+  font-size: 13px;
+  border-radius: 6px;
+  border: 1px solid var(--azul-oscuro);
+  background: transparent;
+  color: var(--azul-oscuro);
+  cursor: pointer;
+}
+.btn:hover { background: rgba(31, 56, 100, 0.08); }
+
+.btn-primario {
+  background: var(--azul-oscuro);
+  color: #fff;
+}
+.btn-primario:hover { background: var(--azul-medio); border-color: var(--azul-medio); }
+
+.btn-secundario {
+  border-color: #888;
+  color: #666;
+}
+.btn-secundario:hover { background: rgba(0, 0, 0, 0.05); }
+
+.btn-peligro {
+  border-color: var(--rojo);
+  color: var(--rojo);
+}
+.btn-peligro:hover { background: rgba(139, 0, 0, 0.06); }
+
+/* ---------- Tablas ---------- */
+/* Bordes horizontales finos, sin fondo de fila completo; los estados se
+   marcan con insignias (.badge), no con la fila coloreada. */
+
+table { width: 100%; border-collapse: collapse; margin-top: 24px; }
+thead th {
+  text-align: left;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--gris-texto);
+  padding: 10px 12px;
+  border-bottom: 2px solid var(--gris-borde);
+}
+tbody td {
+  padding: 10px 12px;
+  font-size: 13px;
+  border-bottom: 1px solid var(--gris-borde);
+}
+tbody tr:last-child td { border-bottom: none; }
+
+.badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: bold;
+  padding: 2px 8px;
+  border-radius: 999px;
+  margin-left: 6px;
+}
+.badge-alerta { background: #FBE4E4; color: var(--rojo); }
+.badge-nuevo { background: #FDF0CE; color: #8A6100; }
+
+/* ---------- Utilidades ---------- */
+
+.oculto { display: none; }
+
+#resultado, #estado {
+  margin-top: 20px;
+  padding: 12px;
+  background: var(--gris-fondo);
+  white-space: pre-wrap;
+  font-size: 13px;
+  border-radius: 6px;
+}
+
+.error-permiso {
+  margin-top: 20px;
+  padding: 12px;
+  background: #FBE4E4;
+  border-left: 4px solid var(--rojo);
+  border-radius: 4px;
+}
+
+.filtro { margin-top: 20px; font-size: 13px; }

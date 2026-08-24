@@ -3,46 +3,69 @@
 <head>
 <meta charset="UTF-8">
 <title>Licorería — Panel (prueba de Auth)</title>
+<link rel="stylesheet" href="panel.css">
 <style>
-  body { font-family: Calibri, Arial, sans-serif; max-width: 420px; margin: 60px auto; color: #1F3864; }
-  h1 { font-size: 20px; }
-  label { display: block; margin-top: 12px; font-size: 14px; }
-  input { width: 100%; padding: 8px; box-sizing: border-box; margin-top: 4px; }
-  button { margin-top: 16px; padding: 8px 16px; background: #1F3864; color: white; border: none; cursor: pointer; }
-  button:hover { background: #2E5395; }
-  #resultado, #estado { margin-top: 20px; padding: 12px; background: #f1f1f1; white-space: pre-wrap; font-size: 13px; }
-  .oculto { display: none; }
+  .tarjeta-login { max-width: 360px; }
 </style>
 </head>
 <body>
-  <nav style="margin-bottom:16px;font-size:13px;">
-    <a href="login.html">Login</a> &nbsp;
-    <a href="mesas.html">Mesas</a> &nbsp;
-    <a href="pedidos.html">Pedidos entrantes</a> &nbsp;
-    <a href="productos.html">Productos</a> &nbsp;
-    <a href="proveedores.html">Proveedores</a> &nbsp;
-    <a href="inventario.html">Inventario</a> &nbsp;
-    <a href="ventas.html">Ventas</a>
-  </nav>
-  <h1>Módulo de Autenticación — Sprint 1</h1>
+  <aside class="sidebar">
+    <div class="sidebar-marca">Licorería</div>
+    <nav class="sidebar-nav">
+      <a href="login.html" class="nav-item activo">
+        <svg class="nav-icon" viewBox="0 0 24 24"><path d="M12 4h6a1 1 0 0 1 1 1v14a1 1 0 0 1 -1 1h-6" /><path d="M3 12h13" /><path d="M13 15l3 -3l-3 -3" /></svg>
+        <span>Login</span>
+      </a>
+      <a href="mesas.html" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 24 24"><rect x="4" y="4" width="6" height="6" rx="1" /><rect x="14" y="4" width="6" height="6" rx="1" /><rect x="4" y="14" width="6" height="6" rx="1" /><rect x="14" y="14" width="6" height="6" rx="1" /></svg>
+        <span>Mesas</span>
+      </a>
+      <a href="pedidos.html" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 24 24"><path d="M4 8l2 -4h12l2 4" /><path d="M4 8h4l2 3h4l2 -3h4" /><path d="M4 8v9a1 1 0 0 0 1 1h14a1 1 0 0 0 1 -1v-9" /></svg>
+        <span>Pedidos entrantes</span>
+      </a>
+      <a href="productos.html" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 24 24"><path d="M12 3l8 4.5v9l-8 4.5l-8 -4.5v-9z" /><path d="M12 12l8 -4.5" /><path d="M12 12v9" /><path d="M12 12l-8 -4.5" /></svg>
+        <span>Productos</span>
+      </a>
+      <a href="proveedores.html" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 24 24"><rect x="3" y="9" width="10" height="7" rx="1" /><path d="M13 12h4l3 3v1h-7z" /><circle cx="7" cy="17.5" r="1.5" /><circle cx="17" cy="17.5" r="1.5" /></svg>
+        <span>Proveedores</span>
+      </a>
+      <a href="inventario.html" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 24 24"><rect x="6" y="4" width="12" height="16" rx="2" /><path d="M9 4a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v1a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z" /><path d="M9 11h6" /><path d="M9 15h6" /></svg>
+        <span>Inventario</span>
+      </a>
+      <a href="ventas.html" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 24 24"><path d="M5 3h14v18l-3 -2l-2 2l-2 -2l-2 2l-2 -2l-3 2z" /><path d="M8 8h8" /><path d="M8 12h8" /></svg>
+        <span>Ventas</span>
+      </a>
+    </nav>
+  </aside>
 
-  <div id="bloqueLogin">
-    <label>Usuario
-      <input id="usuario_login" value="admin">
-    </label>
-    <label>Contraseña
-      <input id="password" type="password">
-    </label>
-    <button onclick="login()">Iniciar sesión</button>
-  </div>
+  <main class="contenido-principal">
+    <h1>Módulo de Autenticación — Sprint 1</h1>
 
-  <div id="bloqueSesion" class="oculto">
-    <p id="estado"></p>
-    <button onclick="probarInventario()">Probar acceso a /api/inventario/ping</button>
-    <button onclick="cerrarSesion()">Cerrar sesión</button>
-  </div>
+    <div class="tarjeta-login">
+      <div id="bloqueLogin">
+        <label>Usuario
+          <input id="usuario_login" value="admin">
+        </label>
+        <label>Contraseña
+          <input id="password" type="password">
+        </label>
+        <button class="btn btn-primario" onclick="login()">Iniciar sesión</button>
+      </div>
 
-  <pre id="resultado"></pre>
+      <div id="bloqueSesion" class="oculto">
+        <p id="estado"></p>
+        <button class="btn" onclick="probarInventario()">Probar acceso a /api/inventario/ping</button>
+        <button class="btn btn-secundario" onclick="cerrarSesion()">Cerrar sesión</button>
+      </div>
+
+      <pre id="resultado"></pre>
+    </div>
+  </main>
 
 <script>
   const API = "";
