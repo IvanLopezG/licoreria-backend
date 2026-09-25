@@ -1,10 +1,11 @@
 const mesaModel = require("../models/mesaModel");
 const ventaModel = require("../models/ventaModel");
 const productoModel = require("../models/productoModel");
+const facturaService = require("./facturaService");
 
 // La mesa solo pasa a "ocupada" al recibir un pedido (US-12) y solo vuelve
 // a "libre" al cerrar cuenta (US-14); si no está ocupada no hay nada que cobrar.
-function cerrarCuentaMesa(id_mesa, id_usuario) {
+function cerrarCuentaMesa(id_mesa, id_usuario, body) {
   const mesa = mesaModel.buscarPorId(id_mesa);
   if (!mesa) {
     const err = new Error("Mesa no encontrada.");
@@ -17,7 +18,8 @@ function cerrarCuentaMesa(id_mesa, id_usuario) {
     throw err;
   }
 
-  return ventaModel.cerrarCuentaMesa(id_mesa, id_usuario);
+  const datosFactura = facturaService.validarDatosFactura(body, "mesa");
+  return ventaModel.cerrarCuentaMesa(id_mesa, id_usuario, datosFactura);
 }
 
 // La existencia del producto se valida aquí; si hay stock suficiente o no se
@@ -46,9 +48,10 @@ function validarItems(items) {
   });
 }
 
-function crearVentaMostrador({ items }, id_usuario) {
-  const lineas = validarItems(items);
-  return ventaModel.crearVentaMostrador({ items: lineas, id_usuario });
+function crearVentaMostrador(body, id_usuario) {
+  const lineas = validarItems(body?.items);
+  const datosFactura = facturaService.validarDatosFactura(body, "mostrador");
+  return ventaModel.crearVentaMostrador({ items: lineas, id_usuario, datosFactura });
 }
 
 function listarVentas({ desde, hasta, tipo }) {

@@ -15,6 +15,8 @@ const mesasRoutes = require("./routes/mesas.routes");
 const catalogoRoutes = require("./routes/catalogo.routes");
 const pedidosRoutes = require("./routes/pedidos.routes");
 const ventasRoutes = require("./routes/ventas.routes");
+const facturasRoutes = require("./routes/facturas.routes");
+const emisorRoutes = require("./routes/emisor.routes");
 
 const app = express();
 
@@ -33,6 +35,8 @@ app.use("/api/mesas", mesasRoutes);
 app.use("/api/catalogo", catalogoRoutes); // público, sin login (RF-11/RF-12)
 app.use("/api/pedidos", pedidosRoutes);
 app.use("/api/ventas", ventasRoutes);
+app.use("/api/facturas", facturasRoutes);
+app.use("/api/emisor", emisorRoutes);
 
 app.use("/panel", express.static(path.join(__dirname, "..", "public", "panel")));
 app.use("/catalogo", express.static(path.join(__dirname, "..", "public", "catalogo")));

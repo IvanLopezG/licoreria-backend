@@ -37,7 +37,7 @@ async function qr(req, res) {
 
 function cerrarCuenta(req, res) {
   try {
-    const venta = ventaService.cerrarCuentaMesa(Number(req.params.id), req.usuario.id_usuario);
+    const venta = ventaService.cerrarCuentaMesa(Number(req.params.id), req.usuario.id_usuario, req.body);
 
     req.auditoria = { accion: "crear", entidad: "ventas", id_entidad: venta.id_venta };
 

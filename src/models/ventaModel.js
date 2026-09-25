@@ -1,12 +1,15 @@
 const db = require("../db/db");
 const movimientoInventarioModel = require("./movimientoInventarioModel");
+const facturaModel = require("./facturaModel");
 
 // node:sqlite (DatabaseSync) no trae db.transaction(); se envuelve
 // BEGIN/COMMIT/ROLLBACK a mano, igual que en movimientoInventarioModel.js
 // y pedidoModel.js. Si algo falla a mitad de camino (crear venta, copiar
-// líneas, marcar pedidos, liberar mesa), todo se revierte junto.
+// líneas, marcar pedidos, liberar mesa, emitir factura), todo se revierte junto.
+// IMMEDIATE toma el bloqueo de escritura desde el inicio: el consecutivo de
+// la factura se lee y se incrementa sin que otra conexión escriba en medio.
 function conTransaccion(fn) {
-  db.exec("BEGIN");
+  db.exec("BEGIN IMMEDIATE");
   try {
     const resultado = fn();
     db.exec("COMMIT");
@@ -42,8 +45,9 @@ const stmtActualizarTotal = db.prepare("UPDATE ventas SET total = ? WHERE id_ven
 const stmtLiberarMesa = db.prepare("UPDATE mesas SET estado = 'libre' WHERE id_mesa = ?");
 
 // US-14 / RF-14: consolida todos los pedidos abiertos (id_venta IS NULL) de
-// la mesa en una única venta, copiando sus líneas a venta_detalle.
-function cerrarCuentaMesa(id_mesa, id_usuario) {
+// la mesa en una única venta, copiando sus líneas a venta_detalle, y emite
+// su factura. datosFactura = { forma_pago, tipo_consumo, cliente } ya validado.
+function cerrarCuentaMesa(id_mesa, id_usuario, datosFactura) {
   return conTransaccion(() => {
     const pedidos = stmtPedidosAbiertosPorMesa.all(id_mesa);
     if (pedidos.length === 0) {
@@ -82,13 +86,14 @@ function cerrarCuentaMesa(id_mesa, id_usuario) {
     stmtActualizarTotal.run(total, id_venta);
     stmtLiberarMesa.run(id_mesa);
 
-    return buscarPorId(id_venta);
+    const factura = facturaModel.emitir({ id_venta, id_mesa, id_usuario, ...datosFactura });
+    return { ...buscarPorId(id_venta), factura };
   });
 }
 
 // US-15 / RF-15: venta sin mesa asociada; queda igual que una venta por mesa
 // salvo por id_mesa = null (mismo esquema, mismo venta_detalle, sin pedido).
-function crearVentaMostrador({ items, id_usuario }) {
+function crearVentaMostrador({ items, id_usuario, datosFactura }) {
   return conTransaccion(() => {
     const id_venta = stmtCrearVenta.run({ tipo: "mostrador", id_mesa: null, id_usuario }).lastInsertRowid;
 
@@ -114,7 +119,8 @@ function crearVentaMostrador({ items, id_usuario }) {
 
     stmtActualizarTotal.run(total, id_venta);
 
-    return buscarPorId(id_venta);
+    const factura = facturaModel.emitir({ id_venta, id_mesa: null, id_usuario, ...datosFactura });
+    return { ...buscarPorId(id_venta), factura };
   });
 }
 

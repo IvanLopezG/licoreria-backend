@@ -1,21 +1,24 @@
 const db = require("../db/db");
 
-function crear({ id_categoria, nombre, unidad_medida, precio, stock_actual, umbral_alerta }) {
+function crear(datos) {
   const stmt = db.prepare(`
-    INSERT INTO productos (id_categoria, nombre, unidad_medida, precio, stock_actual, umbral_alerta)
-    VALUES (@id_categoria, @nombre, @unidad_medida, @precio, @stock_actual, @umbral_alerta)
+    INSERT INTO productos (id_categoria, nombre, unidad_medida, precio, stock_actual, umbral_alerta,
+                           tasa_iva_bps, tasa_inc_bps, es_bebida_alcoholica)
+    VALUES (@id_categoria, @nombre, @unidad_medida, @precio, @stock_actual, @umbral_alerta,
+            @tasa_iva_bps, @tasa_inc_bps, @es_bebida_alcoholica)
   `);
-  const info = stmt.run({ id_categoria, nombre, unidad_medida, precio, stock_actual, umbral_alerta });
+  const info = stmt.run(datos);
   return buscarPorId(info.lastInsertRowid);
 }
 
-function editar(id_producto, { id_categoria, nombre, unidad_medida, precio, umbral_alerta }) {
+function editar(id_producto, datos) {
   db.prepare(`
     UPDATE productos
     SET id_categoria = @id_categoria, nombre = @nombre, unidad_medida = @unidad_medida,
-        precio = @precio, umbral_alerta = @umbral_alerta
+        precio = @precio, umbral_alerta = @umbral_alerta, tasa_iva_bps = @tasa_iva_bps,
+        tasa_inc_bps = @tasa_inc_bps, es_bebida_alcoholica = @es_bebida_alcoholica
     WHERE id_producto = @id_producto
-  `).run({ id_producto, id_categoria, nombre, unidad_medida, precio, umbral_alerta });
+  `).run({ id_producto, ...datos });
   return buscarPorId(id_producto);
 }
 

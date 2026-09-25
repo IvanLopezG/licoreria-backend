@@ -67,6 +67,10 @@ y probadas, incluyendo las dos opcionales (US-14b, US-19). El descuento de
 inventario (US-16) quedó dentro de la misma transacción que crea la venta,
 tanto en la venta de mostrador como en el cierre de cuenta por mesa. No queda
 ninguna historia pendiente del Backlog Priorizado. Ver `README.md`.
+**Facturación (comprobante interno, sin DIAN): COMPLETA.** Cada venta emite su
+factura en la misma transacción (tablas `emisor`, `secuencias_factura`, `facturas`,
+`factura_items`; tasas IVA/INC por producto; PDF con pdfkit). Tarifas pendientes de
+validar con contador. Ver sección *Facturación* del `README.md`.
 
 ---
 

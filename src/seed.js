@@ -2,6 +2,7 @@ require("dotenv").config();
 const bcrypt = require("bcryptjs");
 const usuarioModel = require("./models/usuarioModel");
 const categoriaModel = require("./models/categoriaModel");
+const facturaService = require("./services/facturaService");
 
 const CATEGORIAS_INICIALES = ["Licor", "Paquetería"];
 for (const nombreCategoria of CATEGORIAS_INICIALES) {
@@ -10,6 +11,9 @@ for (const nombreCategoria of CATEGORIAS_INICIALES) {
   }
 }
 console.log(`Categorías iniciales verificadas: ${CATEGORIAS_INICIALES.join(", ")}`);
+
+facturaService.asegurarDatosIniciales();
+console.log("Emisor y secuencia de facturación verificados.");
 
 const nombre = process.env.ADMIN_NOMBRE || "Administrador";
 const usuario_login = process.env.ADMIN_LOGIN || "admin";

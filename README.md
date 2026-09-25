@@ -92,14 +92,48 @@ esquema (`schema.sql`) definido desde Sprint 1.
 | GET | `/api/mesas` | administrador, mesero, cajero | Lista mesas con su estado (`libre`/`ocupada`). |
 | GET | `/api/mesas/:id` | administrador, mesero, cajero | Detalle de una mesa. |
 | GET | `/api/mesas/:id/qr` | administrador, cajero | RF-10. Devuelve `{ url, qr_data_url }` (PNG en base64) para imprimir; `url` se arma con `BASE_URL` del `.env`. |
-| POST | `/api/mesas/:id/cerrar-cuenta` | administrador, cajero | RF-14. Consolida los pedidos abiertos de la mesa en una venta y libera la mesa (transacción). |
+| POST | `/api/mesas/:id/cerrar-cuenta` | administrador, cajero | RF-14. Consolida los pedidos abiertos de la mesa en una venta, libera la mesa y emite su factura (transacción). Cuerpo opcional: ver *Facturación*. Responde la venta con `factura`. |
 | GET | `/api/catalogo/:token` | público (sin login) | RF-11. Catálogo de la mesa identificada por su `codigo_qr_token`; solo productos con `stock_actual > 0`, sin exponer el stock exacto. |
 | POST | `/api/catalogo/:token/pedidos` | público (sin login) | RF-12. Autopedido del cliente (`items: [{ id_producto, cantidad }]`); asocia el pedido a la mesa del token y la marca `ocupada`. |
 | GET | `/api/pedidos` | administrador, mesero, cajero | RF-13. Panel de pedidos entrantes, filtrable por `?estado=` y `?id_mesa=`. |
 | PUT | `/api/pedidos/:id/entregado` | administrador, mesero, cajero | Marca un pedido como entregado. |
-| POST | `/api/ventas` | administrador, cajero | RF-15. Venta rápida sin mesa (`items: [{ id_producto, cantidad }]`); descuenta stock (RF-16) en la misma transacción. |
+| POST | `/api/ventas` | administrador, cajero | RF-15. Venta rápida sin mesa (`items: [{ id_producto, cantidad }]`); descuenta stock (RF-16) y emite la factura en la misma transacción. Acepta los mismos campos opcionales de facturación. |
 | GET | `/api/ventas` | administrador, cajero | RF-17. Reporte de ventas, filtrable por `?desde=`, `?hasta=`, `?tipo=` (mesa/mostrador); `?formato=csv` lo descarga como CSV (RF-19). |
 | GET | `/api/inventario/movimientos` | administrador, cajero | RF-09/RF-18. Historial filtrable por `?id_producto=`, `?desde=`, `?hasta=` y `?id_usuario=` (responsable); `?formato=csv` lo descarga como CSV (RF-19). |
+| GET | `/api/facturas` | administrador, cajero | Lista facturas, filtrable por `?desde=` y `?hasta=`. |
+| GET | `/api/facturas/:id` | administrador, cajero | Factura con sus `items`. |
+| GET | `/api/facturas/:id/pdf` | administrador, cajero | PDF imprimible (tirilla de 80 mm). |
+| GET | `/api/emisor` | administrador, cajero | Datos del negocio que salen en la factura. |
+| PUT | `/api/emisor` | administrador | Edita esos datos (parcial: los campos que no se envían se conservan). |
+
+## Facturación (comprobante interno de venta)
+
+Cada venta (cierre de mesa o mostrador) emite una factura en la **misma transacción**
+(`BEGIN IMMEDIATE`): si algo falla, se revierten la venta, el stock y el número de
+factura, así que la numeración no tiene saltos. No hay integración con la DIAN; el
+título del documento es configurable (`emisor.titulo_documento`, hoy "Comprobante de venta").
+
+- **Tablas:** `emisor` (una fila), `secuencias_factura` (consecutivo; `prefijo`, rango y
+  resolución quedan listos para la DIAN; solo una activa), `facturas` (copia de los datos
+  del emisor y del cliente, totales) y `factura_items` (nombre, precio y tasas copiados).
+- **Productos:** `tasa_iva_bps` (defecto 1900), `tasa_inc_bps` (defecto 0) y
+  `es_bebida_alcoholica`, en puntos básicos (1900 = 19 %). Si no se envían al editar, se conservan.
+  En una base existente, `db.js` agrega estas columnas al arrancar.
+- **Impuestos:** el precio ya incluye el impuesto y la base se despeja por línea.
+  `en_sitio` → INC con `tasa_inc_bps`; `para_llevar` → IVA con `tasa_iva_bps`; nunca ambos.
+  **Tarifas pendientes de confirmar con el contador.**
+- **Cuerpo opcional al cobrar** (si no se envía: efectivo, Consumidor Final y el tipo de
+  consumo según la venta — mesa → `en_sitio`, mostrador → `para_llevar`):
+  ```json
+  { "forma_pago": "efectivo|tarjeta_debito|tarjeta_credito|transferencia",
+    "tipo_consumo": "en_sitio|para_llevar",
+    "cliente": { "nombre": "Juan Pérez", "tipo_doc": "CC|NIT|CE|PP", "num_doc": "1098...", "dv": "solo NIT" } }
+  ```
+- **Datos iniciales:** `npm run seed` crea el emisor (desde `EMISOR_*` del `.env`, o con
+  marcadores para completar con `PUT /api/emisor`) y la secuencia interna.
+- **Paso a la DIAN:** insertar una secuencia nueva con `prefijo`, `rango_desde/hasta`,
+  `resolucion_numero/fecha` y `vigencia_hasta`, y desactivar la anterior. El PDF imprime la
+  resolución cuando existe; al agotarse el rango o vencer la vigencia, no se emite y la venta se revierte.
 
 ## Cómo se verificó cada criterio de aceptación del Backlog
 
