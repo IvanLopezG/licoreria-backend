@@ -11,8 +11,6 @@
   #filas .btn { margin: 0 4px 0 0; padding: 4px 10px; }
   #filas tr.anulada td { color: #999; text-decoration: line-through; }
   #filas tr.anulada td.acciones { text-decoration: none; }
-  #facturaEmitida { margin-top: 12px; padding: 10px 14px; background: #E3F5E9; border-left: 4px solid #1E7A42; border-radius: 4px; }
-  #facturaEmitida .btn { margin: 0 0 0 8px; padding: 4px 10px; }
   #errorVenta { color: var(--rojo); font-size: 13px; }
 </style>
 </head>
@@ -92,10 +90,6 @@
         <div id="camposFacturaVenta"></div>
         <p id="errorVenta" class="oculto"></p>
         <button type="button" class="btn btn-primario" id="botonConfirmarVenta" onclick="confirmarVenta()">Confirmar venta</button>
-        <div id="facturaEmitida" class="oculto">
-          <span id="facturaEmitidaTexto"></span>
-          <button type="button" class="btn" id="facturaEmitidaPdf">Ver PDF</button>
-        </div>
       </div>
 
       <div class="seccion">
@@ -221,7 +215,6 @@
       return;
     }
     errorVenta.classList.add("oculto");
-    document.getElementById("facturaEmitida").classList.add("oculto");
     const cuerpo = { items: lineas.map((l) => ({ id_producto: l.id_producto, cantidad: l.cantidad })), ...datos };
     document.getElementById("botonConfirmarVenta").disabled = true;
     const res = await fetch("/api/ventas", {
@@ -243,11 +236,8 @@
     lineas = [];
     renderLineas();
     Factura.limpiarCampos("venta");
-    const factura = data.factura;
-    document.getElementById("facturaEmitidaTexto").textContent =
-      `Venta registrada. Factura No. ${factura.numero_completo} — $${Number(factura.total).toFixed(2)}`;
-    document.getElementById("facturaEmitidaPdf").onclick = () => Factura.abrirPdf(factura.id_factura);
-    document.getElementById("facturaEmitida").classList.remove("oculto");
+    // Mismo modal que el cierre de mesa: el comprobante se descarga y se muestra solo.
+    if (data.factura) Factura.mostrarComprobante({ titulo: "Venta registrada", factura: data.factura });
     cargarVentas();
   }
 

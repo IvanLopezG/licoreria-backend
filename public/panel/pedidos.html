@@ -18,18 +18,17 @@
   .todos-entregados { color: #666; font-size: 13px; font-style: italic; margin: 4px 0; }
   #vacio { color: #666; margin-top: 20px; }
   #error { margin-top: 20px; padding: 10px 14px; background: #FBE4E4; color: var(--rojo); border-left: 4px solid var(--rojo); border-radius: 4px; font-size: 13px; }
-  #modalCierre, #modalFactura {
+  #modalCierre {
     position: fixed; top: 0; left: 0; width: 100%; height: 100%;
     background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center;
   }
-  #modalCierre.oculto, #modalFactura.oculto { display: none; }
+  #modalCierre.oculto { display: none; }
   #modalCierre .caja {
     background: white; padding: 24px; border-radius: 6px; width: min(420px, 92vw); max-height: 92vh; overflow-y: auto; text-align: center;
   }
   #camposFacturaCierre { text-align: left; margin-bottom: 12px; }
   #modalCierre .error-cierre { color: var(--rojo); font-size: 13px; }
-  #modalFactura .caja { background: white; padding: 24px; border-radius: 6px; width: min(360px, 92vw); text-align: center; }
-  #modalFactura .total, #modalCierre .total { font-size: 22px; font-weight: bold; margin: 12px 0; }
+  #modalCierre .total { font-size: 22px; font-weight: bold; margin: 12px 0; }
   #modalCierre .btn { margin: 4px; }
 </style>
 </head>
@@ -88,16 +87,6 @@
       <p id="modalCierreError" class="error-cierre oculto"></p>
       <button class="btn btn-peligro" id="botonConfirmarCierre" onclick="confirmarCierre()">Confirmar cierre</button>
       <button class="btn btn-secundario" onclick="cancelarCierre()">Cancelar</button>
-    </div>
-  </div>
-
-  <div id="modalFactura" class="oculto">
-    <div class="caja">
-      <p>Cuenta cerrada</p>
-      <p id="modalFacturaTexto"></p>
-      <p class="total" id="modalFacturaTotal"></p>
-      <button class="btn" id="botonVerPdf">Ver PDF</button>
-      <button class="btn btn-secundario" onclick="document.getElementById('modalFactura').classList.add('oculto')">Cerrar</button>
     </div>
   </div>
 
@@ -278,18 +267,13 @@
       mostrarError(data.error || "No se pudo cerrar la cuenta de la mesa.");
     } else {
       ocultarError();
-      mostrarFactura(data.factura);
+      // El comprobante se descarga y se muestra solo, sin clic en "Ver PDF".
+      if (data.factura) {
+        Factura.mostrarComprobante({ titulo: `Cuenta cerrada — Mesa ${data.mesa_numero ?? ""}`.trim(), factura: data.factura });
+      }
     }
     mesaPendienteCierre = null;
     cargarPedidos();
-  }
-
-  function mostrarFactura(factura) {
-    if (!factura) return;
-    document.getElementById("modalFacturaTexto").textContent = `Factura No. ${factura.numero_completo}`;
-    document.getElementById("modalFacturaTotal").textContent = `$${Number(factura.total).toFixed(2)}`;
-    document.getElementById("botonVerPdf").onclick = () => Factura.abrirPdf(factura.id_factura);
-    document.getElementById("modalFactura").classList.remove("oculto");
   }
 
   if (!token()) {

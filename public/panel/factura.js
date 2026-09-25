@@ -87,16 +87,107 @@ const Factura = (() => {
   // clic, para que el navegador no la bloquee como ventana emergente.
   async function abrirPdf(id_factura) {
     const pestana = window.open("", "_blank");
-    const res = await fetch(`/api/facturas/${id_factura}/pdf`, { headers: { Authorization: `Bearer ${token()}` } });
-    if (!res.ok) {
+    let url;
+    try {
+      url = await descargarPdf(id_factura);
+    } catch (err) {
       pestana?.close();
-      const data = await res.json().catch(() => ({}));
-      alert(data.error || "No se pudo abrir el PDF de la factura.");
+      alert(err.message);
       return;
     }
-    const url = URL.createObjectURL(await res.blob());
     if (pestana) pestana.location = url;
     else window.location = url;
+  }
+
+  // Descarga el PDF y devuelve una URL blob: (quien la use debe liberarla con
+  // URL.revokeObjectURL cuando ya no la necesite).
+  async function descargarPdf(id_factura) {
+    const res = await fetch(`/api/facturas/${id_factura}/pdf`, { headers: { Authorization: `Bearer ${token()}` } });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || "No se pudo descargar el PDF de la factura.");
+    }
+    const pdf = new Blob([await res.arrayBuffer()], { type: "application/pdf" });
+    return URL.createObjectURL(pdf);
+  }
+
+  const escapar = (texto) =>
+    String(texto).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+
+  // Modal que se abre al cobrar (cierre de mesa o venta de mostrador): número,
+  // total y el comprobante incrustado, que se descarga solo. Los navegadores de
+  // celular (Chrome Android, Safari iOS) no muestran PDF dentro de un iframe;
+  // para ellos queda el enlace "Abrir en pestaña nueva".
+  function mostrarComprobante({ titulo, factura }) {
+    const fondo = document.createElement("div");
+    fondo.className = "modal-comprobante";
+    fondo.style.cssText =
+      "position:fixed; inset:0; background:rgba(0,0,0,0.4); display:flex; align-items:center; justify-content:center; z-index:10;";
+    fondo.innerHTML = `
+      <div style="background:white; padding:20px; border-radius:6px; width:min(480px, 94vw); max-height:96vh; box-sizing:border-box; display:flex; flex-direction:column; gap:10px;">
+        <h2 style="margin:0; font-size:18px;">${escapar(titulo)}</h2>
+        <p style="margin:0;">Factura No. <strong>${escapar(factura.numero_completo)}</strong> — <strong>$${Number(factura.total).toFixed(2)}</strong></p>
+        <div data-visor style="height:min(75vh, 700px); border:1px solid #ddd; border-radius:4px; background:#f4f4f4; display:flex; align-items:center; justify-content:center;">
+          <p data-estado style="margin:0; color:#555;">Cargando comprobante…</p>
+        </div>
+        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+          <a data-abrir class="oculto" target="_blank" rel="noopener" style="margin-right:auto;">Abrir en pestaña nueva</a>
+          <button type="button" class="btn oculto" data-reintentar>Reintentar</button>
+          <button type="button" class="btn btn-secundario" data-cerrar style="margin-left:auto;">Cerrar</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(fondo);
+
+    const visor = fondo.querySelector("[data-visor]");
+    const estado = fondo.querySelector("[data-estado]");
+    const abrir = fondo.querySelector("[data-abrir]");
+    const reintentar = fondo.querySelector("[data-reintentar]");
+    let url = null;
+    let cerrado = false;
+
+    function cerrar() {
+      cerrado = true;
+      if (url) URL.revokeObjectURL(url);
+      document.removeEventListener("keydown", conEscape);
+      fondo.remove();
+    }
+    function conEscape(e) {
+      if (e.key === "Escape") cerrar();
+    }
+
+    async function cargar() {
+      reintentar.classList.add("oculto");
+      estado.style.color = "#555";
+      estado.textContent = "Cargando comprobante…";
+      try {
+        url = await descargarPdf(factura.id_factura);
+      } catch (err) {
+        if (cerrado) return;
+        estado.style.color = "var(--rojo)";
+        estado.textContent = err.message;
+        reintentar.classList.remove("oculto");
+        return;
+      }
+      // Si el usuario cerró el modal mientras descargaba, se libera y no se pinta.
+      if (cerrado) {
+        URL.revokeObjectURL(url);
+        return;
+      }
+      visor.innerHTML = "";
+      const iframe = document.createElement("iframe");
+      iframe.src = url;
+      iframe.title = `Comprobante ${factura.numero_completo}`;
+      iframe.style.cssText = "width:100%; height:100%; border:0;";
+      visor.appendChild(iframe);
+      abrir.href = url;
+      abrir.classList.remove("oculto");
+    }
+
+    fondo.querySelector("[data-cerrar]").onclick = cerrar;
+    reintentar.onclick = cargar;
+    document.addEventListener("keydown", conEscape);
+    cargar();
   }
 
   // Modal de anulación (solo administrador). "esMesa" habilita la opción de
@@ -153,5 +244,5 @@ const Factura = (() => {
     };
   }
 
-  return { pintarCampos, leerCampos, limpiarCampos, abrirPdf, pedirAnulacion, esAdmin };
+  return { pintarCampos, leerCampos, limpiarCampos, abrirPdf, mostrarComprobante, pedirAnulacion, esAdmin };
 })();
