@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Licorería — Datos del negocio</title>
+<link rel="stylesheet" href="panel.css">
+<script src="menu.js" defer></script>
+<style>
+  .aviso-negocio { font-size: 14px; color: #555; margin: 0 0 12px; }
+  #formNegocio { max-width: 720px; }
+  #formNegocio textarea { width: 100%; box-sizing: border-box; font: inherit; padding: 8px; }
+  .ayuda { font-size: 12px; color: #666; margin: 4px 0 0; }
+  .aviso-rojo { color: var(--rojo); font-size: 13px; margin: 4px 0 0; }
+  .aviso-rojo.activo { font-weight: bold; }
+  .guardado { color: #1E7A42; font-size: 13px; }
+  #dv { background: #f2f2f2; }
+</style>
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="sidebar-marca">Licorería</div>
+    <nav class="sidebar-nav">
+      <a href="login.html" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 24 24"><path d="M12 4h6a1 1 0 0 1 1 1v14a1 1 0 0 1 -1 1h-6" /><path d="M3 12h13" /><path d="M13 15l3 -3l-3 -3" /></svg>
+        <span>Login</span>
+      </a>
+      <a href="mesas.html" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 24 24"><rect x="4" y="4" width="6" height="6" rx="1" /><rect x="14" y="4" width="6" height="6" rx="1" /><rect x="4" y="14" width="6" height="6" rx="1" /><rect x="14" y="14" width="6" height="6" rx="1" /></svg>
+        <span>Mesas</span>
+      </a>
+      <a href="pedidos.html" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 24 24"><path d="M4 8l2 -4h12l2 4" /><path d="M4 8h4l2 3h4l2 -3h4" /><path d="M4 8v9a1 1 0 0 0 1 1h14a1 1 0 0 0 1 -1v-9" /></svg>
+        <span>Pedidos entrantes</span>
+      </a>
+      <a href="productos.html" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 24 24"><path d="M12 3l8 4.5v9l-8 4.5l-8 -4.5v-9z" /><path d="M12 12l8 -4.5" /><path d="M12 12v9" /><path d="M12 12l-8 -4.5" /></svg>
+        <span>Productos</span>
+      </a>
+      <a href="proveedores.html" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 24 24"><rect x="3" y="9" width="10" height="7" rx="1" /><path d="M13 12h4l3 3v1h-7z" /><circle cx="7" cy="17.5" r="1.5" /><circle cx="17" cy="17.5" r="1.5" /></svg>
+        <span>Proveedores</span>
+      </a>
+      <a href="inventario.html" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 24 24"><rect x="6" y="4" width="12" height="16" rx="2" /><path d="M9 4a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v1a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z" /><path d="M9 11h6" /><path d="M9 15h6" /></svg>
+        <span>Inventario</span>
+      </a>
+      <a href="ventas.html" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 24 24"><path d="M5 3h14v18l-3 -2l-2 2l-2 -2l-2 2l-2 -2l-3 2z" /><path d="M8 8h8" /><path d="M8 12h8" /></svg>
+        <span>Ventas</span>
+      </a>
+      <a href="negocio.html" class="nav-item solo-admin activo">
+        <svg class="nav-icon" viewBox="0 0 24 24"><path d="M3 21h18" /><path d="M5 21v-12l7 -5l7 5v12" /><path d="M9 21v-6h6v6" /></svg>
+        <span>Datos del negocio</span>
+      </a>
+    </nav>
+  </aside>
+
+  <main class="contenido-principal">
+    <h1>Datos del negocio</h1>
+    <div id="contenido">
+      <p class="aviso-negocio">
+        Estos datos salen en el encabezado y el pie de cada factura. Los cambios aplican a las facturas
+        nuevas; las ya emitidas conservan los datos con que salieron.
+      </p>
+
+      <form id="formNegocio" class="seccion" onsubmit="return guardar(event)">
+        <label>Razón social
+          <input id="razon_social" required>
+        </label>
+        <div class="fila-form">
+          <label>NIT (sin DV)
+            <input id="nit" inputmode="numeric" required oninput="actualizarDv()">
+          </label>
+          <label style="max-width:90px; min-width:70px;">DV
+            <input id="dv" readonly tabindex="-1" title="Se calcula a partir del NIT">
+          </label>
+        </div>
+        <p class="ayuda">El dígito de verificación se calcula solo a partir del NIT.</p>
+        <label>Dirección
+          <input id="direccion" required>
+        </label>
+        <div class="fila-form">
+          <label>Municipio
+            <input id="municipio" required>
+          </label>
+          <label>Departamento
+            <input id="departamento" required>
+          </label>
+          <label>Teléfono (opcional)
+            <input id="telefono">
+          </label>
+        </div>
+        <label>Régimen tributario
+          <input id="regimen" required>
+        </label>
+        <label>Título del documento
+          <select id="titulo_documento" onchange="actualizarAvisoTitulo()">
+            <option value="Comprobante de venta">Comprobante de venta</option>
+            <option value="FACTURA DE VENTA">FACTURA DE VENTA</option>
+          </select>
+        </label>
+        <p id="avisoTitulo" class="aviso-rojo">
+          Usa FACTURA DE VENTA solo cuando tengas resolución de facturación de la DIAN.
+        </p>
+        <label>Leyenda de pie de página
+          <textarea id="leyenda_pie" rows="3" required></textarea>
+        </label>
+        <p id="errorNegocio" class="aviso-rojo oculto"></p>
+        <p id="okNegocio" class="guardado oculto">Datos guardados.</p>
+        <button type="submit" class="btn btn-primario" id="btnGuardar">Guardar</button>
+      </form>
+    </div>
+  </main>
+
+<script>
+  const CAMPOS = ["razon_social", "nit", "direccion", "municipio", "departamento", "telefono", "regimen", "titulo_documento", "leyenda_pie"];
+  const token = () => localStorage.getItem("token");
+  const el = (id) => document.getElementById(id);
+
+  function esAdmin() {
+    try {
+      return JSON.parse(localStorage.getItem("usuario") || "null")?.rol === "administrador";
+    } catch {
+      return false;
+    }
+  }
+
+  // DV del NIT, algoritmo de la DIAN (módulo 11); el mismo que usa el backend
+  // (src/utils/nit.js), que es quien lo guarda. Aquí solo se muestra.
+  const PESOS = [3, 7, 13, 17, 19, 23, 29, 37, 41, 43, 47, 53, 59, 67, 71];
+  function calcularDv(nit) {
+    const suma = nit.split("").reverse().reduce((acc, d, i) => acc + Number(d) * PESOS[i], 0);
+    const residuo = suma % 11;
+    return String(residuo > 1 ? 11 - residuo : residuo);
+  }
+  function actualizarDv() {
+    const nit = el("nit").value.replace(/[.\s-]/g, "");
+    el("dv").value = /^\d{5,15}$/.test(nit) ? calcularDv(nit) : "";
+  }
+
+  function actualizarAvisoTitulo() {
+    // La advertencia se resalta cuando está elegido FACTURA DE VENTA.
+    el("avisoTitulo").classList.toggle("activo", el("titulo_documento").value === "FACTURA DE VENTA");
+  }
+
+  function mostrarError(mensaje) {
+    el("okNegocio").classList.add("oculto");
+    el("errorNegocio").textContent = mensaje;
+    el("errorNegocio").classList.remove("oculto");
+  }
+
+  async function cargar() {
+    const res = await fetch("/api/emisor", { headers: { Authorization: `Bearer ${token()}` } });
+    const emisor = await res.json();
+    if (!res.ok) {
+      mostrarError(emisor.error || "No se pudieron cargar los datos del negocio.");
+      return;
+    }
+    for (const campo of CAMPOS) el(campo).value = emisor[campo] ?? "";
+    actualizarDv();
+    actualizarAvisoTitulo();
+  }
+
+  async function guardar(evento) {
+    evento.preventDefault();
+    const nit = el("nit").value.replace(/[.\s-]/g, "");
+    if (!/^\d{5,15}$/.test(nit)) {
+      mostrarError("El NIT debe tener entre 5 y 15 dígitos (sin el DV).");
+      return false;
+    }
+    const cuerpo = {};
+    for (const campo of CAMPOS) cuerpo[campo] = el(campo).value.trim();
+    cuerpo.nit = nit;
+    // El DV no se envía: lo calcula el servidor.
+    el("btnGuardar").disabled = true;
+    const res = await fetch("/api/emisor", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token()}` },
+      body: JSON.stringify(cuerpo),
+    });
+    el("btnGuardar").disabled = false;
+    const data = await res.json();
+    if (!res.ok) {
+      mostrarError(data.error || "No se pudieron guardar los datos.");
+      return false;
+    }
+    for (const campo of CAMPOS) el(campo).value = data[campo] ?? "";
+    actualizarDv();
+    el("errorNegocio").classList.add("oculto");
+    el("okNegocio").classList.remove("oculto");
+    return false;
+  }
+
+  if (!token()) {
+    document.body.innerHTML = "<p>Debes iniciar sesión primero en <a href='login.html'>login.html</a>.</p>";
+  } else if (!esAdmin()) {
+    el("contenido").innerHTML =
+      '<p class="error-permiso">Solo el administrador puede editar los datos del negocio.</p>';
+  } else {
+    cargar();
+  }
+</script>
+</body>
+</html>
