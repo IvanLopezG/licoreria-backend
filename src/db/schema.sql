@@ -60,7 +60,9 @@ CREATE TABLE IF NOT EXISTS ventas (
   id_mesa         INTEGER REFERENCES mesas(id_mesa),
   id_usuario      INTEGER NOT NULL REFERENCES usuarios(id_usuario),
   total           REAL NOT NULL DEFAULT 0,
-  fecha_hora      TEXT NOT NULL DEFAULT (datetime('now'))
+  fecha_hora      TEXT NOT NULL DEFAULT (datetime('now')),
+  -- Una venta anulada (vía su factura) no se borra; los reportes la excluyen.
+  estado          TEXT NOT NULL DEFAULT 'activa' CHECK (estado IN ('activa','anulada'))
 );
 
 CREATE TABLE IF NOT EXISTS pedidos (
@@ -178,6 +180,9 @@ CREATE TABLE IF NOT EXISTS facturas (
   total_impuestos      INTEGER NOT NULL,
   total                INTEGER NOT NULL,
   estado               TEXT NOT NULL DEFAULT 'emitida' CHECK (estado IN ('emitida','anulada')),
+  motivo_anulacion     TEXT,
+  fecha_anulacion      TEXT,
+  id_usuario_anulacion INTEGER REFERENCES usuarios(id_usuario),
   UNIQUE (id_secuencia, numero)
 );
 

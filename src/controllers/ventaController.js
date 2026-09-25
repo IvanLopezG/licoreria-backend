@@ -7,6 +7,8 @@ const COLUMNAS_CSV = [
   { titulo: "mesa_numero", campo: "mesa_numero" },
   { titulo: "usuario", campo: "usuario_nombre" },
   { titulo: "total", campo: "total" },
+  { titulo: "estado", campo: "estado" },
+  { titulo: "factura", campo: "numero_factura" },
   { titulo: "fecha_hora", campo: "fecha_hora" },
 ];
 
@@ -26,7 +28,8 @@ function crearMostrador(req, res) {
 // US-19 (opcional): ?formato=csv reutiliza el mismo filtro que el JSON normal.
 function listar(req, res) {
   const { desde, hasta, tipo, formato } = req.query;
-  const ventas = ventaService.listarVentas({ desde, hasta, tipo });
+  const incluir_anuladas = req.query.incluir_anuladas === "true";
+  const ventas = ventaService.listarVentas({ desde, hasta, tipo, incluir_anuladas });
 
   if (formato === "csv") {
     res.setHeader("Content-Type", "text/csv; charset=utf-8");

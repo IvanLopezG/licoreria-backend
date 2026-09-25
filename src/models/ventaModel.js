@@ -153,15 +153,19 @@ function buscarPorId(id_venta) {
 }
 
 // RF-17: filtra por rango de fechas y por tipo (mesa/mostrador).
-function listar({ desde, hasta, tipo } = {}) {
+function listar({ desde, hasta, tipo, incluir_anuladas } = {}) {
   let query = `
-    SELECT v.*, u.nombre AS usuario_nombre, m.numero AS mesa_numero
+    SELECT v.*, u.nombre AS usuario_nombre, m.numero AS mesa_numero,
+           f.id_factura, f.numero_completo AS numero_factura
     FROM ventas v
     JOIN usuarios u ON u.id_usuario = v.id_usuario
     LEFT JOIN mesas m ON m.id_mesa = v.id_mesa
+    LEFT JOIN facturas f ON f.id_venta = v.id_venta
     WHERE 1 = 1
   `;
   const params = {};
+  // Las anuladas no suman en los reportes salvo que se pidan explícitamente.
+  if (!incluir_anuladas) query += " AND v.estado = 'activa'";
   if (desde) {
     query += " AND date(v.fecha_hora) >= date(@desde)";
     params.desde = desde;

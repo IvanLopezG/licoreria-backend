@@ -54,8 +54,8 @@ function crearVentaMostrador(body, id_usuario) {
   return ventaModel.crearVentaMostrador({ items: lineas, id_usuario, datosFactura });
 }
 
-function listarVentas({ desde, hasta, tipo }) {
-  return ventaModel.listar({ desde, hasta, tipo });
+function listarVentas({ desde, hasta, tipo, incluir_anuladas }) {
+  return ventaModel.listar({ desde, hasta, tipo, incluir_anuladas });
 }
 
 module.exports = { cerrarCuentaMesa, crearVentaMostrador, listarVentas };

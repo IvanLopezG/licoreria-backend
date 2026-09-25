@@ -89,6 +89,8 @@ function dibujar(doc, f) {
   if (f.estado === "anulada") {
     doc.moveDown(0.3);
     doc.font("Helvetica-Bold").fontSize(11).text("ANULADA", centrado);
+    doc.font("Helvetica").fontSize(8).text(`Motivo: ${f.motivo_anulacion}`, centrado);
+    if (f.fecha_anulacion) doc.text(`Anulada el ${fechaLocal(f.fecha_anulacion)}`, centrado);
   }
 
   separador();

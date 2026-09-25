@@ -1,5 +1,6 @@
 const db = require("../db/db");
 const emisorModel = require("./emisorModel");
+const movimientoInventarioModel = require("./movimientoInventarioModel");
 const { calcularLinea, totalizar } = require("../utils/impuestos");
 
 // Las líneas de la venta, consolidadas por producto y precio: al cerrar una
@@ -136,11 +137,12 @@ function emitir({ id_venta, id_mesa, id_usuario, tipo_consumo, forma_pago, clien
 }
 
 const SELECT_FACTURA = `
-  SELECT f.*, u.nombre AS usuario_nombre, m.numero AS mesa_numero,
+  SELECT f.*, u.nombre AS usuario_nombre, m.numero AS mesa_numero, ua.nombre AS usuario_anulacion_nombre,
          s.prefijo, s.rango_desde, s.rango_hasta, s.resolucion_numero, s.resolucion_fecha
   FROM facturas f
   JOIN usuarios u ON u.id_usuario = f.id_usuario
   JOIN secuencias_factura s ON s.id_secuencia = f.id_secuencia
+  LEFT JOIN usuarios ua ON ua.id_usuario = f.id_usuario_anulacion
   LEFT JOIN mesas m ON m.id_mesa = f.id_mesa
 `;
 
@@ -171,10 +173,80 @@ function listar({ desde, hasta } = {}) {
   return db.prepare(query).all(params);
 }
 
+// Mismo helper que ventaModel (BEGIN IMMEDIATE): la anulación toca factura,
+// venta, stock, pedidos y mesa, y debe aplicarse completa o no aplicarse.
+function conTransaccion(fn) {
+  db.exec("BEGIN IMMEDIATE");
+  try {
+    const resultado = fn();
+    db.exec("COMMIT");
+    return resultado;
+  } catch (err) {
+    db.exec("ROLLBACK");
+    throw err;
+  }
+}
+
+function errorConEstado(mensaje, status) {
+  const err = new Error(mensaje);
+  err.status = status;
+  return err;
+}
+
+// Anula la factura y revierte su venta: devuelve el stock (entradas con motivo
+// "anulacion") y marca la venta como anulada. El número de factura no se
+// reutiliza ni se descuenta del consecutivo.
+// Con reabrir_pedidos (solo ventas de mesa), los pedidos vuelven a quedar
+// abiertos y la mesa ocupada, para cobrarlos otra vez con una factura nueva y
+// el mismo tratamiento tributario (consumo en el sitio).
+function anular({ id_factura, id_usuario, motivo, reabrir_pedidos }) {
+  return conTransaccion(() => {
+    const factura = db.prepare("SELECT * FROM facturas WHERE id_factura = ?").get(id_factura);
+    if (!factura) throw errorConEstado("Factura no encontrada.", 404);
+    if (factura.estado === "anulada") throw errorConEstado("La factura ya está anulada.", 409);
+
+    const venta = db.prepare("SELECT * FROM ventas WHERE id_venta = ?").get(factura.id_venta);
+
+    if (reabrir_pedidos) {
+      if (venta.tipo !== "mesa") {
+        throw errorConEstado("Solo se pueden reabrir pedidos de una venta de mesa.", 400);
+      }
+      const abiertos = db
+        .prepare("SELECT COUNT(*) AS n FROM pedidos WHERE id_mesa = ? AND id_venta IS NULL")
+        .get(venta.id_mesa).n;
+      if (abiertos > 0) {
+        throw errorConEstado(
+          "La mesa ya tiene pedidos abiertos de otro cliente. Cierre esa cuenta antes de reabrir estos pedidos.",
+          409
+        );
+      }
+    }
+
+    db.prepare(`
+      UPDATE facturas
+      SET estado = 'anulada', motivo_anulacion = ?, fecha_anulacion = datetime('now'), id_usuario_anulacion = ?
+      WHERE id_factura = ?
+    `).run(motivo, id_usuario, id_factura);
+    db.prepare("UPDATE ventas SET estado = 'anulada' WHERE id_venta = ?").run(venta.id_venta);
+
+    const lineas = db.prepare("SELECT id_producto, cantidad FROM venta_detalle WHERE id_venta = ?").all(venta.id_venta);
+    for (const linea of lineas) {
+      movimientoInventarioModel.devolverPorAnulacion({ ...linea, id_venta: venta.id_venta, id_usuario });
+    }
+
+    if (reabrir_pedidos) {
+      db.prepare("UPDATE pedidos SET id_venta = NULL WHERE id_venta = ?").run(venta.id_venta);
+      db.prepare("UPDATE mesas SET estado = 'ocupada' WHERE id_mesa = ?").run(venta.id_mesa);
+    }
+
+    return buscarPorId(id_factura);
+  });
+}
+
 function asegurarSecuenciaInicial() {
   if (!stmtSecuenciaActiva.get()) {
     db.prepare("INSERT INTO secuencias_factura (prefijo, numero_actual, rango_desde) VALUES (NULL, 0, 1)").run();
   }
 }
 
-module.exports = { emitir, buscarPorId, buscarPorVenta, listar, asegurarSecuenciaInicial };
+module.exports = { emitir, anular, buscarPorId, buscarPorVenta, listar, asegurarSecuenciaInicial };

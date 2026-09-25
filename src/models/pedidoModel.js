@@ -94,12 +94,19 @@ function marcarEntregado(id_pedido) {
 }
 
 const stmtBorrarDetalle = db.prepare("DELETE FROM pedido_detalle WHERE id_pedido = ?");
+// Un pedido reabierto por anulación de factura sigue referenciado desde las
+// líneas de la venta anulada; se suelta esa referencia para poder borrarlo.
+const stmtSoltarDeVentas = db.prepare(`
+  UPDATE venta_detalle SET id_pedido_detalle = NULL
+  WHERE id_pedido_detalle IN (SELECT id_pedido_detalle FROM pedido_detalle WHERE id_pedido = ?)
+`);
 const stmtBorrarPedido = db.prepare("DELETE FROM pedidos WHERE id_pedido = ?");
 
 // No hay ON DELETE CASCADE en el esquema: se borra el detalle antes que el
 // pedido, en la misma transacción, para no dejar líneas huérfanas.
 function cancelar(id_pedido) {
   return conTransaccion(() => {
+    stmtSoltarDeVentas.run(id_pedido);
     stmtBorrarDetalle.run(id_pedido);
     stmtBorrarPedido.run(id_pedido);
   });

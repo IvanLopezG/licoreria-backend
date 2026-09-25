@@ -112,4 +112,12 @@ function descontarPorVenta({ id_producto, cantidad, id_venta, id_usuario }) {
   return _registrar({ id_producto, tipo: "salida", motivo: "venta", cantidad, id_proveedor: null, id_venta, id_usuario });
 }
 
-module.exports = { registrarEntrada, registrarSalida, listar, descontarPorVenta };
+// Anulación de factura: devuelve al stock lo que la venta descontó, como una
+// entrada con motivo "anulacion" ligada a la venta (queda en el Kardex).
+// Igual que descontarPorVenta, participa de la transacción de quien llama.
+function devolverPorAnulacion({ id_producto, cantidad, id_venta, id_usuario }) {
+  productoModel.ajustarStock(id_producto, cantidad);
+  return _registrar({ id_producto, tipo: "entrada", motivo: "anulacion", cantidad, id_proveedor: null, id_venta, id_usuario });
+}
+
+module.exports = { registrarEntrada, registrarSalida, listar, descontarPorVenta, devolverPorAnulacion };

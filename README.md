@@ -98,11 +98,12 @@ esquema (`schema.sql`) definido desde Sprint 1.
 | GET | `/api/pedidos` | administrador, mesero, cajero | RF-13. Panel de pedidos entrantes, filtrable por `?estado=` y `?id_mesa=`. |
 | PUT | `/api/pedidos/:id/entregado` | administrador, mesero, cajero | Marca un pedido como entregado. |
 | POST | `/api/ventas` | administrador, cajero | RF-15. Venta rápida sin mesa (`items: [{ id_producto, cantidad }]`); descuenta stock (RF-16) y emite la factura en la misma transacción. Acepta los mismos campos opcionales de facturación. |
-| GET | `/api/ventas` | administrador, cajero | RF-17. Reporte de ventas, filtrable por `?desde=`, `?hasta=`, `?tipo=` (mesa/mostrador); `?formato=csv` lo descarga como CSV (RF-19). |
+| GET | `/api/ventas` | administrador, cajero | RF-17. Reporte de ventas, filtrable por `?desde=`, `?hasta=`, `?tipo=` (mesa/mostrador); `?formato=csv` lo descarga como CSV (RF-19). Excluye las ventas anuladas salvo `?incluir_anuladas=true`; cada venta trae `estado`, `id_factura` y `numero_factura`. |
 | GET | `/api/inventario/movimientos` | administrador, cajero | RF-09/RF-18. Historial filtrable por `?id_producto=`, `?desde=`, `?hasta=` y `?id_usuario=` (responsable); `?formato=csv` lo descarga como CSV (RF-19). |
 | GET | `/api/facturas` | administrador, cajero | Lista facturas, filtrable por `?desde=` y `?hasta=`. |
 | GET | `/api/facturas/:id` | administrador, cajero | Factura con sus `items`. |
 | GET | `/api/facturas/:id/pdf` | administrador, cajero | PDF imprimible (tirilla de 80 mm). |
+| POST | `/api/facturas/:id/anular` | administrador | Anula la factura y revierte su venta. Body: `{ motivo, reabrir_pedidos? }`. Ver *Anulación*. |
 | GET | `/api/emisor` | administrador, cajero | Datos del negocio que salen en la factura. |
 | PUT | `/api/emisor` | administrador | Edita esos datos (parcial: los campos que no se envían se conservan). |
 
@@ -134,6 +135,18 @@ título del documento es configurable (`emisor.titulo_documento`, hoy "Comproban
 - **Paso a la DIAN:** insertar una secuencia nueva con `prefijo`, `rango_desde/hasta`,
   `resolucion_numero/fecha` y `vigencia_hasta`, y desactivar la anterior. El PDF imprime la
   resolución cuando existe; al agotarse el rango o vencer la vigencia, no se emite y la venta se revierte.
+
+### Anulación
+
+`POST /api/facturas/:id/anular` (**solo administrador**: quien cobra no puede revertir sus propios cobros).
+En una transacción: la factura pasa a `anulada` (con `motivo_anulacion`, obligatorio de al menos 10
+caracteres, `fecha_anulacion` e `id_usuario_anulacion`), la venta pasa a `anulada` y el stock vuelve
+como entradas con motivo `anulacion` en el Kardex. El número anulado **no** se reutiliza.
+
+Con `reabrir_pedidos: true` (solo ventas de mesa), los pedidos vuelven a quedar abiertos y la mesa
+`ocupada`, para volver a cobrarlos con los datos correctos y el mismo tratamiento tributario (en el
+sitio, INC). Si la mesa ya tiene pedidos abiertos de otro cliente responde `409` y no cambia nada.
+Una factura ya anulada responde `409`.
 
 ## Cómo se verificó cada criterio de aceptación del Backlog
 

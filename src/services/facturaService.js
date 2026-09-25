@@ -73,6 +73,19 @@ function obtenerFactura(id_factura) {
   return factura;
 }
 
+const MOTIVO_MINIMO = 10;
+
+function anularFactura(id_factura, { motivo, reabrir_pedidos } = {}, id_usuario) {
+  const limpio = texto(motivo);
+  if (!limpio || limpio.length < MOTIVO_MINIMO) {
+    throw errorValidacion(`El motivo de anulación es obligatorio (mínimo ${MOTIVO_MINIMO} caracteres).`);
+  }
+  if (reabrir_pedidos !== undefined && typeof reabrir_pedidos !== "boolean") {
+    throw errorValidacion("reabrir_pedidos debe ser true o false.");
+  }
+  return facturaModel.anular({ id_factura, id_usuario, motivo: limpio, reabrir_pedidos: reabrir_pedidos === true });
+}
+
 function obtenerEmisor() {
   return emisorModel.obtener();
 }
@@ -120,6 +133,7 @@ module.exports = {
   validarDatosFactura,
   listarFacturas,
   obtenerFactura,
+  anularFactura,
   obtenerEmisor,
   editarEmisor,
   asegurarDatosIniciales,

@@ -29,6 +29,19 @@ async function pdf(req, res) {
   }
 }
 
+function anular(req, res) {
+  try {
+    const factura = facturaService.anularFactura(Number(req.params.id), req.body || {}, req.usuario.id_usuario);
+
+    // El middleware de auditoría escribe el registro al ver este campo.
+    req.auditoria = { accion: "editar", entidad: "facturas", id_entidad: factura.id_factura };
+
+    return res.json(factura);
+  } catch (err) {
+    return res.status(err.status || 400).json({ error: err.message });
+  }
+}
+
 function obtenerEmisor(req, res) {
   return res.json(facturaService.obtenerEmisor());
 }
@@ -46,4 +59,4 @@ function editarEmisor(req, res) {
   }
 }
 
-module.exports = { listar, obtener, pdf, obtenerEmisor, editarEmisor };
+module.exports = { listar, obtener, pdf, anular, obtenerEmisor, editarEmisor };
