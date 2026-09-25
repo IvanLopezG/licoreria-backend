@@ -105,7 +105,7 @@ esquema (`schema.sql`) definido desde Sprint 1.
 | GET | `/api/facturas/:id/pdf` | administrador, cajero | PDF imprimible (tirilla de 80 mm). |
 | POST | `/api/facturas/:id/anular` | administrador | Anula la factura y revierte su venta. Body: `{ motivo, reabrir_pedidos? }`. Ver *Anulación*. |
 | GET | `/api/emisor` | administrador, cajero | Datos del negocio que salen en la factura. |
-| PUT | `/api/emisor` | administrador | Edita esos datos (parcial: los campos que no se envían se conservan). |
+| PUT | `/api/emisor` | administrador | Edita esos datos (parcial: los campos que no se envían se conservan). El `dv` lo calcula el servidor a partir del `nit` (algoritmo DIAN, módulo 11); un `dv` distinto responde 400. `titulo_documento`: "Comprobante de venta" o "FACTURA DE VENTA" (esta última solo con resolución DIAN). |
 
 ## Facturación (comprobante interno de venta)
 

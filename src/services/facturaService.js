@@ -1,6 +1,7 @@
 const facturaModel = require("../models/facturaModel");
 const emisorModel = require("../models/emisorModel");
 const { TIPOS_CONSUMO } = require("../utils/impuestos");
+const { normalizarNit, esNitValido, calcularDv } = require("../utils/nit");
 
 const FORMAS_PAGO = ["efectivo", "tarjeta_debito", "tarjeta_credito", "transferencia"];
 const TIPOS_DOC = ["CC", "NIT", "CE", "PP"];
@@ -90,6 +91,9 @@ function obtenerEmisor() {
   return emisorModel.obtener();
 }
 
+// "FACTURA DE VENTA" solo debe usarse con resolución de facturación de la DIAN.
+const TITULOS_DOCUMENTO = ["Comprobante de venta", "FACTURA DE VENTA"];
+
 const OBLIGATORIOS_EMISOR = ["razon_social", "nit", "dv", "direccion", "municipio", "departamento", "regimen", "titulo_documento", "leyenda_pie"];
 
 // Edición parcial: los campos que no llegan conservan su valor actual.
@@ -99,9 +103,25 @@ function editarEmisor(body) {
   for (const campo of emisorModel.CAMPOS) {
     datos[campo] = body[campo] === undefined ? actual[campo] : texto(body[campo]);
   }
-  const faltantes = OBLIGATORIOS_EMISOR.filter((c) => !datos[c]);
+  const faltantes = OBLIGATORIOS_EMISOR.filter((c) => !datos[c] && c !== "dv");
   if (faltantes.length > 0) {
     throw errorValidacion(`Campos obligatorios vacíos: ${faltantes.join(", ")}.`);
+  }
+
+  // El DV nunca se toma del cliente: se calcula del NIT. Si llega uno distinto,
+  // se rechaza en vez de ignorarlo, para no ocultar un NIT mal digitado.
+  datos.nit = normalizarNit(datos.nit);
+  if (!esNitValido(datos.nit)) {
+    throw errorValidacion("El NIT debe tener entre 5 y 15 dígitos (sin el DV).");
+  }
+  const dv = calcularDv(datos.nit);
+  if (body.dv !== undefined && body.dv !== null && String(body.dv).trim() !== "" && String(body.dv).trim() !== dv) {
+    throw errorValidacion(`El DV no corresponde a este NIT (el correcto es ${dv}).`);
+  }
+  datos.dv = dv;
+
+  if (!TITULOS_DOCUMENTO.includes(datos.titulo_documento)) {
+    throw errorValidacion(`titulo_documento debe ser: ${TITULOS_DOCUMENTO.join(" o ")}.`);
   }
   return emisorModel.editar(datos);
 }
@@ -111,10 +131,11 @@ function editarEmisor(body) {
 function asegurarDatosIniciales() {
   if (!emisorModel.obtener()) {
     const env = process.env;
+    const nit = normalizarNit(env.EMISOR_NIT) || "000000000";
     emisorModel.crear({
       razon_social: env.EMISOR_RAZON_SOCIAL || "(Configurar razón social)",
-      nit: env.EMISOR_NIT || "000000000",
-      dv: env.EMISOR_DV || "0",
+      nit,
+      dv: calcularDv(nit),
       direccion: env.EMISOR_DIRECCION || "(Configurar dirección)",
       municipio: "Floridablanca",
       departamento: "Santander",
