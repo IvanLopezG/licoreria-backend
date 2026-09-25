@@ -60,13 +60,26 @@
         <label>Precio
           <input id="precio" type="number" min="0.01" step="0.01" required>
         </label>
-        <label id="labelStock">Stock inicial
+        <label><span id="labelStock">Stock inicial</span>
           <input id="stock_actual" type="number" min="0" step="1" value="0">
         </label>
         <label>Umbral de alerta
           <input id="umbral_alerta" type="number" min="0" step="1" value="0">
         </label>
       </div>
+      <!-- Tasas en porcentaje; el backend las guarda en puntos básicos (19 % = 1900). El precio ya las incluye. -->
+      <div class="fila-form">
+        <label>IVA % (venta para llevar)
+          <input id="iva_porcentaje" type="number" min="0" max="100" step="0.01" value="19" required>
+        </label>
+        <label>Impuesto al consumo % (consumo en mesa)
+          <input id="inc_porcentaje" type="number" min="0" max="100" step="0.01" value="0" required>
+        </label>
+        <label style="display:flex; align-items:center; gap:8px; align-self:flex-end;">
+          <input type="checkbox" id="es_bebida_alcoholica" style="width:auto; margin:0;"> Bebida alcohólica
+        </label>
+      </div>
+      <p style="font-size:13px; color:#666;">En mesa se cobra solo el impuesto al consumo; para llevar, solo el IVA. 0 = no aplica.</p>
       <button type="submit" class="btn btn-primario" id="btnGuardar">Crear producto</button>
       <button type="button" class="btn btn-secundario oculto" id="btnCancelar" onclick="cancelarEdicion()">Cancelar edición</button>
     </form>
@@ -78,7 +91,7 @@
 
     <table>
       <thead>
-        <tr><th>Nombre</th><th>Categoría</th><th>Unidad</th><th>Precio</th><th>Stock</th><th>Umbral</th><th>Acción</th></tr>
+        <tr><th>Nombre</th><th>Categoría</th><th>Unidad</th><th>Precio</th><th>Stock</th><th>Umbral</th><th>Impuestos</th><th>Acción</th></tr>
       </thead>
       <tbody id="filas"></tbody>
     </table>
@@ -130,11 +143,16 @@
         <td>$${Number(p.precio).toFixed(2)}</td>
         <td>${p.stock_actual}</td>
         <td>${p.umbral_alerta}</td>
+        <td>IVA ${porcentaje(p.tasa_iva_bps)} % · INC ${porcentaje(p.tasa_inc_bps)} %</td>
         <td><button type="button" class="btn" onclick="editarProducto(${p.id_producto})">Editar</button></td>
       `;
       filas.appendChild(tr);
     }
   }
+
+  // Puntos básicos <-> porcentaje: 1900 <-> 19, 850 <-> 8.5.
+  function porcentaje(bps) { return Number(bps ?? 0) / 100; }
+  function puntosBasicos(texto) { return Math.round(Number(texto) * 100); }
 
   function editarProducto(id_producto) {
     const p = productosCache[id_producto];
@@ -144,6 +162,9 @@
     document.getElementById("unidad_medida").value = p.unidad_medida;
     document.getElementById("precio").value = p.precio;
     document.getElementById("umbral_alerta").value = p.umbral_alerta;
+    document.getElementById("iva_porcentaje").value = porcentaje(p.tasa_iva_bps);
+    document.getElementById("inc_porcentaje").value = porcentaje(p.tasa_inc_bps);
+    document.getElementById("es_bebida_alcoholica").checked = p.es_bebida_alcoholica === 1 || p.es_bebida_alcoholica === true;
 
     // El stock solo cambia vía entradas/salidas (US-06/US-07), nunca al editar
     // el producto, así que se muestra el valor actual pero no se envía al guardar.
@@ -175,6 +196,9 @@
       unidad_medida: document.getElementById("unidad_medida").value,
       precio: Number(document.getElementById("precio").value),
       umbral_alerta: Number(document.getElementById("umbral_alerta").value),
+      tasa_iva_bps: puntosBasicos(document.getElementById("iva_porcentaje").value),
+      tasa_inc_bps: puntosBasicos(document.getElementById("inc_porcentaje").value),
+      es_bebida_alcoholica: document.getElementById("es_bebida_alcoholica").checked,
     };
     if (!id_producto) {
       cuerpo.stock_actual = Number(document.getElementById("stock_actual").value);
