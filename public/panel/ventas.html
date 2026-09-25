@@ -7,6 +7,12 @@
 <style>
   .fila-venta .btn { margin-top: 0; padding: 4px 10px; }
   #totalVenta { font-size: 18px; }
+  #filas .btn { margin: 0 4px 0 0; padding: 4px 10px; }
+  #filas tr.anulada td { color: #999; text-decoration: line-through; }
+  #filas tr.anulada td.acciones { text-decoration: none; }
+  #facturaEmitida { margin-top: 12px; padding: 10px 14px; background: #E3F5E9; border-left: 4px solid #1E7A42; border-radius: 4px; }
+  #facturaEmitida .btn { margin: 0 0 0 8px; padding: 4px 10px; }
+  #errorVenta { color: var(--rojo); font-size: 13px; }
 </style>
 </head>
 <body>
@@ -78,7 +84,13 @@
           <tbody id="lineasVenta" class="fila-venta"></tbody>
         </table>
         <p>Total: <strong id="totalVenta">$0.00</strong></p>
-        <button type="button" class="btn btn-primario" onclick="confirmarVenta()">Confirmar venta</button>
+        <div id="camposFacturaVenta"></div>
+        <p id="errorVenta" class="oculto"></p>
+        <button type="button" class="btn btn-primario" id="botonConfirmarVenta" onclick="confirmarVenta()">Confirmar venta</button>
+        <div id="facturaEmitida" class="oculto">
+          <span id="facturaEmitidaTexto"></span>
+          <button type="button" class="btn" id="facturaEmitidaPdf">Ver PDF</button>
+        </div>
       </div>
 
       <div class="seccion">
@@ -99,13 +111,16 @@
               </select>
             </label>
           </div>
+          <label style="display:flex; align-items:center; gap:8px;">
+            <input type="checkbox" id="filtroAnuladas" style="width:auto; margin:0;"> Mostrar anuladas (no suman al total)
+          </label>
           <button type="submit" class="btn">Filtrar</button>
           <button type="button" class="btn" onclick="exportarCSV()">Exportar CSV</button>
         </form>
 
         <table>
           <thead>
-            <tr><th>Fecha</th><th>Tipo</th><th>Mesa</th><th>Usuario</th><th>Total</th></tr>
+            <tr><th>Fecha</th><th>Tipo</th><th>Mesa</th><th>Usuario</th><th>Total</th><th>Factura</th><th></th></tr>
           </thead>
           <tbody id="filas"></tbody>
         </table>
@@ -115,6 +130,7 @@
     </div>
   </main>
 
+<script src="factura.js"></script>
 <script>
   function token() { return localStorage.getItem("token"); }
 
@@ -192,7 +208,17 @@
 
   async function confirmarVenta() {
     if (lineas.length === 0) return;
-    const cuerpo = { items: lineas.map((l) => ({ id_producto: l.id_producto, cantidad: l.cantidad })) };
+    const errorVenta = document.getElementById("errorVenta");
+    const { datos, error } = Factura.leerCampos("venta");
+    if (error) {
+      errorVenta.textContent = error;
+      errorVenta.classList.remove("oculto");
+      return;
+    }
+    errorVenta.classList.add("oculto");
+    document.getElementById("facturaEmitida").classList.add("oculto");
+    const cuerpo = { items: lineas.map((l) => ({ id_producto: l.id_producto, cantidad: l.cantidad })), ...datos };
+    document.getElementById("botonConfirmarVenta").disabled = true;
     const res = await fetch("/api/ventas", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token()}` },
@@ -202,13 +228,22 @@
       mostrarPermisoDenegado();
       return;
     }
+    document.getElementById("botonConfirmarVenta").disabled = false;
     const data = await res.json();
-    document.getElementById("resultado").textContent = JSON.stringify(data, null, 2);
-    if (res.ok) {
-      lineas = [];
-      renderLineas();
-      cargarVentas();
+    if (!res.ok) {
+      errorVenta.textContent = data.error || "No se pudo registrar la venta.";
+      errorVenta.classList.remove("oculto");
+      return;
     }
+    lineas = [];
+    renderLineas();
+    Factura.limpiarCampos("venta");
+    const factura = data.factura;
+    document.getElementById("facturaEmitidaTexto").textContent =
+      `Venta registrada. Factura No. ${factura.numero_completo} — $${Number(factura.total).toFixed(2)}`;
+    document.getElementById("facturaEmitidaPdf").onclick = () => Factura.abrirPdf(factura.id_factura);
+    document.getElementById("facturaEmitida").classList.remove("oculto");
+    cargarVentas();
   }
 
   function parametrosFiltro() {
@@ -219,6 +254,7 @@
     if (desde) params.set("desde", desde);
     if (hasta) params.set("hasta", hasta);
     if (tipo) params.set("tipo", tipo);
+    if (document.getElementById("filtroAnuladas").checked) params.set("incluir_anuladas", "true");
     return params;
   }
 
@@ -239,24 +275,43 @@
       return;
     }
 
-    let totalVendido = 0;
+    // Las anuladas solo llegan si se marcó "Mostrar anuladas"; nunca suman.
+    const activas = ventas.filter((v) => v.estado !== "anulada");
+    const totalVendido = activas.reduce((suma, v) => suma + v.total, 0);
+    const admin = Factura.esAdmin();
     const filas = document.getElementById("filas");
     filas.innerHTML = "";
     for (const v of ventas) {
-      totalVendido += v.total;
+      const anulada = v.estado === "anulada";
       const tr = document.createElement("tr");
+      if (anulada) tr.className = "anulada";
+      const acciones = v.id_factura
+        ? `<button type="button" class="btn" data-pdf="${v.id_factura}">PDF</button>` +
+          (admin && !anulada ? `<button type="button" class="btn btn-peligro" data-anular="${v.id_factura}">Anular</button>` : "")
+        : "";
       tr.innerHTML = `
         <td>${v.fecha_hora}</td>
         <td><span class="badge badge-${v.tipo}">${v.tipo}</span></td>
         <td>${v.mesa_numero ?? "—"}</td>
         <td>${escapeHtml(v.usuario_nombre)}</td>
         <td>$${Number(v.total).toFixed(2)}</td>
+        <td>${v.numero_factura ? escapeHtml(v.numero_factura) + (anulada ? " (anulada)" : "") : "—"}</td>
+        <td class="acciones">${acciones}</td>
       `;
+      tr.querySelector("[data-pdf]")?.addEventListener("click", () => Factura.abrirPdf(v.id_factura));
+      tr.querySelector("[data-anular]")?.addEventListener("click", () =>
+        Factura.pedirAnulacion({
+          id_factura: v.id_factura,
+          numero: v.numero_factura,
+          esMesa: v.tipo === "mesa",
+          onListo: cargarVentas,
+        })
+      );
       filas.appendChild(tr);
     }
 
     document.getElementById("cardTotalVendido").textContent = `$${totalVendido.toFixed(2)}`;
-    document.getElementById("cardCantidadVentas").textContent = ventas.length;
+    document.getElementById("cardCantidadVentas").textContent = activas.length;
   }
 
   async function exportarCSV() {
@@ -285,6 +340,7 @@
   if (!token()) {
     document.body.innerHTML = "<p>Debes iniciar sesión primero en <a href='login.html'>login.html</a>.</p>";
   } else {
+    Factura.pintarCampos(document.getElementById("camposFacturaVenta"), "venta");
     cargarProductos().then(cargarVentas);
   }
 </script>
