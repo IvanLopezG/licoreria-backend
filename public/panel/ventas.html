@@ -5,6 +5,7 @@
 <title>Licorería — Ventas</title>
 <link rel="stylesheet" href="panel.css">
 <script src="menu.js" defer></script>
+<script src="api.js"></script>
 <style>
   .fila-venta .btn { margin-top: 0; padding: 4px 10px; }
   #totalVenta { font-size: 18px; }
@@ -124,8 +125,6 @@
           <tbody id="filas"></tbody>
         </table>
       </div>
-
-      <pre id="resultado"></pre>
     </div>
   </main>
 
@@ -139,20 +138,32 @@
     }[c]));
   }
 
+  // Tras reemplazar la sección ya no existen los formularios: las cargas que
+  // siguen en cadena (reporte) se detienen al ver sinPermiso.
+  let sinPermiso = false;
   function mostrarPermisoDenegado() {
+    sinPermiso = true;
     document.getElementById("contenido").innerHTML =
       '<p class="error-permiso">No tienes permiso para ver esta sección.</p>';
+  }
+
+  // Sin permiso (403) la sección entera se reemplaza; el resto de errores se
+  // muestra como aviso.
+  function manejarError(err) {
+    if (err.status === 403) mostrarPermisoDenegado();
+    else Api.error(err);
   }
 
   let productosCache = {};
 
   async function cargarProductos() {
-    const res = await fetch("/api/productos", { headers: { Authorization: `Bearer ${token()}` } });
-    if (res.status === 403) {
-      mostrarPermisoDenegado();
+    let productos;
+    try {
+      productos = await Api.pedir("/api/productos");
+    } catch (err) {
+      manejarError(err);
       return;
     }
-    const productos = await res.json();
     productosCache = {};
     for (const p of productos) productosCache[p.id_producto] = p;
     document.getElementById("itemProducto").innerHTML = productos
@@ -217,22 +228,21 @@
     errorVenta.classList.add("oculto");
     const cuerpo = { items: lineas.map((l) => ({ id_producto: l.id_producto, cantidad: l.cantidad })), ...datos };
     document.getElementById("botonConfirmarVenta").disabled = true;
-    const res = await fetch("/api/ventas", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token()}` },
-      body: JSON.stringify(cuerpo),
-    });
-    if (res.status === 403) {
-      mostrarPermisoDenegado();
-      return;
-    }
-    document.getElementById("botonConfirmarVenta").disabled = false;
-    const data = await res.json();
-    if (!res.ok) {
-      errorVenta.textContent = data.error || "No se pudo registrar la venta.";
+    let data;
+    try {
+      data = await Api.pedir("/api/ventas", { method: "POST", body: cuerpo });
+    } catch (err) {
+      if (err.status === 403) {
+        mostrarPermisoDenegado();
+        return;
+      }
+      // El error de la venta (p. ej. sin stock) se muestra junto al botón.
+      document.getElementById("botonConfirmarVenta").disabled = false;
+      errorVenta.textContent = Api.mensajeDe(err);
       errorVenta.classList.remove("oculto");
       return;
     }
+    document.getElementById("botonConfirmarVenta").disabled = false;
     lineas = [];
     renderLineas();
     Factura.limpiarCampos("venta");
@@ -259,14 +269,12 @@
   }
 
   async function cargarVentas() {
-    const res = await fetch(`/api/ventas?${parametrosFiltro()}`, { headers: { Authorization: `Bearer ${token()}` } });
-    if (res.status === 403) {
-      mostrarPermisoDenegado();
-      return;
-    }
-    const ventas = await res.json();
-    if (!res.ok) {
-      document.getElementById("resultado").textContent = JSON.stringify(ventas, null, 2);
+    if (sinPermiso) return;
+    let ventas;
+    try {
+      ventas = await Api.pedir(`/api/ventas?${parametrosFiltro()}`);
+    } catch (err) {
+      manejarError(err);
       return;
     }
 
@@ -312,16 +320,13 @@
   async function exportarCSV() {
     const params = parametrosFiltro();
     params.set("formato", "csv");
-    const res = await fetch(`/api/ventas?${params}`, { headers: { Authorization: `Bearer ${token()}` } });
-    if (res.status === 403) {
-      mostrarPermisoDenegado();
+    let blob;
+    try {
+      blob = await Api.pedir(`/api/ventas?${params}`, { respuesta: "blob" });
+    } catch (err) {
+      manejarError(err);
       return;
     }
-    if (!res.ok) {
-      document.getElementById("resultado").textContent = JSON.stringify(await res.json(), null, 2);
-      return;
-    }
-    const blob = await res.blob();
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;

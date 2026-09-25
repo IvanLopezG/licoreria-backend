@@ -5,6 +5,7 @@
 <title>Licorería — Inventario</title>
 <link rel="stylesheet" href="panel.css">
 <script src="menu.js" defer></script>
+<script src="api.js"></script>
 </head>
 <body>
   <aside class="sidebar">
@@ -125,8 +126,6 @@
           <tbody id="filas"></tbody>
         </table>
       </div>
-
-      <pre id="resultado"></pre>
     </div>
   </main>
 
@@ -139,18 +138,30 @@
     }[c]));
   }
 
+  // Tras reemplazar la sección ya no existen los formularios: las cargas que
+  // siguen en cadena (historial) se detienen al ver sinPermiso.
+  let sinPermiso = false;
   function mostrarPermisoDenegado() {
+    sinPermiso = true;
     document.getElementById("contenido").innerHTML =
       '<p class="error-permiso">No tienes permiso para ver esta sección.</p>';
   }
 
+  // Sin permiso (403) la sección entera se reemplaza; el resto de errores se
+  // muestra como aviso.
+  function manejarError(err) {
+    if (err.status === 403) mostrarPermisoDenegado();
+    else Api.error(err);
+  }
+
   async function cargarProductos() {
-    const res = await fetch("/api/productos", { headers: { Authorization: `Bearer ${token()}` } });
-    if (res.status === 403) {
-      mostrarPermisoDenegado();
+    let productos;
+    try {
+      productos = await Api.pedir("/api/productos");
+    } catch (err) {
+      manejarError(err);
       return;
     }
-    const productos = await res.json();
     const opciones = productos.map((p) => `<option value="${p.id_producto}">${escapeHtml(p.nombre)}</option>`).join("");
     document.getElementById("entradaProducto").innerHTML = opciones;
     document.getElementById("salidaProducto").innerHTML = opciones;
@@ -158,12 +169,13 @@
   }
 
   async function cargarProveedores() {
-    const res = await fetch("/api/proveedores", { headers: { Authorization: `Bearer ${token()}` } });
-    if (res.status === 403) {
-      mostrarPermisoDenegado();
+    let proveedores;
+    try {
+      proveedores = await Api.pedir("/api/proveedores");
+    } catch (err) {
+      manejarError(err);
       return;
     }
-    const proveedores = await res.json();
     document.getElementById("entradaProveedor").innerHTML = proveedores
       .map((p) => `<option value="${p.id_proveedor}">${escapeHtml(p.nombre)}</option>`)
       .join("");
@@ -176,20 +188,13 @@
       cantidad: Number(document.getElementById("entradaCantidad").value),
       id_proveedor: Number(document.getElementById("entradaProveedor").value),
     };
-    const res = await fetch("/api/inventario/entradas", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token()}` },
-      body: JSON.stringify(cuerpo),
-    });
-    if (res.status === 403) {
-      mostrarPermisoDenegado();
-      return;
-    }
-    const data = await res.json();
-    document.getElementById("resultado").textContent = JSON.stringify(data, null, 2);
-    if (res.ok) {
+    try {
+      const mov = await Api.pedir("/api/inventario/entradas", { method: "POST", body: cuerpo });
+      Api.exito(`Entrada registrada: ${mov.cantidad} de ${mov.producto_nombre}.`);
       document.getElementById("formEntrada").reset();
       cargarHistorial();
+    } catch (err) {
+      manejarError(err);
     }
   }
 
@@ -200,20 +205,13 @@
       cantidad: Number(document.getElementById("salidaCantidad").value),
       motivo: document.getElementById("salidaMotivo").value,
     };
-    const res = await fetch("/api/inventario/salidas", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token()}` },
-      body: JSON.stringify(cuerpo),
-    });
-    if (res.status === 403) {
-      mostrarPermisoDenegado();
-      return;
-    }
-    const data = await res.json();
-    document.getElementById("resultado").textContent = JSON.stringify(data, null, 2);
-    if (res.ok) {
+    try {
+      const mov = await Api.pedir("/api/inventario/salidas", { method: "POST", body: cuerpo });
+      Api.exito(`Salida registrada: ${mov.cantidad} de ${mov.producto_nombre}.`);
       document.getElementById("formSalida").reset();
       cargarHistorial();
+    } catch (err) {
+      manejarError(err);
     }
   }
 
@@ -223,6 +221,7 @@
   }
 
   async function cargarHistorial() {
+    if (sinPermiso) return;
     const params = new URLSearchParams();
     const id_producto = document.getElementById("filtroProducto").value;
     const desde = document.getElementById("filtroDesde").value;
@@ -231,14 +230,11 @@
     if (desde) params.set("desde", desde);
     if (hasta) params.set("hasta", hasta);
 
-    const res = await fetch(`/api/inventario/movimientos?${params}`, { headers: { Authorization: `Bearer ${token()}` } });
-    if (res.status === 403) {
-      mostrarPermisoDenegado();
-      return;
-    }
-    const movimientos = await res.json();
-    if (!res.ok) {
-      document.getElementById("resultado").textContent = JSON.stringify(movimientos, null, 2);
+    let movimientos;
+    try {
+      movimientos = await Api.pedir(`/api/inventario/movimientos?${params}`);
+    } catch (err) {
+      manejarError(err);
       return;
     }
 

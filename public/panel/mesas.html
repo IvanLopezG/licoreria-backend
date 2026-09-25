@@ -5,6 +5,7 @@
 <title>Licorería — Panel de Mesas</title>
 <link rel="stylesheet" href="panel.css">
 <script src="menu.js" defer></script>
+<script src="api.js"></script>
 <style>
   #qrBox { margin-top: 16px; text-align: center; }
   #qrBox img { max-width: 260px; }
@@ -74,18 +75,17 @@
       <img id="qrImg">
       <br><button class="btn" onclick="window.print()">Imprimir QR</button>
     </div>
-
-    <pre id="resultado"></pre>
   </main>
 
 <script>
   function token() { return localStorage.getItem("token"); }
 
   async function cargarMesas() {
-    const res = await fetch("/api/mesas", { headers: { Authorization: `Bearer ${token()}` } });
-    const mesas = await res.json();
-    if (!res.ok) {
-      document.getElementById("resultado").textContent = JSON.stringify(mesas, null, 2);
+    let mesas;
+    try {
+      mesas = await Api.pedir("/api/mesas");
+    } catch (err) {
+      Api.error(err);
       return;
     }
     const filas = document.getElementById("filas");
@@ -100,21 +100,22 @@
 
   async function crearMesa() {
     const numero = document.getElementById("numero").value;
-    const res = await fetch("/api/mesas", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token()}` },
-      body: JSON.stringify({ numero: Number(numero) }),
-    });
-    const data = await res.json();
-    document.getElementById("resultado").textContent = JSON.stringify(data, null, 2);
-    if (res.ok) cargarMesas();
+    try {
+      const mesa = await Api.pedir("/api/mesas", { method: "POST", body: { numero: Number(numero) } });
+      Api.exito(`Mesa ${mesa.numero} creada.`);
+      document.getElementById("numero").value = "";
+      cargarMesas();
+    } catch (err) {
+      Api.error(err);
+    }
   }
 
   async function verQR(id_mesa) {
-    const res = await fetch(`/api/mesas/${id_mesa}/qr`, { headers: { Authorization: `Bearer ${token()}` } });
-    const data = await res.json();
-    if (!res.ok) {
-      document.getElementById("resultado").textContent = JSON.stringify(data, null, 2);
+    let data;
+    try {
+      data = await Api.pedir(`/api/mesas/${id_mesa}/qr`);
+    } catch (err) {
+      Api.error(err);
       return;
     }
     document.getElementById("qrInfo").textContent = `Mesa ${data.mesa_numero} — ${data.url}`;

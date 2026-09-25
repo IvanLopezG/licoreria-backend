@@ -5,6 +5,7 @@
 <title>Licorería — Datos del negocio</title>
 <link rel="stylesheet" href="panel.css">
 <script src="menu.js" defer></script>
+<script src="api.js"></script>
 <style>
   .aviso-negocio { font-size: 14px; color: #555; margin: 0 0 12px; }
   #formNegocio { max-width: 720px; }
@@ -143,17 +144,19 @@
     el("avisoTitulo").classList.toggle("activo", el("titulo_documento").value === "FACTURA DE VENTA");
   }
 
-  function mostrarError(mensaje) {
+  // Recibe un texto (validación local) o el error de Api.pedir.
+  function mostrarError(error) {
     el("okNegocio").classList.add("oculto");
-    el("errorNegocio").textContent = mensaje;
+    el("errorNegocio").textContent = typeof error === "string" ? error : Api.mensajeDe(error);
     el("errorNegocio").classList.remove("oculto");
   }
 
   async function cargar() {
-    const res = await fetch("/api/emisor", { headers: { Authorization: `Bearer ${token()}` } });
-    const emisor = await res.json();
-    if (!res.ok) {
-      mostrarError(emisor.error || "No se pudieron cargar los datos del negocio.");
+    let emisor;
+    try {
+      emisor = await Api.pedir("/api/emisor");
+    } catch (err) {
+      mostrarError(err);
       return;
     }
     for (const campo of CAMPOS) el(campo).value = emisor[campo] ?? "";
@@ -173,16 +176,14 @@
     cuerpo.nit = nit;
     // El DV no se envía: lo calcula el servidor.
     el("btnGuardar").disabled = true;
-    const res = await fetch("/api/emisor", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token()}` },
-      body: JSON.stringify(cuerpo),
-    });
-    el("btnGuardar").disabled = false;
-    const data = await res.json();
-    if (!res.ok) {
-      mostrarError(data.error || "No se pudieron guardar los datos.");
+    let data;
+    try {
+      data = await Api.pedir("/api/emisor", { method: "PUT", body: cuerpo });
+    } catch (err) {
+      mostrarError(err);
       return false;
+    } finally {
+      el("btnGuardar").disabled = false;
     }
     for (const campo of CAMPOS) el(campo).value = data[campo] ?? "";
     actualizarDv();

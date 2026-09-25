@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Licorería — Catálogo</title>
+<script src="/panel/api.js"></script>
 <style>
   * { box-sizing: border-box; }
   body { font-family: Calibri, Arial, sans-serif; max-width: 480px; margin: 0 auto; padding: 16px 16px 120px; color: #1F3864; }
@@ -64,7 +65,7 @@
   function agregarAlCarrito(producto, cantidadInput) {
     const cantidad = Number(cantidadInput.value);
     if (!Number.isInteger(cantidad) || cantidad < 1) {
-      alert("La cantidad debe ser un número entero de al menos 1.");
+      Api.error("La cantidad debe ser un número entero de al menos 1.");
       return;
     }
     carrito[producto.id_producto] = { producto, cantidad };
@@ -104,15 +105,11 @@
     const btn = document.getElementById("confirmarBtn");
     btn.disabled = true;
 
-    const res = await fetch(`/api/catalogo/${token}/pedidos`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ items }),
-    });
-    const data = await res.json();
-
-    if (!res.ok) {
-      alert(data.error || "No se pudo enviar el pedido.");
+    // Público: sin el token del panel aunque el navegador tenga una sesión abierta.
+    try {
+      await Api.pedir(`/api/catalogo/${token}/pedidos`, { method: "POST", body: { items }, auth: false });
+    } catch (err) {
+      Api.error(err);
       btn.disabled = false;
       return;
     }
@@ -132,9 +129,13 @@
   async function cargarHistorial() {
     if (!token) return;
 
-    const res = await fetch(`/api/catalogo/${token}/pedidos`);
-    const pedidos = await res.json();
-    if (!res.ok) return;
+    // El historial es informativo: si falla, simplemente no se muestra.
+    let pedidos;
+    try {
+      pedidos = await Api.pedir(`/api/catalogo/${token}/pedidos`, { auth: false });
+    } catch {
+      return;
+    }
 
     const caja = document.getElementById("historial");
     const lista = document.getElementById("historialLista");
@@ -168,12 +169,12 @@
       return;
     }
 
-    const res = await fetch(`/api/catalogo/${token}`);
-    const data = await res.json();
-
-    if (!res.ok) {
+    let data;
+    try {
+      data = await Api.pedir(`/api/catalogo/${token}`, { auth: false });
+    } catch (err) {
       document.getElementById("mesaInfo").textContent = "";
-      document.getElementById("estado").textContent = data.error || "No se pudo cargar el catálogo.";
+      document.getElementById("estado").textContent = Api.mensajeDe(err);
       return;
     }
 

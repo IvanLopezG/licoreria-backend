@@ -5,6 +5,7 @@
 <title>Licorería — Panel (prueba de Auth)</title>
 <link rel="stylesheet" href="panel.css">
 <script src="menu.js" defer></script>
+<script src="api.js"></script>
 <style>
   .tarjeta-login { max-width: 360px; }
 </style>
@@ -64,17 +65,13 @@
 
       <div id="bloqueSesion" class="oculto">
         <p id="estado"></p>
-        <button class="btn" onclick="probarInventario()">Probar acceso a /api/inventario/ping</button>
+        <button class="btn" onclick="probarInventario()">Probar acceso a inventario</button>
         <button class="btn btn-secundario" onclick="cerrarSesion()">Cerrar sesión</button>
       </div>
-
-      <pre id="resultado"></pre>
     </div>
   </main>
 
 <script>
-  const API = "";
-
   function guardarSesion(token, usuario) {
     localStorage.setItem("token", token);
     localStorage.setItem("usuario", JSON.stringify(usuario));
@@ -102,33 +99,29 @@
   async function login() {
     const usuario_login = document.getElementById("usuario_login").value;
     const password = document.getElementById("password").value;
-    const res = await fetch(`${API}/api/auth/login`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ usuario_login, password }),
-    });
-    const data = await res.json();
-    document.getElementById("resultado").textContent = JSON.stringify(data, null, 2);
-    if (res.ok) {
+    try {
+      const data = await Api.pedir("/api/auth/login", { method: "POST", body: { usuario_login, password }, auth: false });
       guardarSesion(data.token, data.usuario);
+      document.getElementById("password").value = "";
       mostrarSesion();
+    } catch (err) {
+      Api.error(err);
     }
   }
 
+  // Inventario solo es para administrador y cajero: sirve para comprobar el rol.
   async function probarInventario() {
-    const { token } = sesionActual();
-    const res = await fetch(`${API}/api/inventario/ping`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    const data = await res.json();
-    document.getElementById("resultado").textContent =
-      `HTTP ${res.status}\n` + JSON.stringify(data, null, 2);
+    try {
+      await Api.pedir("/api/inventario/movimientos?desde=2100-01-01");
+      Api.exito("Tienes acceso al módulo de inventario.");
+    } catch (err) {
+      Api.error(err);
+    }
   }
 
   function cerrarSesion() {
     localStorage.removeItem("token");
     localStorage.removeItem("usuario");
-    document.getElementById("resultado").textContent = "";
     mostrarSesion();
   }
 

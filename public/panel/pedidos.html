@@ -5,6 +5,7 @@
 <title>Licorería — Pedidos entrantes</title>
 <link rel="stylesheet" href="panel.css">
 <script src="menu.js" defer></script>
+<script src="api.js"></script>
 <style>
   .mesa { border: 1px solid var(--gris-borde); border-radius: 6px; padding: 12px; margin-top: 16px; }
   .mesa h2 { font-size: 16px; margin: 0 0 8px; display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
@@ -107,9 +108,11 @@
     }
   }
 
-  function mostrarError(mensaje) {
+  // Los errores van al recuadro fijo de la página (no a un aviso flotante)
+  // porque cargarPedidos corre cada 5 s y el mensaje debe quedarse visible.
+  function mostrarError(err) {
     const el = document.getElementById("error");
-    el.textContent = mensaje;
+    el.textContent = Api.mensajeDe(err);
     el.classList.remove("oculto");
   }
 
@@ -132,10 +135,11 @@
     // cobrar hasta el cierre de cuenta, así que la mesa no puede desaparecer
     // de esta pantalla solo porque ya no tiene nada "pendiente" (bug: la
     // tarjeta de la mesa, y con ella el botón de cerrar cuenta, se perdía).
-    const res = await fetch("/api/pedidos", { headers: { Authorization: `Bearer ${token()}` } });
-    const todos = await res.json();
-    if (!res.ok) {
-      mostrarError(todos.error || "No se pudieron cargar los pedidos.");
+    let todos;
+    try {
+      todos = await Api.pedir("/api/pedidos");
+    } catch (err) {
+      mostrarError(err);
       return;
     }
     ocultarError();
@@ -181,13 +185,10 @@
   }
 
   async function marcarEntregado(id_pedido) {
-    const res = await fetch(`/api/pedidos/${id_pedido}/entregado`, {
-      method: "PUT",
-      headers: { Authorization: `Bearer ${token()}` },
-    });
-    if (!res.ok) {
-      const data = await res.json();
-      mostrarError(data.error || "No se pudo marcar el pedido como entregado.");
+    try {
+      await Api.pedir(`/api/pedidos/${id_pedido}/entregado`, { method: "PUT" });
+    } catch (err) {
+      mostrarError(err);
       return;
     }
     cargarPedidos();
@@ -196,13 +197,10 @@
   async function cancelarPedido(id_pedido) {
     if (!confirm(`¿Cancelar el pedido #${id_pedido}? Esta acción no se puede deshacer.`)) return;
 
-    const res = await fetch(`/api/pedidos/${id_pedido}`, {
-      method: "DELETE",
-      headers: { Authorization: `Bearer ${token()}` },
-    });
-    if (!res.ok) {
-      const data = await res.json();
-      mostrarError(data.error || "No se pudo cancelar el pedido.");
+    try {
+      await Api.pedir(`/api/pedidos/${id_pedido}`, { method: "DELETE" });
+    } catch (err) {
+      mostrarError(err);
       return;
     }
     ocultarError();
@@ -215,12 +213,11 @@
   let mesaPendienteCierre = null;
 
   async function cerrarCuenta(id_mesa, mesa_numero) {
-    const res = await fetch(`/api/pedidos?id_mesa=${id_mesa}`, {
-      headers: { Authorization: `Bearer ${token()}` },
-    });
-    const pedidos = await res.json();
-    if (!res.ok) {
-      mostrarError(pedidos.error || "No se pudo calcular el total de la mesa.");
+    let pedidos;
+    try {
+      pedidos = await Api.pedir(`/api/pedidos?id_mesa=${id_mesa}`);
+    } catch (err) {
+      mostrarError(err);
       return;
     }
     ocultarError();
@@ -256,21 +253,17 @@
     }
     document.getElementById("botonConfirmarCierre").disabled = true;
 
-    const res = await fetch(`/api/mesas/${id_mesa}/cerrar-cuenta`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token()}` },
-      body: JSON.stringify(datos),
-    });
-    const data = await res.json();
-    document.getElementById("modalCierre").classList.add("oculto");
-    if (!res.ok) {
-      mostrarError(data.error || "No se pudo cerrar la cuenta de la mesa.");
-    } else {
+    try {
+      const data = await Api.pedir(`/api/mesas/${id_mesa}/cerrar-cuenta`, { method: "POST", body: datos });
+      document.getElementById("modalCierre").classList.add("oculto");
       ocultarError();
       // El comprobante se descarga y se muestra solo, sin clic en "Ver PDF".
       if (data.factura) {
         Factura.mostrarComprobante({ titulo: `Cuenta cerrada — Mesa ${data.mesa_numero ?? ""}`.trim(), factura: data.factura });
       }
+    } catch (err) {
+      document.getElementById("modalCierre").classList.add("oculto");
+      mostrarError(err);
     }
     mesaPendienteCierre = null;
     cargarPedidos();

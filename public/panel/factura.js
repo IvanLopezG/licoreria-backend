@@ -1,6 +1,7 @@
 // Facturación en el panel: campos opcionales al cobrar (forma de pago y
 // cliente), abrir el PDF de una factura y anularla (solo administrador).
 // Lo usan pedidos.html (cierre de mesa) y ventas.html (mostrador y reporte).
+// Requiere api.js (Api.pedir y los avisos) cargado antes.
 const Factura = (() => {
   const FORMAS_PAGO = [
     ["efectivo", "Efectivo"],
@@ -15,7 +16,6 @@ const Factura = (() => {
     ["PP", "Pasaporte"],
   ];
 
-  const token = () => localStorage.getItem("token");
   const el = (id) => document.getElementById(id);
   const opciones = (lista) => lista.map(([valor, texto]) => `<option value="${valor}">${texto}</option>`).join("");
 
@@ -92,7 +92,7 @@ const Factura = (() => {
       url = await descargarPdf(id_factura);
     } catch (err) {
       pestana?.close();
-      alert(err.message);
+      Api.error(err);
       return;
     }
     if (pestana) pestana.location = url;
@@ -102,13 +102,8 @@ const Factura = (() => {
   // Descarga el PDF y devuelve una URL blob: (quien la use debe liberarla con
   // URL.revokeObjectURL cuando ya no la necesite).
   async function descargarPdf(id_factura) {
-    const res = await fetch(`/api/facturas/${id_factura}/pdf`, { headers: { Authorization: `Bearer ${token()}` } });
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      throw new Error(data.error || "No se pudo descargar el PDF de la factura.");
-    }
-    const pdf = new Blob([await res.arrayBuffer()], { type: "application/pdf" });
-    return URL.createObjectURL(pdf);
+    const blob = await Api.pedir(`/api/facturas/${id_factura}/pdf`, { respuesta: "blob" });
+    return URL.createObjectURL(new Blob([blob], { type: "application/pdf" }));
   }
 
   const escapar = (texto) =>
@@ -227,19 +222,21 @@ const Factura = (() => {
         return;
       }
       el("anularConfirmar").disabled = true;
-      const res = await fetch(`/api/facturas/${id_factura}/anular`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token()}` },
-        body: JSON.stringify({ motivo, reabrir_pedidos: esMesa ? el("anularReabrir").checked : false }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        error.textContent = data.error || "No se pudo anular la factura.";
+      let data;
+      try {
+        data = await Api.pedir(`/api/facturas/${id_factura}/anular`, {
+          method: "POST",
+          body: { motivo, reabrir_pedidos: esMesa ? el("anularReabrir").checked : false },
+        });
+      } catch (err) {
+        // El motivo del rechazo (p. ej. la mesa ya tiene otro cliente) queda en el modal.
+        error.textContent = Api.mensajeDe(err);
         error.classList.remove("oculto");
         el("anularConfirmar").disabled = false;
         return;
       }
       cerrar();
+      Api.exito(`Factura ${numero} anulada.`);
       onListo?.(data);
     };
   }

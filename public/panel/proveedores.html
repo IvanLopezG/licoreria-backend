@@ -5,6 +5,7 @@
 <title>Licorería — Proveedores</title>
 <link rel="stylesheet" href="panel.css">
 <script src="menu.js" defer></script>
+<script src="api.js"></script>
 <style>
   .asociar { display: flex; gap: 6px; align-items: center; }
   .asociar select { width: auto; flex: 1; margin-top: 0; }
@@ -72,8 +73,6 @@
         </thead>
         <tbody id="filas"></tbody>
       </table>
-
-      <pre id="resultado"></pre>
     </div>
   </main>
 
@@ -91,38 +90,34 @@
       '<p class="error-permiso">No tienes permiso para ver esta sección.</p>';
   }
 
+  // Sin permiso (403) la sección entera se reemplaza; el resto de errores se
+  // muestra como aviso.
+  function manejarError(err) {
+    if (err.status === 403) mostrarPermisoDenegado();
+    else Api.error(err);
+  }
+
   let productosCache = [];
 
   async function cargarProductos() {
-    const res = await fetch("/api/productos", { headers: { Authorization: `Bearer ${token()}` } });
-    if (res.status === 403) {
-      mostrarPermisoDenegado();
-      return;
+    try {
+      productosCache = await Api.pedir("/api/productos");
+    } catch (err) {
+      manejarError(err);
     }
-    productosCache = await res.json();
   }
 
   async function cargarProveedores() {
-    const res = await fetch("/api/proveedores", { headers: { Authorization: `Bearer ${token()}` } });
-    if (res.status === 403) {
-      mostrarPermisoDenegado();
+    let detalles;
+    try {
+      const proveedores = await Api.pedir("/api/proveedores");
+      // El listado general no trae los productos asociados; se pide el detalle
+      // de cada proveedor aparte para mostrarlos en la misma fila.
+      detalles = await Promise.all(proveedores.map((p) => Api.pedir(`/api/proveedores/${p.id_proveedor}`)));
+    } catch (err) {
+      manejarError(err);
       return;
     }
-    const proveedores = await res.json();
-    if (!res.ok) {
-      document.getElementById("resultado").textContent = JSON.stringify(proveedores, null, 2);
-      return;
-    }
-
-    // El listado general no trae los productos asociados; se pide el detalle
-    // de cada proveedor aparte para mostrarlos en la misma fila.
-    const detalles = await Promise.all(
-      proveedores.map((p) =>
-        fetch(`/api/proveedores/${p.id_proveedor}`, { headers: { Authorization: `Bearer ${token()}` } }).then((r) =>
-          r.json()
-        )
-      )
-    );
 
     const filas = document.getElementById("filas");
     filas.innerHTML = "";
@@ -153,20 +148,13 @@
       nombre: document.getElementById("nombre").value,
       contacto: document.getElementById("contacto").value || null,
     };
-    const res = await fetch("/api/proveedores", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token()}` },
-      body: JSON.stringify(cuerpo),
-    });
-    if (res.status === 403) {
-      mostrarPermisoDenegado();
-      return;
-    }
-    const data = await res.json();
-    document.getElementById("resultado").textContent = JSON.stringify(data, null, 2);
-    if (res.ok) {
+    try {
+      const proveedor = await Api.pedir("/api/proveedores", { method: "POST", body: cuerpo });
+      Api.exito(`Proveedor "${proveedor.nombre}" creado.`);
       document.getElementById("formProveedor").reset();
       cargarProveedores();
+    } catch (err) {
+      manejarError(err);
     }
   }
 
@@ -175,18 +163,13 @@
     const id_producto = Number(select.value);
     if (!id_producto) return;
 
-    const res = await fetch(`/api/proveedores/${id_proveedor}/productos`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token()}` },
-      body: JSON.stringify({ id_producto }),
-    });
-    if (res.status === 403) {
-      mostrarPermisoDenegado();
-      return;
+    try {
+      await Api.pedir(`/api/proveedores/${id_proveedor}/productos`, { method: "POST", body: { id_producto } });
+      Api.exito("Producto asociado al proveedor.");
+      cargarProveedores();
+    } catch (err) {
+      manejarError(err);
     }
-    const data = await res.json();
-    document.getElementById("resultado").textContent = JSON.stringify(data, null, 2);
-    if (res.ok) cargarProveedores();
   }
 
   if (!token()) {

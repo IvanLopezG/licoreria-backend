@@ -5,6 +5,7 @@
 <title>Licorería — Productos</title>
 <link rel="stylesheet" href="panel.css">
 <script src="menu.js" defer></script>
+<script src="api.js"></script>
 </head>
 <body>
   <aside class="sidebar">
@@ -100,8 +101,6 @@
       </thead>
       <tbody id="filas"></tbody>
     </table>
-
-    <pre id="resultado"></pre>
   </main>
 
 <script>
@@ -114,8 +113,13 @@
   }
 
   async function cargarCategorias() {
-    const res = await fetch("/api/categorias", { headers: { Authorization: `Bearer ${token()}` } });
-    const categorias = await res.json();
+    let categorias;
+    try {
+      categorias = await Api.pedir("/api/categorias");
+    } catch (err) {
+      Api.error(err);
+      return;
+    }
     const select = document.getElementById("id_categoria");
     select.innerHTML = categorias.map((c) => `<option value="${c.id_categoria}">${escapeHtml(c.nombre)}</option>`).join("");
   }
@@ -128,10 +132,11 @@
   async function cargarProductos() {
     const soloAlerta = document.getElementById("soloAlerta").checked;
     const url = soloAlerta ? "/api/productos?bajo_stock=true" : "/api/productos";
-    const res = await fetch(url, { headers: { Authorization: `Bearer ${token()}` } });
-    const productos = await res.json();
-    if (!res.ok) {
-      document.getElementById("resultado").textContent = JSON.stringify(productos, null, 2);
+    let productos;
+    try {
+      productos = await Api.pedir(url);
+    } catch (err) {
+      Api.error(err);
       return;
     }
 
@@ -212,16 +217,13 @@
     const url = id_producto ? `/api/productos/${id_producto}` : "/api/productos";
     const method = id_producto ? "PUT" : "POST";
 
-    const res = await fetch(url, {
-      method,
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token()}` },
-      body: JSON.stringify(cuerpo),
-    });
-    const data = await res.json();
-    document.getElementById("resultado").textContent = JSON.stringify(data, null, 2);
-    if (res.ok) {
+    try {
+      const producto = await Api.pedir(url, { method, body: cuerpo });
+      Api.exito(`Producto "${producto.nombre}" ${id_producto ? "actualizado" : "creado"}.`);
       cancelarEdicion();
       cargarProductos();
+    } catch (err) {
+      Api.error(err);
     }
   }
 
