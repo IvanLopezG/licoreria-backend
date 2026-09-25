@@ -1,0 +1,9 @@
+{
+  "metodo": "POST",
+  "ruta": "/api/catalogo/8240bcc3d06d9e82cf5129db65be9a9f/pedidos",
+  "status": 400,
+  "content_type": "application/json; charset=utf-8",
+  "body": {
+    "error": "Cada línea del pedido requiere id_producto y una cantidad entera mayor o igual a 1."
+  }
+}

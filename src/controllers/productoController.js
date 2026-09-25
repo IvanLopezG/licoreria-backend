@@ -1,8 +1,8 @@
 const productoService = require("../services/productoService");
 
-function crear(req, res) {
+async function crear(req, res) {
   try {
-    const nuevo = productoService.crearProducto(req.body);
+    const nuevo = await productoService.crearProducto(req.body);
 
     // El middleware de auditoría escribe el registro al ver este campo.
     req.auditoria = { accion: "crear", entidad: "productos", id_entidad: nuevo.id_producto };
@@ -13,9 +13,9 @@ function crear(req, res) {
   }
 }
 
-function editar(req, res) {
+async function editar(req, res) {
   try {
-    const actualizado = productoService.editarProducto(Number(req.params.id), req.body);
+    const actualizado = await productoService.editarProducto(Number(req.params.id), req.body);
 
     req.auditoria = { accion: "editar", entidad: "productos", id_entidad: actualizado.id_producto };
 
@@ -25,14 +25,14 @@ function editar(req, res) {
   }
 }
 
-function listar(req, res) {
+async function listar(req, res) {
   const soloAlerta = req.query.bajo_stock === "true";
-  return res.json(productoService.listarProductos({ soloAlerta }));
+  return res.json(await productoService.listarProductos({ soloAlerta }));
 }
 
-function obtener(req, res) {
+async function obtener(req, res) {
   try {
-    return res.json(productoService.obtenerProducto(Number(req.params.id)));
+    return res.json(await productoService.obtenerProducto(Number(req.params.id)));
   } catch (err) {
     return res.status(err.status || 400).json({ error: err.message });
   }

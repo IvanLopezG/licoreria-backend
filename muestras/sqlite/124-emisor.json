@@ -1,0 +1,19 @@
+{
+  "metodo": "GET",
+  "ruta": "/api/emisor",
+  "status": 200,
+  "content_type": "application/json; charset=utf-8",
+  "body": {
+    "id": 1,
+    "razon_social": "(Configurar razón social)",
+    "nit": "000000000",
+    "dv": "0",
+    "direccion": "(Configurar dirección)",
+    "municipio": "Floridablanca",
+    "departamento": "Santander",
+    "telefono": null,
+    "regimen": "Régimen Simple de Tributación - SIMPLE",
+    "titulo_documento": "Comprobante de venta",
+    "leyenda_pie": "Documento interno de venta. No es factura electrónica de venta ni documento equivalente validado por la DIAN. Precios con impuestos incluidos."
+  }
+}

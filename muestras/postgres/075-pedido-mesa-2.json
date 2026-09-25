@@ -1,0 +1,25 @@
+{
+  "metodo": "POST",
+  "ruta": "/api/catalogo/9ac1da27a1516c2e78d5010f03f2afa2/pedidos",
+  "status": 201,
+  "content_type": "application/json; charset=utf-8",
+  "body": {
+    "id_pedido": 3,
+    "id_mesa": 2,
+    "id_venta": null,
+    "estado": "pendiente",
+    "notificado": 0,
+    "fecha_hora": "2026-09-25 21:17:21",
+    "mesa_numero": 3,
+    "items": [
+      {
+        "id_pedido_detalle": 4,
+        "id_pedido": 3,
+        "id_producto": 2,
+        "cantidad": 1,
+        "precio_unitario": 3500,
+        "producto_nombre": "Escenario Hielo"
+      }
+    ]
+  }
+}

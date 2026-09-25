@@ -1,0 +1,9 @@
+{
+  "metodo": "POST",
+  "ruta": "/api/mesas/1/cerrar-cuenta",
+  "status": 400,
+  "content_type": "application/json; charset=utf-8",
+  "body": {
+    "error": "cliente.tipo_doc y cliente.num_doc van juntos."
+  }
+}

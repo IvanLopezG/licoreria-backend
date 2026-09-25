@@ -1,0 +1,32 @@
+{
+  "metodo": "GET",
+  "ruta": "/api/usuarios",
+  "status": 200,
+  "content_type": "application/json; charset=utf-8",
+  "body": [
+    {
+      "id_usuario": 1,
+      "nombre": "Administrador",
+      "usuario_login": "admin",
+      "rol": "administrador",
+      "activo": 1,
+      "fecha_creacion": "2026-09-25 20:52:15"
+    },
+    {
+      "id_usuario": 2,
+      "nombre": "Mesero Escenario",
+      "usuario_login": "esc_mesero",
+      "rol": "mesero",
+      "activo": 1,
+      "fecha_creacion": "2026-09-25 20:52:23"
+    },
+    {
+      "id_usuario": 3,
+      "nombre": "Cajero Escenario",
+      "usuario_login": "esc_cajero",
+      "rol": "cajero",
+      "activo": 1,
+      "fecha_creacion": "2026-09-25 20:52:23"
+    }
+  ]
+}

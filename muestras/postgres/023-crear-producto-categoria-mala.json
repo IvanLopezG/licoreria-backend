@@ -1,0 +1,9 @@
+{
+  "metodo": "POST",
+  "ruta": "/api/productos",
+  "status": 400,
+  "content_type": "application/json; charset=utf-8",
+  "body": {
+    "error": "id_categoria no existe."
+  }
+}

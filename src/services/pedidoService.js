@@ -5,8 +5,8 @@ function listarPedidos({ estado, id_mesa }) {
   return pedidoModel.listar({ estado, id_mesa });
 }
 
-function marcarEntregado(id_pedido) {
-  const pedido = pedidoModel.buscarPorId(id_pedido);
+async function marcarEntregado(id_pedido) {
+  const pedido = await pedidoModel.buscarPorId(id_pedido);
   if (!pedido) {
     const err = new Error("Pedido no encontrado.");
     err.status = 404;
@@ -21,8 +21,8 @@ function marcarEntregado(id_pedido) {
 // todo-o-nada, no puede completarse mientras ese pedido exista. Solo se
 // puede cancelar mientras siga sin cobrar (id_venta nulo); una vez
 // facturado, forma parte de una venta ya cerrada y no se toca.
-function cancelar(id_pedido) {
-  const pedido = pedidoModel.buscarPorId(id_pedido);
+async function cancelar(id_pedido) {
+  const pedido = await pedidoModel.buscarPorId(id_pedido);
   if (!pedido) {
     const err = new Error("Pedido no encontrado.");
     err.status = 404;
@@ -34,7 +34,7 @@ function cancelar(id_pedido) {
     throw err;
   }
 
-  pedidoModel.cancelar(id_pedido);
+  await pedidoModel.cancelar(id_pedido);
   return { id_pedido };
 }
 

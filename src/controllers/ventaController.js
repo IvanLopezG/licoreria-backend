@@ -12,9 +12,9 @@ const COLUMNAS_CSV = [
   { titulo: "fecha_hora", campo: "fecha_hora" },
 ];
 
-function crearMostrador(req, res) {
+async function crearMostrador(req, res) {
   try {
-    const venta = ventaService.crearVentaMostrador(req.body, req.usuario.id_usuario);
+    const venta = await ventaService.crearVentaMostrador(req.body, req.usuario.id_usuario);
 
     // El middleware de auditoría escribe el registro al ver este campo.
     req.auditoria = { accion: "crear", entidad: "ventas", id_entidad: venta.id_venta };
@@ -26,10 +26,10 @@ function crearMostrador(req, res) {
 }
 
 // US-19 (opcional): ?formato=csv reutiliza el mismo filtro que el JSON normal.
-function listar(req, res) {
+async function listar(req, res) {
   const { desde, hasta, tipo, formato } = req.query;
   const incluir_anuladas = req.query.incluir_anuladas === "true";
-  const ventas = ventaService.listarVentas({ desde, hasta, tipo, incluir_anuladas });
+  const ventas = await ventaService.listarVentas({ desde, hasta, tipo, incluir_anuladas });
 
   if (formato === "csv") {
     res.setHeader("Content-Type", "text/csv; charset=utf-8");

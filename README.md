@@ -11,22 +11,37 @@ definidos en `08_Modelo_de_Datos_y_Arquitectura.docx`.
 
 ```bash
 npm install
-cp .env.example .env        # y cambia JWT_SECRET por un valor propio
+cp .env.example .env        # pon DATABASE_URL, JWT_SECRET y ADMIN_PASSWORD propios
 npm start                   # http://localhost:3000
 ```
 
-`npm start` ejecuta `node src/seed.js` antes de levantar el servidor
-(`usuarioModel.existeAdministrador()` evita duplicar el admin si ya existe),
-así que no hace falta correr `npm run seed` aparte — queda disponible solo
-para volver a verificar el seed manualmente sin reiniciar el servidor. Esto
-es clave en Render (plan gratuito, disco no persistente entre despliegues):
-cada arranque recrea el admin y las categorías iniciales si el disco se
-reinició.
+La base de datos es **Postgres en Supabase** (paquete `pg`, un `Pool` con SSL
+configurado con `DATABASE_URL`). Los datos persisten entre despliegues de
+Render. Antes se usaba SQLite (`node:sqlite`) en el disco de Render, que se
+borraba en cada despliegue.
 
-La base de datos usa `node:sqlite` (nativo desde Node 22.5, sin flags desde
-Node 22.13/23.4). Se eligió sobre `better-sqlite3` porque este último requiere
-compilar un binario nativo (node-gyp + Python + build tools de C++), que no
-están disponibles en todos los entornos de desarrollo. Requiere Node 22.5+.
+`npm start` ejecuta `node src/seed.js` antes de levantar el servidor. El seed
+es idempotente: aplica `src/db/schema.sql` (`CREATE TABLE IF NOT EXISTS`), crea
+las categorías iniciales, el emisor y la secuencia de facturación si faltan, y
+crea el administrador (`ADMIN_LOGIN` / `ADMIN_PASSWORD`) solo si la base no
+tiene ninguno. `npm run seed` hace lo mismo sin levantar el servidor.
+
+Notas de la migración a Postgres (la API devuelve los mismos JSON que con SQLite):
+- Precios y totales de venta son `double precision`; ids y cantidades, `integer`.
+  `db.js` convierte a número los `bigint`/`numeric` que `pg` entrega como texto.
+- Las fechas son `timestamp(0)` en UTC y salen como `"YYYY-MM-DD HH:MM:SS"`.
+- Las operaciones atómicas (cierre de cuenta, venta de mostrador, anulación,
+  entradas/salidas, pedidos) usan `db.conTransaccion`: un solo client del pool
+  con `BEGIN`/`COMMIT`/`ROLLBACK`, liberado en `finally`. Los modelos reciben ese
+  client como `cx`. El consecutivo de facturas y el stock se bloquean con
+  `FOR UPDATE`.
+- En Postgres un `ROLLBACK` no devuelve el id que ya tomó una secuencia. Por eso
+  el stock se verifica antes de crear la venta; si una venta falla por otra
+  causa, puede quedar un hueco en `id_venta`. El número de factura nunca
+  tiene huecos (tiene su propia tabla de consecutivo).
+- `scripts/escenario-api.js` recorre con curl los flujos de las 19 historias y
+  guarda las respuestas en `muestras/<carpeta>`; `scripts/comparar-muestras.js`
+  compara dos carpetas campo por campo (`muestras/sqlite` vs `muestras/postgres`).
 
 `BASE_URL` (en `.env`, por defecto `http://localhost:3000`) es la URL pública
 usada para construir el link del QR de cada mesa (`GET /api/mesas/:id/qr`,
@@ -40,7 +55,7 @@ Catálogo de cliente (Sprint 3), vía QR: **http://localhost:3000/catalogo/index
 
 ```
 src/
-  db/            conexión SQLite (node:sqlite) + schema.sql (las 12 tablas del modelo completo)
+  db/            conexión Postgres (pg Pool, conTransaccion) + schema.sql (12 tablas del modelo + 4 de facturación)
   models/        usuarioModel, logAuditoriaModel, categoriaModel, productoModel,
                   proveedorModel, movimientoInventarioModel, mesaModel, pedidoModel,
                   ventaModel

@@ -1,0 +1,21 @@
+{
+  "metodo": "GET",
+  "ruta": "/api/ventas?tipo=mostrador",
+  "status": 200,
+  "content_type": "application/json; charset=utf-8",
+  "body": [
+    {
+      "id_venta": 2,
+      "tipo": "mostrador",
+      "id_mesa": null,
+      "id_usuario": 3,
+      "total": 93500,
+      "fecha_hora": "2026-09-25 21:17:32",
+      "estado": "activa",
+      "usuario_nombre": "Cajero Escenario",
+      "mesa_numero": null,
+      "id_factura": 2,
+      "numero_factura": "2"
+    }
+  ]
+}

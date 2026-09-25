@@ -1,0 +1,20 @@
+{
+  "metodo": "GET",
+  "ruta": "/api/productos/1",
+  "status": 200,
+  "content_type": "application/json; charset=utf-8",
+  "body": {
+    "id_producto": 1,
+    "id_categoria": 1,
+    "nombre": "Escenario Ron",
+    "unidad_medida": "botella",
+    "precio": 45000,
+    "stock_actual": 20,
+    "umbral_alerta": 5,
+    "tasa_iva_bps": 1900,
+    "tasa_inc_bps": 800,
+    "es_bebida_alcoholica": 1,
+    "categoria_nombre": "Licor",
+    "alerta_stock_bajo": false
+  }
+}

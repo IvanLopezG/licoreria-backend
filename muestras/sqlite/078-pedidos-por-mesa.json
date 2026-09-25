@@ -1,0 +1,54 @@
+{
+  "metodo": "GET",
+  "ruta": "/api/pedidos?id_mesa=1",
+  "status": 200,
+  "content_type": "application/json; charset=utf-8",
+  "body": [
+    {
+      "id_pedido": 1,
+      "id_mesa": 1,
+      "id_venta": null,
+      "estado": "pendiente",
+      "notificado": 0,
+      "fecha_hora": "2026-09-25 20:52:26",
+      "mesa_numero": 7,
+      "items": [
+        {
+          "id_pedido_detalle": 1,
+          "id_pedido": 1,
+          "id_producto": 1,
+          "cantidad": 1,
+          "precio_unitario": 45000,
+          "producto_nombre": "Escenario Ron"
+        },
+        {
+          "id_pedido_detalle": 2,
+          "id_pedido": 1,
+          "id_producto": 2,
+          "cantidad": 2,
+          "precio_unitario": 3500,
+          "producto_nombre": "Escenario Hielo"
+        }
+      ]
+    },
+    {
+      "id_pedido": 2,
+      "id_mesa": 1,
+      "id_venta": null,
+      "estado": "pendiente",
+      "notificado": 0,
+      "fecha_hora": "2026-09-25 20:52:26",
+      "mesa_numero": 7,
+      "items": [
+        {
+          "id_pedido_detalle": 3,
+          "id_pedido": 2,
+          "id_producto": 1,
+          "cantidad": 2,
+          "precio_unitario": 45000,
+          "producto_nombre": "Escenario Ron"
+        }
+      ]
+    }
+  ]
+}

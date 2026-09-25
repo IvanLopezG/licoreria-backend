@@ -1,8 +1,8 @@
 const proveedorService = require("../services/proveedorService");
 
-function crear(req, res) {
+async function crear(req, res) {
   try {
-    const nuevo = proveedorService.crearProveedor(req.body);
+    const nuevo = await proveedorService.crearProveedor(req.body);
 
     // El middleware de auditoría escribe el registro al ver este campo.
     req.auditoria = { accion: "crear", entidad: "proveedores", id_entidad: nuevo.id_proveedor };
@@ -13,21 +13,21 @@ function crear(req, res) {
   }
 }
 
-function listar(req, res) {
-  return res.json(proveedorService.listarProveedores());
+async function listar(req, res) {
+  return res.json(await proveedorService.listarProveedores());
 }
 
-function obtener(req, res) {
+async function obtener(req, res) {
   try {
-    return res.json(proveedorService.obtenerProveedor(Number(req.params.id)));
+    return res.json(await proveedorService.obtenerProveedor(Number(req.params.id)));
   } catch (err) {
     return res.status(err.status || 400).json({ error: err.message });
   }
 }
 
-function asociarProducto(req, res) {
+async function asociarProducto(req, res) {
   try {
-    const actualizado = proveedorService.asociarProducto(Number(req.params.id), Number(req.body.id_producto));
+    const actualizado = await proveedorService.asociarProducto(Number(req.params.id), Number(req.body.id_producto));
 
     req.auditoria = { accion: "editar", entidad: "proveedores", id_entidad: actualizado.id_proveedor };
 

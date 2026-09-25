@@ -1,0 +1,34 @@
+{
+  "metodo": "GET",
+  "ruta": "/api/inventario/movimientos",
+  "status": 200,
+  "content_type": "application/json; charset=utf-8",
+  "body": [
+    {
+      "id_movimiento": 1,
+      "id_producto": 1,
+      "tipo": "entrada",
+      "motivo": "compra",
+      "cantidad": 10,
+      "id_proveedor": 1,
+      "id_venta": null,
+      "id_usuario": 3,
+      "fecha_hora": "2026-09-25 20:52:25",
+      "usuario_nombre": "Cajero Escenario",
+      "producto_nombre": "Escenario Ron"
+    },
+    {
+      "id_movimiento": 2,
+      "id_producto": 1,
+      "tipo": "salida",
+      "motivo": "ajuste",
+      "cantidad": 2,
+      "id_proveedor": null,
+      "id_venta": null,
+      "id_usuario": 1,
+      "fecha_hora": "2026-09-25 20:52:25",
+      "usuario_nombre": "Administrador",
+      "producto_nombre": "Escenario Ron"
+    }
+  ]
+}

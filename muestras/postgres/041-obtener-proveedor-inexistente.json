@@ -1,0 +1,9 @@
+{
+  "metodo": "GET",
+  "ruta": "/api/proveedores/999",
+  "status": 404,
+  "content_type": "application/json; charset=utf-8",
+  "body": {
+    "error": "Proveedor no encontrado."
+  }
+}

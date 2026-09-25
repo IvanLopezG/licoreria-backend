@@ -1,0 +1,9 @@
+{
+  "metodo": "POST",
+  "ruta": "/api/mesas/999/cerrar-cuenta",
+  "status": 404,
+  "content_type": "application/json; charset=utf-8",
+  "body": {
+    "error": "Mesa no encontrada."
+  }
+}

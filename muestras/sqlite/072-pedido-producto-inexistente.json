@@ -1,0 +1,9 @@
+{
+  "metodo": "POST",
+  "ruta": "/api/catalogo/4bb6eb16f109d5a10f249738f1255a8d/pedidos",
+  "status": 404,
+  "content_type": "application/json; charset=utf-8",
+  "body": {
+    "error": "Producto 999 no encontrado."
+  }
+}

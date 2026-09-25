@@ -4,14 +4,14 @@ const proveedorModel = require("../models/proveedorModel");
 
 const MOTIVOS_SALIDA_VALIDOS = ["venta", "ajuste"];
 
-function validarProductoYCantidad(id_producto, cantidad) {
+async function validarProductoYCantidad(id_producto, cantidad) {
   if (!id_producto || cantidad === undefined || cantidad === null || Number(cantidad) <= 0) {
     const err = new Error("id_producto y cantidad (mayor a 0) son obligatorios.");
     err.status = 400;
     throw err;
   }
 
-  const producto = productoModel.buscarPorId(id_producto);
+  const producto = await productoModel.buscarPorId(id_producto);
   if (!producto) {
     const err = new Error("Producto no encontrado.");
     err.status = 404;
@@ -20,15 +20,15 @@ function validarProductoYCantidad(id_producto, cantidad) {
   return producto;
 }
 
-function registrarEntrada({ id_producto, cantidad, id_proveedor }, id_usuario) {
-  validarProductoYCantidad(id_producto, cantidad);
+async function registrarEntrada({ id_producto, cantidad, id_proveedor }, id_usuario) {
+  await validarProductoYCantidad(id_producto, cantidad);
 
   if (!id_proveedor) {
     const err = new Error("id_proveedor es obligatorio en una entrada.");
     err.status = 400;
     throw err;
   }
-  if (!proveedorModel.buscarPorId(id_proveedor)) {
+  if (!(await proveedorModel.buscarPorId(id_proveedor))) {
     const err = new Error("Proveedor no encontrado.");
     err.status = 404;
     throw err;
@@ -42,8 +42,8 @@ function registrarEntrada({ id_producto, cantidad, id_proveedor }, id_usuario) {
   });
 }
 
-function registrarSalida({ id_producto, cantidad, motivo }, id_usuario) {
-  const producto = validarProductoYCantidad(id_producto, cantidad);
+async function registrarSalida({ id_producto, cantidad, motivo }, id_usuario) {
+  const producto = await validarProductoYCantidad(id_producto, cantidad);
 
   if (!MOTIVOS_SALIDA_VALIDOS.includes(motivo)) {
     const err = new Error(`motivo inválido. Debe ser uno de: ${MOTIVOS_SALIDA_VALIDOS.join(", ")}.`);

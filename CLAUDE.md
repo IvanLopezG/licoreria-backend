@@ -11,18 +11,23 @@ necesita de ellos; no hace falta releerlos para trabajar, pero son la fuente de
 verdad si algo aquí queda ambiguo.
 
 ## Stack y arquitectura (ya implementados en Sprint 1, no cambiar sin razón)
-- Node.js + Express, arquitectura en capas: `rutas → controladores → servicios → modelos → SQLite`.
-- `node:sqlite` (`DatabaseSync`, nativo desde Node 22.5+, sin flags desde 22.13/23.4),
-  `bcryptjs` (hash de contraseñas), `jsonwebtoken` (auth). No usamos `better-sqlite3`:
-  requiere compilar un binario nativo (node-gyp + Python + build tools de C++) que no
-  están disponibles en todos los entornos de desarrollo del proyecto.
-- `node:sqlite` no trae el helper `db.transaction()` de `better-sqlite3`. Cualquier
-  operación multi-paso que deba ser atómica (p. ej. ajustar `stock_actual` +
-  registrar en `movimientos_inventario`, como en `movimientoInventarioModel.js`)
-  envuelve `BEGIN`/`COMMIT`/`ROLLBACK` a mano en el modelo con un helper tipo
-  `conTransaccion(fn)`. Mismo patrón aplica en Sprint 3-4 para el cierre de cuenta
-  por mesa (US-14: sumar `PEDIDO_DETALLE` en `VENTA_DETALLE` + total) y el
-  descuento automático de inventario en ventas (US-16).
+- Node.js + Express, arquitectura en capas: `rutas → controladores → servicios → modelos → Postgres`.
+- **Postgres en Supabase** con `pg` (un `Pool`, `DATABASE_URL` del Session pooler, SSL),
+  `bcryptjs` (hash de contraseñas), `jsonwebtoken` (auth). Antes era `node:sqlite`; la
+  migración mantuvo los JSON idénticos (ver README, "Notas de la migración").
+- Todo el acceso a datos es async/await con placeholders `$1, $2`. `db.js` expone
+  `uno`, `todos`, `ejecutar`, `filtros()` (WHERE dinámico con fechas) y
+  `conTransaccion(fn)`: un solo client del pool con `BEGIN`/`COMMIT`/`ROLLBACK`,
+  liberado en `finally`. Toda operación multi-paso atómica (ajustar `stock_actual` +
+  registrar en `movimientos_inventario`, cierre de cuenta US-14, descuento de
+  inventario US-16, facturación, anulación) va dentro de `conTransaccion`, y cada
+  función de modelo que participa recibe ese client como último parámetro `cx`.
+- Tipos: ids/cantidades `integer`, dinero de venta `double precision`, fechas
+  `timestamp(0)` en UTC (salen como texto "YYYY-MM-DD HH:MM:SS"), banderas 0/1 en
+  `integer`. Un `COUNT`/`SUM` devuelve `bigint`: `db.js` lo convierte a número.
+- Antes de cambiar una consulta, correr `scripts/escenario-api.js` contra una base
+  vacía y `scripts/comparar-muestras.js sqlite <carpeta>`: la app Android depende de
+  estos JSON.
 - Middlewares en `src/middlewares/`: `auth.js` (verifica JWT), `roles.js` (RBAC por rol),
   `auditoria.js` (escribe en `log_auditoria` automáticamente cuando un controlador
   fija `req.auditoria = { accion, entidad, id_entidad }` — no lo hagas manualmente

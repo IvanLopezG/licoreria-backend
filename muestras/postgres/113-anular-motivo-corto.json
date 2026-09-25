@@ -1,0 +1,9 @@
+{
+  "metodo": "POST",
+  "ruta": "/api/facturas/1/anular",
+  "status": 400,
+  "content_type": "application/json; charset=utf-8",
+  "body": {
+    "error": "El motivo de anulación es obligatorio (mínimo 10 caracteres)."
+  }
+}

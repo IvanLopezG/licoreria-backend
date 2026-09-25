@@ -1,0 +1,9 @@
+{
+  "metodo": "PUT",
+  "ruta": "/api/emisor",
+  "status": 400,
+  "content_type": "application/json; charset=utf-8",
+  "body": {
+    "error": "El DV no corresponde a este NIT (el correcto es 8)."
+  }
+}

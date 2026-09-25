@@ -11,9 +11,9 @@ const COLUMNAS_CSV = [
   { titulo: "fecha_hora", campo: "fecha_hora" },
 ];
 
-function entrada(req, res) {
+async function entrada(req, res) {
   try {
-    const movimiento = movimientoService.registrarEntrada(req.body, req.usuario.id_usuario);
+    const movimiento = await movimientoService.registrarEntrada(req.body, req.usuario.id_usuario);
 
     // El middleware de auditoría escribe el registro al ver este campo.
     req.auditoria = { accion: "crear", entidad: "movimientos_inventario", id_entidad: movimiento.id_movimiento };
@@ -24,9 +24,9 @@ function entrada(req, res) {
   }
 }
 
-function salida(req, res) {
+async function salida(req, res) {
   try {
-    const movimiento = movimientoService.registrarSalida(req.body, req.usuario.id_usuario);
+    const movimiento = await movimientoService.registrarSalida(req.body, req.usuario.id_usuario);
 
     req.auditoria = { accion: "crear", entidad: "movimientos_inventario", id_entidad: movimiento.id_movimiento };
 
@@ -37,9 +37,9 @@ function salida(req, res) {
 }
 
 // US-19 (opcional): ?formato=csv reutiliza el mismo filtro que el JSON normal.
-function historial(req, res) {
+async function historial(req, res) {
   const { id_producto, desde, hasta, id_usuario, formato } = req.query;
-  const movimientos = movimientoService.historial({ id_producto, desde, hasta, id_usuario });
+  const movimientos = await movimientoService.historial({ id_producto, desde, hasta, id_usuario });
 
   if (formato === "csv") {
     res.setHeader("Content-Type", "text/csv; charset=utf-8");

@@ -1,0 +1,20 @@
+{
+  "metodo": "GET",
+  "ruta": "/api/categorias",
+  "status": 200,
+  "content_type": "application/json; charset=utf-8",
+  "body": [
+    {
+      "id_categoria": 1,
+      "nombre": "Licor"
+    },
+    {
+      "id_categoria": 2,
+      "nombre": "Paquetería"
+    },
+    {
+      "id_categoria": 3,
+      "nombre": "Snacks"
+    }
+  ]
+}

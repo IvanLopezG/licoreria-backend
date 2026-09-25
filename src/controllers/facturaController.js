@@ -4,14 +4,14 @@ const { generarPdfFactura } = require("../utils/facturaPdf");
 // Las facturas se emiten solas al cobrar (cierre de mesa o venta de
 // mostrador); aquí solo se consultan, se descargan y se configura el emisor.
 
-function listar(req, res) {
+async function listar(req, res) {
   const { desde, hasta } = req.query;
-  return res.json(facturaService.listarFacturas({ desde, hasta }));
+  return res.json(await facturaService.listarFacturas({ desde, hasta }));
 }
 
-function obtener(req, res) {
+async function obtener(req, res) {
   try {
-    return res.json(facturaService.obtenerFactura(Number(req.params.id)));
+    return res.json(await facturaService.obtenerFactura(Number(req.params.id)));
   } catch (err) {
     return res.status(err.status || 400).json({ error: err.message });
   }
@@ -19,7 +19,7 @@ function obtener(req, res) {
 
 async function pdf(req, res) {
   try {
-    const factura = facturaService.obtenerFactura(Number(req.params.id));
+    const factura = await facturaService.obtenerFactura(Number(req.params.id));
     const buffer = await generarPdfFactura(factura);
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader("Content-Disposition", `inline; filename=factura_${factura.numero_completo}.pdf`);
@@ -29,9 +29,9 @@ async function pdf(req, res) {
   }
 }
 
-function anular(req, res) {
+async function anular(req, res) {
   try {
-    const factura = facturaService.anularFactura(Number(req.params.id), req.body || {}, req.usuario.id_usuario);
+    const factura = await facturaService.anularFactura(Number(req.params.id), req.body || {}, req.usuario.id_usuario);
 
     // El middleware de auditoría escribe el registro al ver este campo.
     req.auditoria = { accion: "editar", entidad: "facturas", id_entidad: factura.id_factura };
@@ -42,13 +42,13 @@ function anular(req, res) {
   }
 }
 
-function obtenerEmisor(req, res) {
-  return res.json(facturaService.obtenerEmisor());
+async function obtenerEmisor(req, res) {
+  return res.json(await facturaService.obtenerEmisor());
 }
 
-function editarEmisor(req, res) {
+async function editarEmisor(req, res) {
   try {
-    const emisor = facturaService.editarEmisor(req.body || {});
+    const emisor = await facturaService.editarEmisor(req.body || {});
 
     // El middleware de auditoría escribe el registro al ver este campo.
     req.auditoria = { accion: "editar", entidad: "emisor", id_entidad: emisor.id };

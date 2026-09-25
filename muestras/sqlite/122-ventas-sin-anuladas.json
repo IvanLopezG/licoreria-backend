@@ -1,0 +1,21 @@
+{
+  "metodo": "GET",
+  "ruta": "/api/ventas",
+  "status": 200,
+  "content_type": "application/json; charset=utf-8",
+  "body": [
+    {
+      "id_venta": 3,
+      "tipo": "mesa",
+      "id_mesa": 1,
+      "id_usuario": 1,
+      "total": 142000,
+      "fecha_hora": "2026-09-25 20:52:27",
+      "estado": "activa",
+      "usuario_nombre": "Administrador",
+      "mesa_numero": 7,
+      "id_factura": 3,
+      "numero_factura": "3"
+    }
+  ]
+}

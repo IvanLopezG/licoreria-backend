@@ -1,0 +1,15 @@
+{
+  "metodo": "GET",
+  "ruta": "/api/auth/me",
+  "status": 200,
+  "content_type": "application/json; charset=utf-8",
+  "body": {
+    "usuario": {
+      "id_usuario": 1,
+      "usuario_login": "admin",
+      "rol": "administrador",
+      "iat": 1790369543,
+      "exp": 1790376743
+    }
+  }
+}

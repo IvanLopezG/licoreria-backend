@@ -1,0 +1,9 @@
+{
+  "metodo": "POST",
+  "ruta": "/api/usuarios",
+  "status": 400,
+  "content_type": "application/json; charset=utf-8",
+  "body": {
+    "error": "Rol inválido. Debe ser uno de: administrador, mesero, cajero."
+  }
+}

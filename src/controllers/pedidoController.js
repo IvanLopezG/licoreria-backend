@@ -1,13 +1,13 @@
 const pedidoService = require("../services/pedidoService");
 
-function listar(req, res) {
+async function listar(req, res) {
   const { estado, id_mesa } = req.query;
-  return res.json(pedidoService.listarPedidos({ estado, id_mesa }));
+  return res.json(await pedidoService.listarPedidos({ estado, id_mesa }));
 }
 
-function entregado(req, res) {
+async function entregado(req, res) {
   try {
-    const pedido = pedidoService.marcarEntregado(Number(req.params.id));
+    const pedido = await pedidoService.marcarEntregado(Number(req.params.id));
 
     req.auditoria = { accion: "editar", entidad: "pedidos", id_entidad: pedido.id_pedido };
 
@@ -17,10 +17,10 @@ function entregado(req, res) {
   }
 }
 
-function cancelar(req, res) {
+async function cancelar(req, res) {
   try {
     const id_pedido = Number(req.params.id);
-    const resultado = pedidoService.cancelar(id_pedido);
+    const resultado = await pedidoService.cancelar(id_pedido);
 
     // El middleware de auditoría escribe el registro al ver este campo.
     req.auditoria = { accion: "eliminar", entidad: "pedidos", id_entidad: id_pedido };

@@ -1,0 +1,14 @@
+{
+  "metodo": "POST",
+  "ruta": "/api/usuarios",
+  "status": 201,
+  "content_type": "application/json; charset=utf-8",
+  "body": {
+    "id_usuario": 3,
+    "nombre": "Cajero Escenario",
+    "usuario_login": "esc_cajero",
+    "rol": "cajero",
+    "activo": 1,
+    "fecha_creacion": "2026-09-25 20:52:23"
+  }
+}

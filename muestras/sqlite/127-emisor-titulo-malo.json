@@ -1,0 +1,9 @@
+{
+  "metodo": "PUT",
+  "ruta": "/api/emisor",
+  "status": 400,
+  "content_type": "application/json; charset=utf-8",
+  "body": {
+    "error": "titulo_documento debe ser: Comprobante de venta o FACTURA DE VENTA."
+  }
+}

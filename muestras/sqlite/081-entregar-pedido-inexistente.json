@@ -1,0 +1,9 @@
+{
+  "metodo": "PUT",
+  "ruta": "/api/pedidos/999/entregado",
+  "status": 404,
+  "content_type": "application/json; charset=utf-8",
+  "body": {
+    "error": "Pedido no encontrado."
+  }
+}

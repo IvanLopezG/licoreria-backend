@@ -1,8 +1,8 @@
 const categoriaService = require("../services/categoriaService");
 
-function crear(req, res) {
+async function crear(req, res) {
   try {
-    const nueva = categoriaService.crearCategoria(req.body);
+    const nueva = await categoriaService.crearCategoria(req.body);
 
     // El middleware de auditoría escribe el registro al ver este campo.
     req.auditoria = { accion: "crear", entidad: "categorias", id_entidad: nueva.id_categoria };
@@ -13,8 +13,8 @@ function crear(req, res) {
   }
 }
 
-function listar(req, res) {
-  return res.json(categoriaService.listarCategorias());
+async function listar(req, res) {
+  return res.json(await categoriaService.listarCategorias());
 }
 
 module.exports = { crear, listar };

@@ -14,29 +14,29 @@ function listarProveedores() {
   return proveedorModel.listar();
 }
 
-function obtenerProveedor(id_proveedor) {
-  const proveedor = proveedorModel.buscarPorId(id_proveedor);
+async function obtenerProveedor(id_proveedor) {
+  const proveedor = await proveedorModel.buscarPorId(id_proveedor);
   if (!proveedor) {
     const err = new Error("Proveedor no encontrado.");
     err.status = 404;
     throw err;
   }
-  return { ...proveedor, productos: proveedorModel.listarProductos(id_proveedor) };
+  return { ...proveedor, productos: await proveedorModel.listarProductos(id_proveedor) };
 }
 
-function asociarProducto(id_proveedor, id_producto) {
-  if (!proveedorModel.buscarPorId(id_proveedor)) {
+async function asociarProducto(id_proveedor, id_producto) {
+  if (!(await proveedorModel.buscarPorId(id_proveedor))) {
     const err = new Error("Proveedor no encontrado.");
     err.status = 404;
     throw err;
   }
-  if (!productoModel.buscarPorId(id_producto)) {
+  if (!(await productoModel.buscarPorId(id_producto))) {
     const err = new Error("Producto no encontrado.");
     err.status = 404;
     throw err;
   }
 
-  proveedorModel.asociarProducto(id_proveedor, id_producto);
+  await proveedorModel.asociarProducto(id_proveedor, id_producto);
   return obtenerProveedor(id_proveedor);
 }
 

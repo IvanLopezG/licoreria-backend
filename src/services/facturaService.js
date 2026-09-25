@@ -64,8 +64,8 @@ function listarFacturas({ desde, hasta }) {
   return facturaModel.listar({ desde, hasta });
 }
 
-function obtenerFactura(id_factura) {
-  const factura = facturaModel.buscarPorId(id_factura);
+async function obtenerFactura(id_factura) {
+  const factura = await facturaModel.buscarPorId(id_factura);
   if (!factura) {
     const err = new Error("Factura no encontrada.");
     err.status = 404;
@@ -76,7 +76,7 @@ function obtenerFactura(id_factura) {
 
 const MOTIVO_MINIMO = 10;
 
-function anularFactura(id_factura, { motivo, reabrir_pedidos } = {}, id_usuario) {
+async function anularFactura(id_factura, { motivo, reabrir_pedidos } = {}, id_usuario) {
   const limpio = texto(motivo);
   if (!limpio || limpio.length < MOTIVO_MINIMO) {
     throw errorValidacion(`El motivo de anulación es obligatorio (mínimo ${MOTIVO_MINIMO} caracteres).`);
@@ -97,8 +97,8 @@ const TITULOS_DOCUMENTO = ["Comprobante de venta", "FACTURA DE VENTA"];
 const OBLIGATORIOS_EMISOR = ["razon_social", "nit", "dv", "direccion", "municipio", "departamento", "regimen", "titulo_documento", "leyenda_pie"];
 
 // Edición parcial: los campos que no llegan conservan su valor actual.
-function editarEmisor(body) {
-  const actual = emisorModel.obtener();
+async function editarEmisor(body) {
+  const actual = await emisorModel.obtener();
   const datos = {};
   for (const campo of emisorModel.CAMPOS) {
     datos[campo] = body[campo] === undefined ? actual[campo] : texto(body[campo]);
@@ -128,11 +128,11 @@ function editarEmisor(body) {
 
 // Datos iniciales del emisor (desde .env, o marcadores para completar luego con
 // PUT /api/emisor) y la secuencia interna de numeración. Solo crea lo que falta.
-function asegurarDatosIniciales() {
-  if (!emisorModel.obtener()) {
+async function asegurarDatosIniciales() {
+  if (!(await emisorModel.obtener())) {
     const env = process.env;
     const nit = normalizarNit(env.EMISOR_NIT) || "000000000";
-    emisorModel.crear({
+    await emisorModel.crear({
       razon_social: env.EMISOR_RAZON_SOCIAL || "(Configurar razón social)",
       nit,
       dv: calcularDv(nit),
@@ -147,7 +147,7 @@ function asegurarDatosIniciales() {
         "validado por la DIAN. Precios con impuestos incluidos.",
     });
   }
-  facturaModel.asegurarSecuenciaInicial();
+  await facturaModel.asegurarSecuenciaInicial();
 }
 
 module.exports = {

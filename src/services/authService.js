@@ -4,8 +4,8 @@ const usuarioModel = require("../models/usuarioModel");
 
 const MENSAJE_CREDENCIALES_INVALIDAS = "Usuario o contraseña incorrectos.";
 
-function login(usuario_login, password) {
-  const usuario = usuarioModel.buscarPorLogin(usuario_login);
+async function login(usuario_login, password) {
+  const usuario = await usuarioModel.buscarPorLogin(usuario_login);
 
   if (!usuario || !usuario.activo) {
     // Mismo mensaje que una contraseña incorrecta: no revelamos si el

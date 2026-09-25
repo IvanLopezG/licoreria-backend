@@ -1,0 +1,20 @@
+{
+  "metodo": "POST",
+  "ruta": "/api/productos",
+  "status": 201,
+  "content_type": "application/json; charset=utf-8",
+  "body": {
+    "id_producto": 2,
+    "id_categoria": 1,
+    "nombre": "Escenario Hielo",
+    "unidad_medida": "bolsa",
+    "precio": 3500.5,
+    "stock_actual": 4,
+    "umbral_alerta": 3,
+    "tasa_iva_bps": 1900,
+    "tasa_inc_bps": 0,
+    "es_bebida_alcoholica": 0,
+    "categoria_nombre": "Licor",
+    "alerta_stock_bajo": false
+  }
+}

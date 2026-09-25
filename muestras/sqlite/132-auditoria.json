@@ -1,0 +1,238 @@
+{
+  "metodo": "GET",
+  "ruta": "/api/auditoria",
+  "status": 200,
+  "content_type": "application/json; charset=utf-8",
+  "body": [
+    {
+      "id_log": 23,
+      "id_usuario": 1,
+      "accion": "editar",
+      "entidad": "emisor",
+      "id_entidad": 1,
+      "fecha_hora": "2026-09-25 20:52:28",
+      "usuario_nombre": "Administrador",
+      "usuario_login": "admin"
+    },
+    {
+      "id_log": 19,
+      "id_usuario": 3,
+      "accion": "crear",
+      "entidad": "ventas",
+      "id_entidad": 2,
+      "fecha_hora": "2026-09-25 20:52:27",
+      "usuario_nombre": "Cajero Escenario",
+      "usuario_login": "esc_cajero"
+    },
+    {
+      "id_log": 20,
+      "id_usuario": 1,
+      "accion": "editar",
+      "entidad": "facturas",
+      "id_entidad": 2,
+      "fecha_hora": "2026-09-25 20:52:27",
+      "usuario_nombre": "Administrador",
+      "usuario_login": "admin"
+    },
+    {
+      "id_log": 21,
+      "id_usuario": 1,
+      "accion": "editar",
+      "entidad": "facturas",
+      "id_entidad": 1,
+      "fecha_hora": "2026-09-25 20:52:27",
+      "usuario_nombre": "Administrador",
+      "usuario_login": "admin"
+    },
+    {
+      "id_log": 22,
+      "id_usuario": 1,
+      "accion": "crear",
+      "entidad": "ventas",
+      "id_entidad": 3,
+      "fecha_hora": "2026-09-25 20:52:27",
+      "usuario_nombre": "Administrador",
+      "usuario_login": "admin"
+    },
+    {
+      "id_log": 16,
+      "id_usuario": 2,
+      "accion": "editar",
+      "entidad": "pedidos",
+      "id_entidad": 1,
+      "fecha_hora": "2026-09-25 20:52:26",
+      "usuario_nombre": "Mesero Escenario",
+      "usuario_login": "esc_mesero"
+    },
+    {
+      "id_log": 17,
+      "id_usuario": 3,
+      "accion": "eliminar",
+      "entidad": "pedidos",
+      "id_entidad": 3,
+      "fecha_hora": "2026-09-25 20:52:26",
+      "usuario_nombre": "Cajero Escenario",
+      "usuario_login": "esc_cajero"
+    },
+    {
+      "id_log": 18,
+      "id_usuario": 3,
+      "accion": "crear",
+      "entidad": "ventas",
+      "id_entidad": 1,
+      "fecha_hora": "2026-09-25 20:52:26",
+      "usuario_nombre": "Cajero Escenario",
+      "usuario_login": "esc_cajero"
+    },
+    {
+      "id_log": 11,
+      "id_usuario": 1,
+      "accion": "editar",
+      "entidad": "proveedores",
+      "id_entidad": 1,
+      "fecha_hora": "2026-09-25 20:52:25",
+      "usuario_nombre": "Administrador",
+      "usuario_login": "admin"
+    },
+    {
+      "id_log": 12,
+      "id_usuario": 3,
+      "accion": "crear",
+      "entidad": "movimientos_inventario",
+      "id_entidad": 1,
+      "fecha_hora": "2026-09-25 20:52:25",
+      "usuario_nombre": "Cajero Escenario",
+      "usuario_login": "esc_cajero"
+    },
+    {
+      "id_log": 13,
+      "id_usuario": 1,
+      "accion": "crear",
+      "entidad": "movimientos_inventario",
+      "id_entidad": 2,
+      "fecha_hora": "2026-09-25 20:52:25",
+      "usuario_nombre": "Administrador",
+      "usuario_login": "admin"
+    },
+    {
+      "id_log": 14,
+      "id_usuario": 1,
+      "accion": "crear",
+      "entidad": "mesas",
+      "id_entidad": 1,
+      "fecha_hora": "2026-09-25 20:52:25",
+      "usuario_nombre": "Administrador",
+      "usuario_login": "admin"
+    },
+    {
+      "id_log": 15,
+      "id_usuario": 1,
+      "accion": "crear",
+      "entidad": "mesas",
+      "id_entidad": 2,
+      "fecha_hora": "2026-09-25 20:52:25",
+      "usuario_nombre": "Administrador",
+      "usuario_login": "admin"
+    },
+    {
+      "id_log": 3,
+      "id_usuario": 3,
+      "accion": "crear",
+      "entidad": "categorias",
+      "id_entidad": 3,
+      "fecha_hora": "2026-09-25 20:52:24",
+      "usuario_nombre": "Cajero Escenario",
+      "usuario_login": "esc_cajero"
+    },
+    {
+      "id_log": 4,
+      "id_usuario": 1,
+      "accion": "crear",
+      "entidad": "productos",
+      "id_entidad": 1,
+      "fecha_hora": "2026-09-25 20:52:24",
+      "usuario_nombre": "Administrador",
+      "usuario_login": "admin"
+    },
+    {
+      "id_log": 5,
+      "id_usuario": 3,
+      "accion": "crear",
+      "entidad": "productos",
+      "id_entidad": 2,
+      "fecha_hora": "2026-09-25 20:52:24",
+      "usuario_nombre": "Cajero Escenario",
+      "usuario_login": "esc_cajero"
+    },
+    {
+      "id_log": 6,
+      "id_usuario": 1,
+      "accion": "editar",
+      "entidad": "productos",
+      "id_entidad": 2,
+      "fecha_hora": "2026-09-25 20:52:24",
+      "usuario_nombre": "Administrador",
+      "usuario_login": "admin"
+    },
+    {
+      "id_log": 7,
+      "id_usuario": 1,
+      "accion": "crear",
+      "entidad": "proveedores",
+      "id_entidad": 1,
+      "fecha_hora": "2026-09-25 20:52:24",
+      "usuario_nombre": "Administrador",
+      "usuario_login": "admin"
+    },
+    {
+      "id_log": 8,
+      "id_usuario": 3,
+      "accion": "crear",
+      "entidad": "proveedores",
+      "id_entidad": 2,
+      "fecha_hora": "2026-09-25 20:52:24",
+      "usuario_nombre": "Cajero Escenario",
+      "usuario_login": "esc_cajero"
+    },
+    {
+      "id_log": 9,
+      "id_usuario": 1,
+      "accion": "editar",
+      "entidad": "proveedores",
+      "id_entidad": 1,
+      "fecha_hora": "2026-09-25 20:52:24",
+      "usuario_nombre": "Administrador",
+      "usuario_login": "admin"
+    },
+    {
+      "id_log": 10,
+      "id_usuario": 1,
+      "accion": "editar",
+      "entidad": "proveedores",
+      "id_entidad": 1,
+      "fecha_hora": "2026-09-25 20:52:24",
+      "usuario_nombre": "Administrador",
+      "usuario_login": "admin"
+    },
+    {
+      "id_log": 1,
+      "id_usuario": 1,
+      "accion": "crear",
+      "entidad": "usuarios",
+      "id_entidad": 2,
+      "fecha_hora": "2026-09-25 20:52:23",
+      "usuario_nombre": "Administrador",
+      "usuario_login": "admin"
+    },
+    {
+      "id_log": 2,
+      "id_usuario": 1,
+      "accion": "crear",
+      "entidad": "usuarios",
+      "id_entidad": 3,
+      "fecha_hora": "2026-09-25 20:52:23",
+      "usuario_nombre": "Administrador",
+      "usuario_login": "admin"
+    }
+  ]
+}

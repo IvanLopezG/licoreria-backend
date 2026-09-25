@@ -1,0 +1,38 @@
+{
+  "metodo": "GET",
+  "ruta": "/api/auditoria?entidad=ventas",
+  "status": 200,
+  "content_type": "application/json; charset=utf-8",
+  "body": [
+    {
+      "id_log": 19,
+      "id_usuario": 3,
+      "accion": "crear",
+      "entidad": "ventas",
+      "id_entidad": 2,
+      "fecha_hora": "2026-09-25 20:52:27",
+      "usuario_nombre": "Cajero Escenario",
+      "usuario_login": "esc_cajero"
+    },
+    {
+      "id_log": 22,
+      "id_usuario": 1,
+      "accion": "crear",
+      "entidad": "ventas",
+      "id_entidad": 3,
+      "fecha_hora": "2026-09-25 20:52:27",
+      "usuario_nombre": "Administrador",
+      "usuario_login": "admin"
+    },
+    {
+      "id_log": 18,
+      "id_usuario": 3,
+      "accion": "crear",
+      "entidad": "ventas",
+      "id_entidad": 1,
+      "fecha_hora": "2026-09-25 20:52:26",
+      "usuario_nombre": "Cajero Escenario",
+      "usuario_login": "esc_cajero"
+    }
+  ]
+}

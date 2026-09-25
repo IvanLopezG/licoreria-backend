@@ -1,0 +1,12 @@
+{
+  "metodo": "POST",
+  "ruta": "/api/mesas",
+  "status": 201,
+  "content_type": "application/json; charset=utf-8",
+  "body": {
+    "id_mesa": 2,
+    "numero": 3,
+    "codigo_qr_token": "16ea2904938459ec8d549ced5d8aff49",
+    "estado": "libre"
+  }
+}

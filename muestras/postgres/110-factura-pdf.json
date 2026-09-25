@@ -1,0 +1,10 @@
+{
+  "metodo": "GET",
+  "ruta": "/api/facturas/1/pdf",
+  "status": 200,
+  "content_type": "application/pdf",
+  "body": {
+    "pdf_bytes": 2578,
+    "inicio": "%PDF-"
+  }
+}

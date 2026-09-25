@@ -1,0 +1,9 @@
+{
+  "metodo": "POST",
+  "ruta": "/api/productos",
+  "status": 400,
+  "content_type": "application/json; charset=utf-8",
+  "body": {
+    "error": "precio debe ser mayor a 0."
+  }
+}

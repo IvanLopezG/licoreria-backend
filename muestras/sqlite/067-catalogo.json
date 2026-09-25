@@ -1,0 +1,27 @@
+{
+  "metodo": "GET",
+  "ruta": "/api/catalogo/4bb6eb16f109d5a10f249738f1255a8d",
+  "status": 200,
+  "content_type": "application/json; charset=utf-8",
+  "body": {
+    "mesa": {
+      "numero": 7
+    },
+    "productos": [
+      {
+        "id_producto": 2,
+        "nombre": "Escenario Hielo",
+        "categoria_nombre": "Licor",
+        "unidad_medida": "bolsa",
+        "precio": 3500
+      },
+      {
+        "id_producto": 1,
+        "nombre": "Escenario Ron",
+        "categoria_nombre": "Licor",
+        "unidad_medida": "botella",
+        "precio": 45000
+      }
+    ]
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "metodo": "POST",
+  "ruta": "/api/proveedores",
+  "status": 201,
+  "content_type": "application/json; charset=utf-8",
+  "body": {
+    "id_proveedor": 2,
+    "nombre": "Escenario Sin Contacto",
+    "contacto": null
+  }
+}

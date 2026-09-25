@@ -1,0 +1,7 @@
+{
+  "metodo": "GET",
+  "ruta": "/api/inventario/movimientos?formato=csv",
+  "status": 200,
+  "content_type": "text/csv; charset=utf-8",
+  "body": "id_movimiento,producto,tipo,motivo,cantidad,usuario,fecha_hora\n13,Escenario Ron,salida,venta,1,Administrador,2026-09-25 21:17:43\n14,Escenario Hielo,salida,venta,2,Administrador,2026-09-25 21:17:43\n15,Escenario Ron,salida,venta,2,Administrador,2026-09-25 21:17:43\n10,Escenario Ron,entrada,anulacion,1,Administrador,2026-09-25 21:17:40\n11,Escenario Hielo,entrada,anulacion,2,Administrador,2026-09-25 21:17:40\n12,Escenario Ron,entrada,anulacion,2,Administrador,2026-09-25 21:17:40\n8,Escenario Ron,entrada,anulacion,2,Administrador,2026-09-25 21:17:38\n9,Escenario Hielo,entrada,anulacion,1,Administrador,2026-09-25 21:17:38\n6,Escenario Ron,salida,venta,2,Cajero Escenario,2026-09-25 21:17:32\n7,Escenario Hielo,salida,venta,1,Cajero Escenario,2026-09-25 21:17:32\n3,Escenario Ron,salida,venta,1,Cajero Escenario,2026-09-25 21:17:25\n4,Escenario Hielo,salida,venta,2,Cajero Escenario,2026-09-25 21:17:25\n5,Escenario Ron,salida,venta,2,Cajero Escenario,2026-09-25 21:17:25\n2,Escenario Ron,salida,ajuste,2,Administrador,2026-09-25 21:17:13\n1,Escenario Ron,entrada,compra,10,Cajero Escenario,2026-09-25 21:17:11"
+}

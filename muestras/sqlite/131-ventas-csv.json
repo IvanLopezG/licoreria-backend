@@ -1,0 +1,7 @@
+{
+  "metodo": "GET",
+  "ruta": "/api/ventas?formato=csv&incluir_anuladas=true",
+  "status": 200,
+  "content_type": "text/csv; charset=utf-8",
+  "body": "id_venta,tipo,mesa_numero,usuario,total,estado,factura,fecha_hora\n2,mostrador,,Cajero Escenario,93500,anulada,2,2026-09-25 20:52:27\n3,mesa,7,Administrador,142000,activa,3,2026-09-25 20:52:27\n1,mesa,7,Cajero Escenario,142000,anulada,1,2026-09-25 20:52:26"
+}

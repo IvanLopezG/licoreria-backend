@@ -1,0 +1,7 @@
+{
+  "metodo": "GET",
+  "ruta": "/api/catalogo/4bb6eb16f109d5a10f249738f1255a8d/pedidos",
+  "status": 200,
+  "content_type": "application/json; charset=utf-8",
+  "body": []
+}

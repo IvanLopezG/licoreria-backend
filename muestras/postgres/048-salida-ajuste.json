@@ -1,0 +1,19 @@
+{
+  "metodo": "POST",
+  "ruta": "/api/inventario/salidas",
+  "status": 201,
+  "content_type": "application/json; charset=utf-8",
+  "body": {
+    "id_movimiento": 2,
+    "id_producto": 1,
+    "tipo": "salida",
+    "motivo": "ajuste",
+    "cantidad": 2,
+    "id_proveedor": null,
+    "id_venta": null,
+    "id_usuario": 1,
+    "fecha_hora": "2026-09-25 21:17:13",
+    "usuario_nombre": "Administrador",
+    "producto_nombre": "Escenario Ron"
+  }
+}

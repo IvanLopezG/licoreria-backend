@@ -1,0 +1,20 @@
+{
+  "metodo": "GET",
+  "ruta": "/api/mesas",
+  "status": 200,
+  "content_type": "application/json; charset=utf-8",
+  "body": [
+    {
+      "id_mesa": 2,
+      "numero": 3,
+      "codigo_qr_token": "9ac1da27a1516c2e78d5010f03f2afa2",
+      "estado": "libre"
+    },
+    {
+      "id_mesa": 1,
+      "numero": 7,
+      "codigo_qr_token": "8240bcc3d06d9e82cf5129db65be9a9f",
+      "estado": "libre"
+    }
+  ]
+}

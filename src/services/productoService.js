@@ -6,7 +6,7 @@ function agregarAlerta(producto) {
   return { ...producto, alerta_stock_bajo: producto.stock_actual <= producto.umbral_alerta };
 }
 
-function validarCamposBase({ nombre, id_categoria, unidad_medida, precio }) {
+async function validarCamposBase({ nombre, id_categoria, unidad_medida, precio }) {
   if (!nombre || !id_categoria || !unidad_medida || precio === undefined || precio === null || precio === "") {
     const err = new Error("nombre, id_categoria, unidad_medida y precio son obligatorios.");
     err.status = 400;
@@ -19,7 +19,7 @@ function validarCamposBase({ nombre, id_categoria, unidad_medida, precio }) {
     throw err;
   }
 
-  if (!productoModel.existeCategoria(id_categoria)) {
+  if (!(await productoModel.existeCategoria(id_categoria))) {
     const err = new Error("id_categoria no existe.");
     err.status = 400;
     throw err;
@@ -48,9 +48,9 @@ function validarImpuestos(body, actuales) {
 
 const IMPUESTOS_POR_DEFECTO = { tasa_iva_bps: 1900, tasa_inc_bps: 0, es_bebida_alcoholica: 0 };
 
-function crearProducto(body) {
+async function crearProducto(body) {
   const { nombre, id_categoria, unidad_medida, precio, stock_actual, umbral_alerta } = body;
-  validarCamposBase({ nombre, id_categoria, unidad_medida, precio });
+  await validarCamposBase({ nombre, id_categoria, unidad_medida, precio });
   const impuestos = validarImpuestos(body, IMPUESTOS_POR_DEFECTO);
 
   const stockInicial = stock_actual === undefined ? 0 : Number(stock_actual);
@@ -62,7 +62,7 @@ function crearProducto(body) {
     throw err;
   }
 
-  const producto = productoModel.crear({
+  const producto = await productoModel.crear({
     id_categoria,
     nombre,
     unidad_medida,
@@ -76,16 +76,16 @@ function crearProducto(body) {
 
 // El stock solo cambia vía entradas/salidas (US-06/US-07), nunca por edición
 // directa, para no perder la trazabilidad en movimientos_inventario.
-function editarProducto(id_producto, body) {
+async function editarProducto(id_producto, body) {
   const { nombre, id_categoria, unidad_medida, precio, umbral_alerta } = body;
-  const existente = productoModel.buscarPorId(id_producto);
+  const existente = await productoModel.buscarPorId(id_producto);
   if (!existente) {
     const err = new Error("Producto no encontrado.");
     err.status = 404;
     throw err;
   }
 
-  validarCamposBase({ nombre, id_categoria, unidad_medida, precio });
+  await validarCamposBase({ nombre, id_categoria, unidad_medida, precio });
   const impuestos = validarImpuestos(body, existente);
 
   const umbral = umbral_alerta === undefined ? existente.umbral_alerta : Number(umbral_alerta);
@@ -95,7 +95,7 @@ function editarProducto(id_producto, body) {
     throw err;
   }
 
-  const producto = productoModel.editar(id_producto, {
+  const producto = await productoModel.editar(id_producto, {
     id_categoria,
     nombre,
     unidad_medida,
@@ -106,13 +106,13 @@ function editarProducto(id_producto, body) {
   return agregarAlerta(producto);
 }
 
-function listarProductos({ soloAlerta } = {}) {
-  const productos = productoModel.listar().map(agregarAlerta);
+async function listarProductos({ soloAlerta } = {}) {
+  const productos = (await productoModel.listar()).map(agregarAlerta);
   return soloAlerta ? productos.filter((p) => p.alerta_stock_bajo) : productos;
 }
 
-function obtenerProducto(id_producto) {
-  const producto = productoModel.buscarPorId(id_producto);
+async function obtenerProducto(id_producto) {
+  const producto = await productoModel.buscarPorId(id_producto);
   if (!producto) {
     const err = new Error("Producto no encontrado.");
     err.status = 404;

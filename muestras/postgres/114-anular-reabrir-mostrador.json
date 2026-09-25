@@ -1,0 +1,9 @@
+{
+  "metodo": "POST",
+  "ruta": "/api/facturas/2/anular",
+  "status": 400,
+  "content_type": "application/json; charset=utf-8",
+  "body": {
+    "error": "Solo se pueden reabrir pedidos de una venta de mesa."
+  }
+}

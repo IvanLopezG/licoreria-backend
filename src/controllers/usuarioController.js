@@ -1,8 +1,8 @@
 const usuarioService = require("../services/usuarioService");
 
-function crear(req, res) {
+async function crear(req, res) {
   try {
-    const nuevoUsuario = usuarioService.crearUsuario(req.body);
+    const nuevoUsuario = await usuarioService.crearUsuario(req.body);
 
     // El middleware de auditoría escribe el registro al ver este campo.
     req.auditoria = { accion: "crear", entidad: "usuarios", id_entidad: nuevoUsuario.id_usuario };
@@ -13,8 +13,8 @@ function crear(req, res) {
   }
 }
 
-function listar(req, res) {
-  return res.json(usuarioService.listarUsuarios());
+async function listar(req, res) {
+  return res.json(await usuarioService.listarUsuarios());
 }
 
 module.exports = { crear, listar };

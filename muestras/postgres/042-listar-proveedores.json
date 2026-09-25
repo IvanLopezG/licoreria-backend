@@ -1,0 +1,18 @@
+{
+  "metodo": "GET",
+  "ruta": "/api/proveedores",
+  "status": 200,
+  "content_type": "application/json; charset=utf-8",
+  "body": [
+    {
+      "id_proveedor": 1,
+      "nombre": "Escenario Distribuidora",
+      "contacto": "300 000 0000"
+    },
+    {
+      "id_proveedor": 2,
+      "nombre": "Escenario Sin Contacto",
+      "contacto": null
+    }
+  ]
+}

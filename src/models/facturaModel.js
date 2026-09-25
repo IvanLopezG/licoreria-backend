@@ -6,48 +6,34 @@ const { calcularLinea, totalizar } = require("../utils/impuestos");
 // Las líneas de la venta, consolidadas por producto y precio: al cerrar una
 // mesa, el mismo producto pudo pedirse en varios pedidos y en la factura
 // debe verse una sola vez. Nombre y tasas se leen del producto al emitir.
-const stmtLineasVenta = db.prepare(`
-  SELECT vd.id_producto, vd.precio_unitario, SUM(vd.cantidad) AS cantidad,
+// SUM de integer da bigint en Postgres: se castea a integer.
+const SQL_LINEAS_VENTA = `
+  SELECT vd.id_producto, vd.precio_unitario, SUM(vd.cantidad)::integer AS cantidad,
          p.nombre, p.tasa_iva_bps, p.tasa_inc_bps
   FROM venta_detalle vd
   JOIN productos p ON p.id_producto = vd.id_producto
-  WHERE vd.id_venta = ?
+  WHERE vd.id_venta = $1
   GROUP BY vd.id_producto, vd.precio_unitario, p.nombre, p.tasa_iva_bps, p.tasa_inc_bps
   ORDER BY MIN(vd.id_venta_detalle)
-`);
+`;
 
-const stmtSecuenciaActiva = db.prepare("SELECT * FROM secuencias_factura WHERE activa = 1");
+const COLUMNAS_FACTURA = [
+  "id_secuencia", "numero", "numero_completo", "id_venta", "id_mesa", "id_usuario", "tipo_consumo",
+  "emisor_razon_social", "emisor_nit", "emisor_dv", "emisor_direccion", "emisor_municipio",
+  "emisor_departamento", "emisor_telefono", "emisor_regimen", "titulo_documento", "leyenda_pie",
+  "cliente_nombre", "cliente_tipo_doc", "cliente_num_doc", "cliente_dv", "forma_pago",
+  "subtotal", "total_iva", "total_inc", "total_impuestos", "total",
+];
 
-const stmtAvanzarSecuencia = db.prepare(`
-  UPDATE secuencias_factura SET numero_actual = @siguiente
-  WHERE id_secuencia = @id_secuencia AND numero_actual = @actual
-`);
+const COLUMNAS_ITEM = [
+  "id_factura", "id_producto", "descripcion", "cantidad", "precio_unitario", "base_linea",
+  "tasa_iva_bps", "valor_iva", "tasa_inc_bps", "valor_inc", "total_linea",
+];
 
-const stmtCrearFactura = db.prepare(`
-  INSERT INTO facturas (
-    id_secuencia, numero, numero_completo, id_venta, id_mesa, id_usuario, tipo_consumo,
-    emisor_razon_social, emisor_nit, emisor_dv, emisor_direccion, emisor_municipio,
-    emisor_departamento, emisor_telefono, emisor_regimen, titulo_documento, leyenda_pie,
-    cliente_nombre, cliente_tipo_doc, cliente_num_doc, cliente_dv, forma_pago,
-    subtotal, total_iva, total_inc, total_impuestos, total
-  ) VALUES (
-    @id_secuencia, @numero, @numero_completo, @id_venta, @id_mesa, @id_usuario, @tipo_consumo,
-    @emisor_razon_social, @emisor_nit, @emisor_dv, @emisor_direccion, @emisor_municipio,
-    @emisor_departamento, @emisor_telefono, @emisor_regimen, @titulo_documento, @leyenda_pie,
-    @cliente_nombre, @cliente_tipo_doc, @cliente_num_doc, @cliente_dv, @forma_pago,
-    @subtotal, @total_iva, @total_inc, @total_impuestos, @total
-  )
-`);
-
-const stmtCrearItem = db.prepare(`
-  INSERT INTO factura_items (
-    id_factura, id_producto, descripcion, cantidad, precio_unitario, base_linea,
-    tasa_iva_bps, valor_iva, tasa_inc_bps, valor_inc, total_linea
-  ) VALUES (
-    @id_factura, @id_producto, @descripcion, @cantidad, @precio_unitario, @base_linea,
-    @tasa_iva_bps, @valor_iva, @tasa_inc_bps, @valor_inc, @total_linea
-  )
-`);
+function insertar(tabla, columnas, retorno = "") {
+  const marcadores = columnas.map((_, i) => `$${i + 1}`).join(", ");
+  return `INSERT INTO ${tabla} (${columnas.join(", ")}) VALUES (${marcadores})${retorno}`;
+}
 
 function errorFacturacion(mensaje) {
   const err = new Error(mensaje);
@@ -57,9 +43,10 @@ function errorFacturacion(mensaje) {
 
 // Toma el siguiente número de la secuencia activa. Debe llamarse dentro de la
 // transacción que crea la venta: si algo falla después, el ROLLBACK devuelve
-// el número y no queda un salto en la numeración.
-function tomarSiguienteNumero() {
-  const secuencia = stmtSecuenciaActiva.get();
+// el número y no queda un salto en la numeración. FOR UPDATE bloquea la fila
+// de la secuencia hasta el COMMIT, así dos cobros simultáneos se turnan.
+async function tomarSiguienteNumero(cx) {
+  const secuencia = await cx.uno("SELECT * FROM secuencias_factura WHERE activa = 1 FOR UPDATE");
   if (!secuencia) throw errorFacturacion("No hay una secuencia de facturación activa.");
 
   const siguiente = Math.max(secuencia.numero_actual + 1, secuencia.rango_desde);
@@ -70,12 +57,11 @@ function tomarSiguienteNumero() {
     throw errorFacturacion("La resolución de numeración de facturas está vencida.");
   }
 
-  const cambio = stmtAvanzarSecuencia.run({
-    id_secuencia: secuencia.id_secuencia,
-    actual: secuencia.numero_actual,
-    siguiente,
-  });
-  if (cambio.changes !== 1) throw errorFacturacion("No se pudo reservar el número de factura.");
+  const cambio = await cx.ejecutar(
+    "UPDATE secuencias_factura SET numero_actual = $1 WHERE id_secuencia = $2 AND numero_actual = $3",
+    [siguiente, secuencia.id_secuencia, secuencia.numero_actual]
+  );
+  if (cambio.rowCount !== 1) throw errorFacturacion("No se pudo reservar el número de factura.");
 
   return {
     id_secuencia: secuencia.id_secuencia,
@@ -85,13 +71,13 @@ function tomarSiguienteNumero() {
 }
 
 // Emite la factura de una venta ya creada. NO abre transacción propia:
-// ventaModel la llama dentro del mismo BEGIN/COMMIT que crea la venta, igual
-// que descontarPorVenta, para que venta, stock y factura sean atómicos.
-function emitir({ id_venta, id_mesa, id_usuario, tipo_consumo, forma_pago, cliente }) {
-  const emisor = emisorModel.obtener();
+// ventaModel le pasa el client (cx) de la transacción que crea la venta, igual
+// que a descontarPorVenta, para que venta, stock y factura sean atómicos.
+async function emitir({ id_venta, id_mesa, id_usuario, tipo_consumo, forma_pago, cliente }, cx) {
+  const emisor = await emisorModel.obtener(cx);
   if (!emisor) throw errorFacturacion("Faltan los datos del emisor de la factura.");
 
-  const lineas = stmtLineasVenta.all(id_venta).map((l) => ({
+  const lineas = (await cx.todos(SQL_LINEAS_VENTA, [id_venta])).map((l) => ({
     id_producto: l.id_producto,
     descripcion: l.nombre,
     ...calcularLinea({
@@ -103,9 +89,9 @@ function emitir({ id_venta, id_mesa, id_usuario, tipo_consumo, forma_pago, clien
     }),
   }));
 
-  const numeracion = tomarSiguienteNumero();
+  const numeracion = await tomarSiguienteNumero(cx);
 
-  const id_factura = stmtCrearFactura.run({
+  const datos = {
     ...numeracion,
     id_venta,
     id_mesa: id_mesa ?? null,
@@ -127,13 +113,18 @@ function emitir({ id_venta, id_mesa, id_usuario, tipo_consumo, forma_pago, clien
     cliente_dv: cliente.dv,
     forma_pago,
     ...totalizar(lineas),
-  }).lastInsertRowid;
+  };
+  const { id_factura } = await cx.uno(
+    insertar("facturas", COLUMNAS_FACTURA, " RETURNING id_factura"),
+    COLUMNAS_FACTURA.map((c) => datos[c])
+  );
 
   for (const linea of lineas) {
-    stmtCrearItem.run({ id_factura, ...linea });
+    const item = { id_factura, ...linea };
+    await cx.ejecutar(insertar("factura_items", COLUMNAS_ITEM), COLUMNAS_ITEM.map((c) => item[c]));
   }
 
-  return buscarPorId(id_factura);
+  return buscarPorId(id_factura, cx);
 }
 
 const SELECT_FACTURA = `
@@ -146,45 +137,23 @@ const SELECT_FACTURA = `
   LEFT JOIN mesas m ON m.id_mesa = f.id_mesa
 `;
 
-function buscarPorId(id_factura) {
-  const factura = db.prepare(`${SELECT_FACTURA} WHERE f.id_factura = ?`).get(id_factura);
+async function buscarPorId(id_factura, cx = db) {
+  const factura = await cx.uno(`${SELECT_FACTURA} WHERE f.id_factura = $1`, [id_factura]);
   if (!factura) return null;
-  const items = db.prepare("SELECT * FROM factura_items WHERE id_factura = ? ORDER BY id_item").all(id_factura);
+  const items = await cx.todos("SELECT * FROM factura_items WHERE id_factura = $1 ORDER BY id_item", [id_factura]);
   return { ...factura, items };
 }
 
-function buscarPorVenta(id_venta) {
-  const fila = db.prepare("SELECT id_factura FROM facturas WHERE id_venta = ?").get(id_venta);
+async function buscarPorVenta(id_venta) {
+  const fila = await db.uno("SELECT id_factura FROM facturas WHERE id_venta = $1", [id_venta]);
   return fila ? buscarPorId(fila.id_factura) : null;
 }
 
 function listar({ desde, hasta } = {}) {
-  let query = `${SELECT_FACTURA} WHERE 1 = 1`;
-  const params = {};
-  if (desde) {
-    query += " AND date(f.fecha_expedicion) >= date(@desde)";
-    params.desde = desde;
-  }
-  if (hasta) {
-    query += " AND date(f.fecha_expedicion) <= date(@hasta)";
-    params.hasta = hasta;
-  }
-  query += " ORDER BY f.id_factura DESC";
-  return db.prepare(query).all(params);
-}
-
-// Mismo helper que ventaModel (BEGIN IMMEDIATE): la anulación toca factura,
-// venta, stock, pedidos y mesa, y debe aplicarse completa o no aplicarse.
-function conTransaccion(fn) {
-  db.exec("BEGIN IMMEDIATE");
-  try {
-    const resultado = fn();
-    db.exec("COMMIT");
-    return resultado;
-  } catch (err) {
-    db.exec("ROLLBACK");
-    throw err;
-  }
+  const f = db.filtros();
+  if (desde) f.agregarFecha("f.fecha_expedicion", ">=", desde);
+  if (hasta) f.agregarFecha("f.fecha_expedicion", "<=", hasta);
+  return db.todos(`${SELECT_FACTURA} WHERE 1 = 1${f.where()} ORDER BY f.id_factura DESC`, f.params);
 }
 
 function errorConEstado(mensaje, status) {
@@ -199,21 +168,25 @@ function errorConEstado(mensaje, status) {
 // Con reabrir_pedidos (solo ventas de mesa), los pedidos vuelven a quedar
 // abiertos y la mesa ocupada, para cobrarlos otra vez con una factura nueva y
 // el mismo tratamiento tributario (consumo en el sitio).
+// La anulación toca factura, venta, stock, pedidos y mesa: una sola transacción.
 function anular({ id_factura, id_usuario, motivo, reabrir_pedidos }) {
-  return conTransaccion(() => {
-    const factura = db.prepare("SELECT * FROM facturas WHERE id_factura = ?").get(id_factura);
+  return db.conTransaccion(async (cx) => {
+    // FOR UPDATE: dos anulaciones simultáneas de la misma factura se turnan y
+    // la segunda ve el estado "anulada".
+    const factura = await cx.uno("SELECT * FROM facturas WHERE id_factura = $1 FOR UPDATE", [id_factura]);
     if (!factura) throw errorConEstado("Factura no encontrada.", 404);
     if (factura.estado === "anulada") throw errorConEstado("La factura ya está anulada.", 409);
 
-    const venta = db.prepare("SELECT * FROM ventas WHERE id_venta = ?").get(factura.id_venta);
+    const venta = await cx.uno("SELECT * FROM ventas WHERE id_venta = $1", [factura.id_venta]);
 
     if (reabrir_pedidos) {
       if (venta.tipo !== "mesa") {
         throw errorConEstado("Solo se pueden reabrir pedidos de una venta de mesa.", 400);
       }
-      const abiertos = db
-        .prepare("SELECT COUNT(*) AS n FROM pedidos WHERE id_mesa = ? AND id_venta IS NULL")
-        .get(venta.id_mesa).n;
+      const { n: abiertos } = await cx.uno(
+        "SELECT COUNT(*) AS n FROM pedidos WHERE id_mesa = $1 AND id_venta IS NULL",
+        [venta.id_mesa]
+      );
       if (abiertos > 0) {
         throw errorConEstado(
           "La mesa ya tiene pedidos abiertos de otro cliente. Cierre esa cuenta antes de reabrir estos pedidos.",
@@ -222,30 +195,36 @@ function anular({ id_factura, id_usuario, motivo, reabrir_pedidos }) {
       }
     }
 
-    db.prepare(`
-      UPDATE facturas
-      SET estado = 'anulada', motivo_anulacion = ?, fecha_anulacion = datetime('now'), id_usuario_anulacion = ?
-      WHERE id_factura = ?
-    `).run(motivo, id_usuario, id_factura);
-    db.prepare("UPDATE ventas SET estado = 'anulada' WHERE id_venta = ?").run(venta.id_venta);
+    await cx.ejecutar(
+      `UPDATE facturas
+       SET estado = 'anulada', motivo_anulacion = $1,
+           fecha_anulacion = date_trunc('second', now() AT TIME ZONE 'utc'), id_usuario_anulacion = $2
+       WHERE id_factura = $3`,
+      [motivo, id_usuario, id_factura]
+    );
+    await cx.ejecutar("UPDATE ventas SET estado = 'anulada' WHERE id_venta = $1", [venta.id_venta]);
 
-    const lineas = db.prepare("SELECT id_producto, cantidad FROM venta_detalle WHERE id_venta = ?").all(venta.id_venta);
+    const lineas = await cx.todos(
+      "SELECT id_producto, cantidad FROM venta_detalle WHERE id_venta = $1 ORDER BY id_venta_detalle",
+      [venta.id_venta]
+    );
     for (const linea of lineas) {
-      movimientoInventarioModel.devolverPorAnulacion({ ...linea, id_venta: venta.id_venta, id_usuario });
+      await movimientoInventarioModel.devolverPorAnulacion({ ...linea, id_venta: venta.id_venta, id_usuario }, cx);
     }
 
     if (reabrir_pedidos) {
-      db.prepare("UPDATE pedidos SET id_venta = NULL WHERE id_venta = ?").run(venta.id_venta);
-      db.prepare("UPDATE mesas SET estado = 'ocupada' WHERE id_mesa = ?").run(venta.id_mesa);
+      await cx.ejecutar("UPDATE pedidos SET id_venta = NULL WHERE id_venta = $1", [venta.id_venta]);
+      await cx.ejecutar("UPDATE mesas SET estado = 'ocupada' WHERE id_mesa = $1", [venta.id_mesa]);
     }
 
-    return buscarPorId(id_factura);
+    return buscarPorId(id_factura, cx);
   });
 }
 
-function asegurarSecuenciaInicial() {
-  if (!stmtSecuenciaActiva.get()) {
-    db.prepare("INSERT INTO secuencias_factura (prefijo, numero_actual, rango_desde) VALUES (NULL, 0, 1)").run();
+async function asegurarSecuenciaInicial() {
+  const activa = await db.uno("SELECT 1 FROM secuencias_factura WHERE activa = 1");
+  if (!activa) {
+    await db.ejecutar("INSERT INTO secuencias_factura (prefijo, numero_actual, rango_desde) VALUES (NULL, 0, 1)");
   }
 }
 

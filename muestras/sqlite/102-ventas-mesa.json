@@ -1,0 +1,21 @@
+{
+  "metodo": "GET",
+  "ruta": "/api/ventas?tipo=mesa",
+  "status": 200,
+  "content_type": "application/json; charset=utf-8",
+  "body": [
+    {
+      "id_venta": 1,
+      "tipo": "mesa",
+      "id_mesa": 1,
+      "id_usuario": 3,
+      "total": 142000,
+      "fecha_hora": "2026-09-25 20:52:26",
+      "estado": "activa",
+      "usuario_nombre": "Cajero Escenario",
+      "mesa_numero": 7,
+      "id_factura": 1,
+      "numero_factura": "1"
+    }
+  ]
+}

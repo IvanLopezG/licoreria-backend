@@ -1,0 +1,9 @@
+{
+  "metodo": "POST",
+  "ruta": "/api/auth/login",
+  "status": 400,
+  "content_type": "application/json; charset=utf-8",
+  "body": {
+    "error": "usuario_login y password son obligatorios."
+  }
+}

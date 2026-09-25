@@ -13,22 +13,24 @@ const CAMPOS = [
   "leyenda_pie",
 ];
 
-function obtener() {
-  return db.prepare("SELECT * FROM emisor WHERE id = 1").get();
+function obtener(cx = db) {
+  return cx.uno("SELECT * FROM emisor WHERE id = 1");
 }
 
-function crear(datos) {
-  db.prepare(`
-    INSERT INTO emisor (id, ${CAMPOS.join(", ")})
-    VALUES (1, ${CAMPOS.map((c) => "@" + c).join(", ")})
-  `).run(datos);
+async function crear(datos) {
+  await db.ejecutar(
+    `INSERT INTO emisor (id, ${CAMPOS.join(", ")})
+     VALUES (1, ${CAMPOS.map((_, i) => `$${i + 1}`).join(", ")})`,
+    CAMPOS.map((c) => datos[c])
+  );
   return obtener();
 }
 
-function editar(datos) {
-  db.prepare(`
-    UPDATE emisor SET ${CAMPOS.map((c) => `${c} = @${c}`).join(", ")} WHERE id = 1
-  `).run(datos);
+async function editar(datos) {
+  await db.ejecutar(
+    `UPDATE emisor SET ${CAMPOS.map((c, i) => `${c} = $${i + 1}`).join(", ")} WHERE id = 1`,
+    CAMPOS.map((c) => datos[c])
+  );
   return obtener();
 }
 

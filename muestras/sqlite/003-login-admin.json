@@ -1,0 +1,15 @@
+{
+  "metodo": "POST",
+  "ruta": "/api/auth/login",
+  "status": 200,
+  "content_type": "application/json; charset=utf-8",
+  "body": {
+    "token": "<jwt>",
+    "usuario": {
+      "id_usuario": 1,
+      "nombre": "Administrador",
+      "usuario_login": "admin",
+      "rol": "administrador"
+    }
+  }
+}

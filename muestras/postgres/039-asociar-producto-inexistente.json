@@ -1,0 +1,9 @@
+{
+  "metodo": "POST",
+  "ruta": "/api/proveedores/1/productos",
+  "status": 404,
+  "content_type": "application/json; charset=utf-8",
+  "body": {
+    "error": "Producto no encontrado."
+  }
+}

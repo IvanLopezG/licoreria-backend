@@ -1,0 +1,9 @@
+{
+  "metodo": "POST",
+  "ruta": "/api/ventas",
+  "status": 400,
+  "content_type": "application/json; charset=utf-8",
+  "body": {
+    "error": "La venta debe tener al menos un producto."
+  }
+}

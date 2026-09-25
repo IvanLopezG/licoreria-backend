@@ -1,0 +1,9 @@
+{
+  "metodo": "GET",
+  "ruta": "/api/pedidos",
+  "status": 401,
+  "content_type": "application/json; charset=utf-8",
+  "body": {
+    "error": "Token no proporcionado."
+  }
+}
