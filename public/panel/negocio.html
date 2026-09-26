@@ -15,6 +15,9 @@
   .aviso-rojo.activo { font-weight: bold; }
   .guardado { color: #1E7A42; font-size: 13px; }
   #dv { background: #f2f2f2; }
+  .subtitulo-form { font-size: 16px; margin: 24px 0 0; padding-top: 12px; border-top: 1px solid #ddd; }
+  .fila-form label.check { display: flex; align-items: center; gap: 8px; }
+  .fila-form label.check input { width: auto; margin: 0; }
 </style>
 </head>
 <body>
@@ -106,6 +109,63 @@
         <label>Leyenda de pie de página
           <textarea id="leyenda_pie" rows="3" required></textarea>
         </label>
+
+        <h2 class="subtitulo-form">Impuestos que cobra el negocio</h2>
+        <div class="fila-form">
+          <label class="check"><input type="checkbox" id="responsable_iva" onchange="actualizarAvisos()"> Responsable de IVA</label>
+          <label class="check"><input type="checkbox" id="responsable_inc" onchange="actualizarAvisos()"> Responsable de INC (impuesto al consumo)</label>
+        </div>
+        <p class="ayuda">
+          Si el negocio no es responsable de un impuesto, ninguna venta lo cobra aunque el producto tenga tasa:
+          el precio completo queda como base. Confírmalo con el contador.
+        </p>
+        <p id="avisoResponsable" class="aviso-rojo activo oculto"></p>
+
+        <h2 class="subtitulo-form">Factura electrónica (DIAN)</h2>
+        <div class="fila-form">
+          <label>Modo de facturación
+            <select id="modo_facturacion" onchange="actualizarAvisos()">
+              <option value="interno">Interno (comprobante, sin DIAN)</option>
+              <option value="electronica_dian">Electrónica DIAN</option>
+            </select>
+          </label>
+          <label>Ambiente DIAN
+            <select id="ambiente_dian" onchange="actualizarAvisos()">
+              <option value="pruebas">Pruebas (habilitación)</option>
+              <option value="produccion">Producción</option>
+            </select>
+          </label>
+        </div>
+        <p id="avisoModo" class="aviso-rojo activo oculto">
+          Cada venta generará CUFE, QR y XML, pero quedarán pendientes de transmisión y validación ante la DIAN
+          hasta conectar un proveedor tecnológico. El comprobante lo indica así, y estas facturas no se pueden anular.
+        </p>
+        <p id="avisoProduccion" class="aviso-rojo activo oculto">
+          Producción exige que la numeración activa tenga resolución y clave técnica de la DIAN.
+        </p>
+        <div class="fila-form">
+          <label>Correo electrónico del negocio
+            <input id="correo_electronico" type="email" placeholder="(pendiente)">
+          </label>
+          <label>Tipo de persona
+            <select id="tipo_persona">
+              <option value="">(pendiente)</option>
+              <option value="natural">Natural</option>
+              <option value="juridica">Jurídica</option>
+            </select>
+          </label>
+        </div>
+        <label>Proveedor tecnológico
+          <input id="proveedor_tecnologico" list="proveedores" placeholder="(pendiente)">
+          <datalist id="proveedores">
+            <option value="Factus"></option>
+            <option value="Siigo"></option>
+            <option value="Alegra"></option>
+            <option value="Software propio"></option>
+            <option value="Servicio gratuito DIAN"></option>
+          </datalist>
+        </label>
+        <p class="ayuda">Correo, tipo de persona y proveedor son obligatorios para activar la factura electrónica.</p>
         <p id="errorNegocio" class="aviso-rojo oculto"></p>
         <p id="okNegocio" class="guardado oculto">Datos guardados.</p>
         <button type="submit" class="btn btn-primario" id="btnGuardar">Guardar</button>
@@ -114,7 +174,15 @@
   </main>
 
 <script>
-  const CAMPOS = ["razon_social", "nit", "direccion", "municipio", "departamento", "telefono", "regimen", "titulo_documento", "leyenda_pie"];
+  const CAMPOS = [
+    "razon_social", "nit", "direccion", "municipio", "departamento", "telefono", "regimen", "titulo_documento", "leyenda_pie",
+    "modo_facturacion", "ambiente_dian", "correo_electronico", "tipo_persona", "proveedor_tecnologico",
+  ];
+  // Banderas 0/1 del backend, como casillas.
+  const BANDERAS = ["responsable_iva", "responsable_inc"];
+  // Marcador del backend para lo que el dueño aún no ha llenado. Se muestra
+  // como placeholder (campo vacío) y vacío se guarda como pendiente (null).
+  const PENDIENTE = "(pendiente)";
   const token = () => localStorage.getItem("token");
   const el = (id) => document.getElementById(id);
 
@@ -144,6 +212,31 @@
     el("avisoTitulo").classList.toggle("activo", el("titulo_documento").value === "FACTURA DE VENTA");
   }
 
+  function actualizarAvisos() {
+    const electronica = el("modo_facturacion").value === "electronica_dian";
+    el("avisoModo").classList.toggle("oculto", !electronica);
+    el("avisoProduccion").classList.toggle("oculto", !(electronica && el("ambiente_dian").value === "produccion"));
+    const sinCobrar = [
+      !el("responsable_iva").checked && "IVA",
+      !el("responsable_inc").checked && "INC",
+    ].filter(Boolean);
+    el("avisoResponsable").textContent = sinCobrar.length
+      ? `Las ventas nuevas no cobrarán ${sinCobrar.join(" ni ")}.`
+      : "";
+    el("avisoResponsable").classList.toggle("oculto", sinCobrar.length === 0);
+  }
+
+  function llenar(emisor) {
+    for (const campo of CAMPOS) {
+      const valor = emisor[campo] ?? "";
+      el(campo).value = valor === PENDIENTE ? "" : valor;
+    }
+    for (const campo of BANDERAS) el(campo).checked = emisor[campo] === 1;
+    actualizarDv();
+    actualizarAvisoTitulo();
+    actualizarAvisos();
+  }
+
   // Recibe un texto (validación local) o el error de Api.pedir.
   function mostrarError(error) {
     el("okNegocio").classList.add("oculto");
@@ -159,9 +252,7 @@
       mostrarError(err);
       return;
     }
-    for (const campo of CAMPOS) el(campo).value = emisor[campo] ?? "";
-    actualizarDv();
-    actualizarAvisoTitulo();
+    llenar(emisor);
   }
 
   async function guardar(evento) {
@@ -173,6 +264,7 @@
     }
     const cuerpo = {};
     for (const campo of CAMPOS) cuerpo[campo] = el(campo).value.trim();
+    for (const campo of BANDERAS) cuerpo[campo] = el(campo).checked ? 1 : 0;
     cuerpo.nit = nit;
     // El DV no se envía: lo calcula el servidor.
     el("btnGuardar").disabled = true;
@@ -185,8 +277,7 @@
     } finally {
       el("btnGuardar").disabled = false;
     }
-    for (const campo of CAMPOS) el(campo).value = data[campo] ?? "";
-    actualizarDv();
+    llenar(data);
     el("errorNegocio").classList.add("oculto");
     el("okNegocio").classList.remove("oculto");
     return false;

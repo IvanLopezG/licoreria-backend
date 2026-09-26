@@ -189,7 +189,8 @@ cada factura genera además, en la misma transacción de la venta:
   validación ante la DIAN"**. El título "FACTURA ELECTRÓNICA DE VENTA" solo se usa si
   `estado_transmision = 'validada'`, lo que hoy nunca ocurre.
 
-**Configuración (`PUT /api/emisor`):** `modo_facturacion`, `ambiente_dian` (`pruebas`/`produccion`),
+**Configuración** (panel web → *Datos del negocio*, secciones "Impuestos que cobra el negocio" y
+"Factura electrónica"; los metadatos del certificado solo por API) **(`PUT /api/emisor`):** `modo_facturacion`, `ambiente_dian` (`pruebas`/`produccion`),
 `correo_electronico`, `tipo_persona` (`natural`/`juridica`), `responsable_iva`, `responsable_inc` (0/1),
 `proveedor_tecnologico` (texto libre: "Factus", "Siigo", "Software propio"...),
 `certificado_digital_nombre` y `certificado_digital_vencimiento` (AAAA-MM-DD). Del certificado solo
