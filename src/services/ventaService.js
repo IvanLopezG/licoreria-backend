@@ -45,6 +45,11 @@ async function validarItems(items) {
       err.status = 404;
       throw err;
     }
+    if (producto.activo !== 1) {
+      const err = new Error(`${producto.nombre} está inactivo y no se puede vender.`);
+      err.status = 400;
+      throw err;
+    }
     lineas.push({ id_producto, cantidad: Number(cantidad), precio_unitario: producto.precio });
   }
   return lineas;

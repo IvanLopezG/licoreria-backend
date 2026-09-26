@@ -6,23 +6,21 @@ const SELECT_PRODUCTO = `
   JOIN categorias c ON c.id_categoria = p.id_categoria
 `;
 
+// Columnas que se escriben al crear y al editar (stock_actual solo al crear:
+// después cambia únicamente vía entradas/salidas).
+const COLUMNAS_EDITABLES = [
+  "id_categoria", "nombre", "unidad_medida", "precio", "umbral_alerta",
+  "tasa_iva_bps", "tasa_inc_bps", "es_bebida_alcoholica",
+  "costo", "codigo_barras", "marca", "volumen_ml", "grado_alcohol", "descripcion", "activo",
+];
+
 async function crear(datos) {
+  const columnas = [...COLUMNAS_EDITABLES, "stock_actual"];
   const { id_producto } = await db.uno(
-    `INSERT INTO productos (id_categoria, nombre, unidad_medida, precio, stock_actual, umbral_alerta,
-                            tasa_iva_bps, tasa_inc_bps, es_bebida_alcoholica)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+    `INSERT INTO productos (${columnas.join(", ")})
+     VALUES (${columnas.map((_, i) => `$${i + 1}`).join(", ")})
      RETURNING id_producto`,
-    [
-      datos.id_categoria,
-      datos.nombre,
-      datos.unidad_medida,
-      datos.precio,
-      datos.stock_actual,
-      datos.umbral_alerta,
-      datos.tasa_iva_bps,
-      datos.tasa_inc_bps,
-      datos.es_bebida_alcoholica,
-    ]
+    columnas.map((c) => datos[c])
   );
   return buscarPorId(id_producto);
 }
@@ -30,22 +28,19 @@ async function crear(datos) {
 async function editar(id_producto, datos) {
   await db.ejecutar(
     `UPDATE productos
-     SET id_categoria = $1, nombre = $2, unidad_medida = $3, precio = $4, umbral_alerta = $5,
-         tasa_iva_bps = $6, tasa_inc_bps = $7, es_bebida_alcoholica = $8
-     WHERE id_producto = $9`,
-    [
-      datos.id_categoria,
-      datos.nombre,
-      datos.unidad_medida,
-      datos.precio,
-      datos.umbral_alerta,
-      datos.tasa_iva_bps,
-      datos.tasa_inc_bps,
-      datos.es_bebida_alcoholica,
-      id_producto,
-    ]
+     SET ${COLUMNAS_EDITABLES.map((c, i) => `${c} = $${i + 1}`).join(", ")}
+     WHERE id_producto = $${COLUMNAS_EDITABLES.length + 1}`,
+    [...COLUMNAS_EDITABLES.map((c) => datos[c]), id_producto]
   );
   return buscarPorId(id_producto);
+}
+
+// ¿Otro producto ya usa este código de barras / SKU?
+async function codigoEnUso(codigo_barras, excluirId = null) {
+  return !!(await db.uno(
+    "SELECT 1 FROM productos WHERE codigo_barras = $1 AND id_producto IS DISTINCT FROM $2",
+    [codigo_barras, excluirId]
+  ));
 }
 
 function buscarPorId(id_producto, cx = db) {
@@ -72,4 +67,4 @@ async function ajustarStock(id_producto, delta, cx = db) {
   return buscarPorId(id_producto, cx);
 }
 
-module.exports = { crear, editar, buscarPorId, buscarPorIdParaActualizar, listar, existeCategoria, ajustarStock };
+module.exports = { crear, editar, buscarPorId, buscarPorIdParaActualizar, listar, existeCategoria, ajustarStock, codigoEnUso };

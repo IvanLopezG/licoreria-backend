@@ -268,3 +268,23 @@ CREATE TABLE IF NOT EXISTS facturas_electronicas (
   fecha_generacion       timestamp(0) NOT NULL DEFAULT date_trunc('second', now() AT TIME ZONE 'utc'),
   fecha_transmision      timestamp(0)
 );
+
+-- ---------------------------------------------------------------------------
+-- Productos: datos comerciales opcionales (migración aditiva)
+-- ---------------------------------------------------------------------------
+-- Todo opcional (NULL) salvo activo, que por defecto es 1: los productos
+-- existentes y los clientes que no envían estos campos no cambian.
+-- Un producto inactivo (activo = 0) no sale en el catálogo público ni se puede
+-- pedir o vender, pero se conserva en ventas, facturas y movimientos.
+ALTER TABLE productos ADD COLUMN IF NOT EXISTS costo double precision CHECK (costo >= 0);
+ALTER TABLE productos ADD COLUMN IF NOT EXISTS codigo_barras text;
+ALTER TABLE productos ADD COLUMN IF NOT EXISTS marca text;
+ALTER TABLE productos ADD COLUMN IF NOT EXISTS volumen_ml integer CHECK (volumen_ml > 0);
+ALTER TABLE productos ADD COLUMN IF NOT EXISTS grado_alcohol double precision
+  CHECK (grado_alcohol BETWEEN 0 AND 100);
+ALTER TABLE productos ADD COLUMN IF NOT EXISTS descripcion text;
+ALTER TABLE productos ADD COLUMN IF NOT EXISTS activo integer NOT NULL DEFAULT 1
+  CHECK (activo IN (0,1));
+-- Código de barras / SKU único solo cuando viene informado.
+CREATE UNIQUE INDEX IF NOT EXISTS productos_codigo_barras_unico
+  ON productos(codigo_barras) WHERE codigo_barras IS NOT NULL;

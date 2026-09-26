@@ -51,60 +51,115 @@
 
     <form id="formProducto" onsubmit="return guardarProducto(event)">
       <input type="hidden" id="id_producto">
-      <div class="fila-form">
-        <label>Nombre
-          <input id="nombre" required>
+
+      <section class="seccion">
+        <h2>General</h2>
+        <div class="fila-form">
+          <label>Nombre
+            <input id="nombre" required>
+          </label>
+          <label>Categoría
+            <select id="id_categoria" required></select>
+          </label>
+          <label>Marca (opcional)
+            <input id="marca">
+          </label>
+        </div>
+        <div class="fila-form">
+          <label>Unidad de medida
+            <input id="unidad_medida" placeholder="botella, caja, unidad..." required>
+          </label>
+          <label>Volumen / presentación en ml (opcional)
+            <input id="volumen_ml" type="number" min="1" step="1" placeholder="750">
+          </label>
+          <label>Código de barras / SKU (opcional)
+            <input id="codigo_barras" autocomplete="off">
+          </label>
+        </div>
+        <label>Descripción corta (opcional)
+          <textarea id="descripcion" rows="2" maxlength="300"></textarea>
         </label>
-        <label>Categoría
-          <select id="id_categoria" required></select>
-        </label>
-        <label>Unidad de medida
-          <input id="unidad_medida" placeholder="botella, caja, unidad..." required>
-        </label>
-      </div>
-      <div class="fila-form">
-        <label>Precio
-          <input id="precio" type="number" min="0.01" step="0.01" required>
-        </label>
-        <label><span id="labelStock">Stock inicial</span>
-          <input id="stock_actual" type="number" min="0" step="1" value="0">
-        </label>
-        <label>Umbral de alerta
-          <input id="umbral_alerta" type="number" min="0" step="1" value="0">
-        </label>
-      </div>
+        <div class="fila-form">
+          <label class="casilla">
+            <input type="checkbox" id="es_bebida_alcoholica" onchange="actualizarGrado()"> Bebida alcohólica
+          </label>
+          <label id="campoGrado" class="oculto">Grado alcohólico % (opcional)
+            <input id="grado_alcohol" type="number" min="0" max="100" step="0.1" placeholder="40">
+          </label>
+          <label class="casilla">
+            <input type="checkbox" id="activo" checked> Activo
+          </label>
+        </div>
+        <p class="ayuda">Un producto inactivo no aparece en el catálogo ni se puede vender, pero se conserva en ventas y facturas.</p>
+      </section>
+
       <!-- Tasas en porcentaje; el backend las guarda en puntos básicos (19 % = 1900). El precio ya las incluye. -->
-      <div class="fila-form">
-        <label>IVA % (venta para llevar)
-          <input id="iva_porcentaje" type="number" min="0" max="100" step="0.01" value="19" required>
-        </label>
-        <label>Impuesto al consumo % (consumo en mesa)
-          <input id="inc_porcentaje" type="number" min="0" max="100" step="0.01" value="0" required>
-        </label>
-        <label style="display:flex; align-items:center; gap:8px; align-self:flex-end;">
-          <input type="checkbox" id="es_bebida_alcoholica" style="width:auto; margin:0;"> Bebida alcohólica
-        </label>
+      <section class="seccion">
+        <h2>Precios e impuestos</h2>
+        <div class="fila-form">
+          <label>Precio de venta
+            <input id="precio" type="number" min="0.01" step="0.01" required oninput="actualizarMargen()">
+          </label>
+          <label>Precio de compra / costo (opcional)
+            <input id="costo" type="number" min="0" step="0.01" oninput="actualizarMargen()">
+          </label>
+          <label>Margen
+            <input id="margenVista" readonly tabindex="-1" class="solo-lectura" placeholder="—">
+          </label>
+        </div>
+        <div class="fila-form">
+          <label>IVA % (venta para llevar)
+            <input id="iva_porcentaje" type="number" min="0" max="100" step="0.01" value="19" required>
+          </label>
+          <label>Impuesto al consumo % (consumo en mesa)
+            <input id="inc_porcentaje" type="number" min="0" max="100" step="0.01" value="0" required>
+          </label>
+        </div>
+        <p class="ayuda">En mesa se cobra solo el impuesto al consumo; para llevar, solo el IVA. 0 = no aplica.</p>
+      </section>
+
+      <section class="seccion">
+        <h2>Inventario</h2>
+        <div class="fila-form">
+          <label><span id="labelStock">Stock inicial</span>
+            <input id="stock_actual" type="number" min="0" step="1" value="0">
+          </label>
+          <label>Umbral de alerta
+            <input id="umbral_alerta" type="number" min="0" step="1" value="0">
+          </label>
+        </div>
+      </section>
+
+      <div class="acciones-form">
+        <button type="submit" class="btn btn-primario" id="btnGuardar">Crear producto</button>
+        <button type="button" class="btn btn-secundario oculto" id="btnCancelar" onclick="cancelarEdicion()">Cancelar edición</button>
       </div>
-      <p style="font-size:13px; color:#666;">En mesa se cobra solo el impuesto al consumo; para llevar, solo el IVA. 0 = no aplica.</p>
-      <button type="submit" class="btn btn-primario" id="btnGuardar">Crear producto</button>
-      <button type="button" class="btn btn-secundario oculto" id="btnCancelar" onclick="cancelarEdicion()">Cancelar edición</button>
     </form>
 
-    <label class="filtro">
-      <input type="checkbox" id="soloAlerta" onchange="cargarProductos()" style="width:auto;">
-      Mostrar solo productos en alerta de stock bajo
-    </label>
+    <div class="barra-filtros">
+      <label class="buscador">Buscar
+        <input id="buscar" type="search" placeholder="Nombre o código / SKU" oninput="pintarProductos()">
+      </label>
+      <label class="filtro">
+        <input type="checkbox" id="soloAlerta" onchange="cargarProductos()" style="width:auto;">
+        Mostrar solo productos en alerta de stock bajo
+      </label>
+    </div>
 
-    <table>
-      <thead>
-        <tr><th>Nombre</th><th>Categoría</th><th>Unidad</th><th>Precio</th><th>Stock</th><th>Umbral</th><th>Impuestos</th><th>Acción</th></tr>
-      </thead>
-      <tbody id="filas"></tbody>
-    </table>
+    <div class="tabla-desplazable">
+      <table>
+        <thead>
+          <tr><th>Nombre</th><th>Categoría</th><th>Marca</th><th>Unidad</th><th>Precio</th><th>Costo</th><th>Margen</th><th>Stock</th><th>Umbral</th><th>Impuestos</th><th>Acción</th></tr>
+        </thead>
+        <tbody id="filas"></tbody>
+      </table>
+    </div>
+    <p id="sinResultados" class="ayuda oculto">Ningún producto coincide con la búsqueda.</p>
   </main>
 
 <script>
   function token() { return localStorage.getItem("token"); }
+  const el = (id) => document.getElementById(id);
 
   function escapeHtml(texto) {
     return String(texto).replace(/[&<>"']/g, (c) => ({
@@ -120,37 +175,62 @@
       Api.error(err);
       return;
     }
-    const select = document.getElementById("id_categoria");
-    select.innerHTML = categorias.map((c) => `<option value="${c.id_categoria}">${escapeHtml(c.nombre)}</option>`).join("");
+    el("id_categoria").innerHTML = categorias.map((c) => `<option value="${c.id_categoria}">${escapeHtml(c.nombre)}</option>`).join("");
   }
 
   // Se cachean los productos cargados para poder rellenar el formulario de
   // edición por id sin tener que serializar el objeto dentro de un onclick
   // (un nombre de producto con comillas rompería el atributo HTML).
   let productosCache = {};
+  let productosLista = [];
 
   async function cargarProductos() {
-    const soloAlerta = document.getElementById("soloAlerta").checked;
+    const soloAlerta = el("soloAlerta").checked;
     const url = soloAlerta ? "/api/productos?bajo_stock=true" : "/api/productos";
-    let productos;
     try {
-      productos = await Api.pedir(url);
+      productosLista = await Api.pedir(url);
     } catch (err) {
       Api.error(err);
       return;
     }
-
     productosCache = {};
-    const filas = document.getElementById("filas");
+    for (const p of productosLista) productosCache[p.id_producto] = p;
+    pintarProductos();
+  }
+
+  // (precio − costo) / precio, solo si hay costo.
+  function margen(precio, costo) {
+    if (costo === null || costo === undefined || costo === "" || !(Number(precio) > 0)) return null;
+    return (Number(precio) - Number(costo)) / Number(precio);
+  }
+  function textoMargen(m) {
+    return m === null ? "—" : `${(m * 100).toLocaleString("es-CO", { maximumFractionDigits: 1 })} %`;
+  }
+
+  // Búsqueda local por nombre o código de barras / SKU (sin distinguir tildes ni mayúsculas).
+  const normalizar = (t) => String(t ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+
+  function pintarProductos() {
+    const texto = normalizar(el("buscar").value.trim());
+    const visibles = texto
+      ? productosLista.filter((p) => normalizar(p.nombre).includes(texto) || normalizar(p.codigo_barras).includes(texto))
+      : productosLista;
+
+    const filas = el("filas");
     filas.innerHTML = "";
-    for (const p of productos) {
-      productosCache[p.id_producto] = p;
+    for (const p of visibles) {
+      const m = margen(p.precio, p.costo);
       const tr = document.createElement("tr");
+      if (p.activo === 0) tr.className = "fila-inactiva";
       tr.innerHTML = `
-        <td>${escapeHtml(p.nombre)}${p.alerta_stock_bajo ? '<span class="badge badge-alerta">STOCK BAJO</span>' : ""}</td>
+        <td>${escapeHtml(p.nombre)}${p.alerta_stock_bajo ? '<span class="badge badge-alerta">STOCK BAJO</span>' : ""}${p.activo === 0 ? '<span class="badge badge-inactivo">INACTIVO</span>' : ""}
+          ${p.codigo_barras ? `<div class="dato-secundario">${escapeHtml(p.codigo_barras)}</div>` : ""}</td>
         <td>${escapeHtml(p.categoria_nombre)}</td>
-        <td>${escapeHtml(p.unidad_medida)}</td>
+        <td>${p.marca ? escapeHtml(p.marca) : "—"}</td>
+        <td>${escapeHtml(p.unidad_medida)}${p.volumen_ml ? ` · ${p.volumen_ml} ml` : ""}</td>
         <td>$${Number(p.precio).toFixed(2)}</td>
+        <td>${p.costo === null || p.costo === undefined ? "—" : `$${Number(p.costo).toFixed(2)}`}</td>
+        <td class="${m !== null && m < 0 ? "margen-negativo" : ""}">${textoMargen(m)}</td>
         <td>${p.stock_actual}</td>
         <td>${p.umbral_alerta}</td>
         <td>IVA ${porcentaje(p.tasa_iva_bps)} % · INC ${porcentaje(p.tasa_inc_bps)} %</td>
@@ -158,60 +238,93 @@
       `;
       filas.appendChild(tr);
     }
+    el("sinResultados").classList.toggle("oculto", visibles.length > 0 || productosLista.length === 0);
   }
 
   // Puntos básicos <-> porcentaje: 1900 <-> 19, 850 <-> 8.5.
   function porcentaje(bps) { return Number(bps ?? 0) / 100; }
   function puntosBasicos(texto) { return Math.round(Number(texto) * 100); }
 
+  // El grado alcohólico solo tiene sentido en bebidas alcohólicas.
+  function actualizarGrado() {
+    el("campoGrado").classList.toggle("oculto", !el("es_bebida_alcoholica").checked);
+  }
+
+  function actualizarMargen() {
+    el("margenVista").value = textoMargen(margen(el("precio").value, el("costo").value.trim()));
+  }
+
+  const valorCampo = (v) => (v === null || v === undefined ? "" : v);
+
   function editarProducto(id_producto) {
     const p = productosCache[id_producto];
-    document.getElementById("id_producto").value = p.id_producto;
-    document.getElementById("nombre").value = p.nombre;
-    document.getElementById("id_categoria").value = p.id_categoria;
-    document.getElementById("unidad_medida").value = p.unidad_medida;
-    document.getElementById("precio").value = p.precio;
-    document.getElementById("umbral_alerta").value = p.umbral_alerta;
-    document.getElementById("iva_porcentaje").value = porcentaje(p.tasa_iva_bps);
-    document.getElementById("inc_porcentaje").value = porcentaje(p.tasa_inc_bps);
-    document.getElementById("es_bebida_alcoholica").checked = p.es_bebida_alcoholica === 1 || p.es_bebida_alcoholica === true;
+    el("id_producto").value = p.id_producto;
+    el("nombre").value = p.nombre;
+    el("id_categoria").value = p.id_categoria;
+    el("marca").value = valorCampo(p.marca);
+    el("unidad_medida").value = p.unidad_medida;
+    el("volumen_ml").value = valorCampo(p.volumen_ml);
+    el("codigo_barras").value = valorCampo(p.codigo_barras);
+    el("descripcion").value = valorCampo(p.descripcion);
+    el("es_bebida_alcoholica").checked = p.es_bebida_alcoholica === 1 || p.es_bebida_alcoholica === true;
+    el("grado_alcohol").value = valorCampo(p.grado_alcohol);
+    el("activo").checked = p.activo !== 0;
+    el("precio").value = p.precio;
+    el("costo").value = valorCampo(p.costo);
+    el("umbral_alerta").value = p.umbral_alerta;
+    el("iva_porcentaje").value = porcentaje(p.tasa_iva_bps);
+    el("inc_porcentaje").value = porcentaje(p.tasa_inc_bps);
+    actualizarGrado();
+    actualizarMargen();
 
     // El stock solo cambia vía entradas/salidas (US-06/US-07), nunca al editar
     // el producto, así que se muestra el valor actual pero no se envía al guardar.
-    document.getElementById("stock_actual").value = p.stock_actual;
-    document.getElementById("stock_actual").disabled = true;
-    document.getElementById("labelStock").textContent = "Stock actual (editar solo vía entradas/salidas)";
+    el("stock_actual").value = p.stock_actual;
+    el("stock_actual").disabled = true;
+    el("labelStock").textContent = "Stock actual (editar solo vía entradas/salidas)";
 
-    document.getElementById("btnGuardar").textContent = "Actualizar producto";
-    document.getElementById("btnCancelar").classList.remove("oculto");
+    el("btnGuardar").textContent = "Actualizar producto";
+    el("btnCancelar").classList.remove("oculto");
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   function cancelarEdicion() {
-    document.getElementById("formProducto").reset();
-    document.getElementById("id_producto").value = "";
-    document.getElementById("stock_actual").disabled = false;
-    document.getElementById("labelStock").textContent = "Stock inicial";
-    document.getElementById("btnGuardar").textContent = "Crear producto";
-    document.getElementById("btnCancelar").classList.add("oculto");
+    el("formProducto").reset();
+    el("id_producto").value = "";
+    el("stock_actual").disabled = false;
+    el("labelStock").textContent = "Stock inicial";
+    el("btnGuardar").textContent = "Crear producto";
+    el("btnCancelar").classList.add("oculto");
+    actualizarGrado();
+    actualizarMargen();
   }
 
   async function guardarProducto(evento) {
     evento.preventDefault();
-    const id_producto = document.getElementById("id_producto").value;
+    const id_producto = el("id_producto").value;
+    const alcoholica = el("es_bebida_alcoholica").checked;
 
+    // Los campos opcionales vacíos se envían como null (el backend los borra).
+    const opcional = (id) => el(id).value.trim() || null;
     const cuerpo = {
-      nombre: document.getElementById("nombre").value,
-      id_categoria: Number(document.getElementById("id_categoria").value),
-      unidad_medida: document.getElementById("unidad_medida").value,
-      precio: Number(document.getElementById("precio").value),
-      umbral_alerta: Number(document.getElementById("umbral_alerta").value),
-      tasa_iva_bps: puntosBasicos(document.getElementById("iva_porcentaje").value),
-      tasa_inc_bps: puntosBasicos(document.getElementById("inc_porcentaje").value),
-      es_bebida_alcoholica: document.getElementById("es_bebida_alcoholica").checked,
+      nombre: el("nombre").value,
+      id_categoria: Number(el("id_categoria").value),
+      unidad_medida: el("unidad_medida").value,
+      precio: Number(el("precio").value),
+      umbral_alerta: Number(el("umbral_alerta").value),
+      tasa_iva_bps: puntosBasicos(el("iva_porcentaje").value),
+      tasa_inc_bps: puntosBasicos(el("inc_porcentaje").value),
+      es_bebida_alcoholica: alcoholica,
+      costo: opcional("costo"),
+      codigo_barras: opcional("codigo_barras"),
+      marca: opcional("marca"),
+      volumen_ml: opcional("volumen_ml"),
+      grado_alcohol: alcoholica ? opcional("grado_alcohol") : null,
+      descripcion: opcional("descripcion"),
+      activo: el("activo").checked,
     };
     if (!id_producto) {
-      cuerpo.stock_actual = Number(document.getElementById("stock_actual").value);
+      cuerpo.stock_actual = Number(el("stock_actual").value);
     }
 
     const url = id_producto ? `/api/productos/${id_producto}` : "/api/productos";

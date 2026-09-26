@@ -166,7 +166,9 @@
     }
     productosCache = {};
     for (const p of productos) productosCache[p.id_producto] = p;
+    // Los productos inactivos no se venden (el servidor también lo rechaza).
     document.getElementById("itemProducto").innerHTML = productos
+      .filter((p) => p.activo !== 0)
       .map((p) => `<option value="${p.id_producto}">${escapeHtml(p.nombre)}</option>`)
       .join("");
   }

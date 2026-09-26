@@ -256,3 +256,34 @@ tbody tr:last-child td { border-bottom: none; }
 }
 
 .filtro { margin-top: 20px; font-size: 13px; }
+
+/* ---------- Formularios por secciones y listados con buscador ---------- */
+
+textarea {
+  width: 100%;
+  margin-top: 4px;
+  padding: 8px;
+  border: 1px solid var(--gris-borde);
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 14px;
+  resize: vertical;
+}
+.ayuda { font-size: 12px; color: var(--gris-texto); margin: 6px 0 0; }
+label.casilla { display: flex; align-items: center; gap: 8px; align-self: flex-end; padding-bottom: 8px; }
+label.casilla input { width: auto; margin: 0; }
+.fila-form label.casilla { flex: 0 1 auto; min-width: 0; }
+.solo-lectura { background: var(--gris-fondo); color: var(--gris-texto); }
+.acciones-form { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
+
+.barra-filtros { display: flex; gap: 16px 24px; flex-wrap: wrap; align-items: flex-end; margin-top: 28px; }
+.barra-filtros .buscador { flex: 1 1 260px; max-width: 380px; margin-top: 0; }
+.barra-filtros .filtro { margin: 0 0 8px; }
+
+.tabla-desplazable { overflow-x: auto; }
+.dato-secundario { font-size: 11px; color: var(--gris-texto); margin-top: 2px; }
+.badge-inactivo { background: #ECEEF1; color: var(--gris-texto); }
+.fila-inactiva td { color: var(--gris-texto); }
+.margen-negativo { color: var(--rojo); font-weight: bold; }
+
+.btn-chico { margin-top: 0; padding: 1px 7px; font-size: 12px; line-height: 1.4; margin-left: 4px; }

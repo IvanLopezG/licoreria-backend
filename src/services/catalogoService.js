@@ -13,11 +13,12 @@ async function buscarMesaPorToken(token) {
 }
 
 // RF-11: el catálogo público solo muestra disponibilidad (stock_actual > 0),
-// nunca el stock exacto ni columnas internas del producto.
+// nunca el stock exacto ni columnas internas del producto. Los productos
+// inactivos no se ofrecen.
 async function obtenerCatalogo(token) {
   const mesa = await buscarMesaPorToken(token);
   const productos = (await productoModel.listar())
-    .filter((p) => p.stock_actual > 0)
+    .filter((p) => p.activo === 1 && p.stock_actual > 0)
     .map(({ id_producto, nombre, categoria_nombre, unidad_medida, precio }) => ({
       id_producto,
       nombre,
@@ -53,6 +54,11 @@ async function crearPedido(token, items) {
     if (!producto) {
       const err = new Error(`Producto ${id_producto} no encontrado.`);
       err.status = 404;
+      throw err;
+    }
+    if (producto.activo !== 1) {
+      const err = new Error(`${producto.nombre} ya no está disponible.`);
+      err.status = 400;
       throw err;
     }
     if (cantidadNum > producto.stock_actual) {
