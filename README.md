@@ -55,7 +55,7 @@ Catálogo de cliente (Sprint 3), vía QR: **http://localhost:3000/catalogo/index
 
 ```
 src/
-  db/            conexión Postgres (pg Pool, conTransaccion) + schema.sql (12 tablas del modelo + 4 de facturación)
+  db/            conexión Postgres (pg Pool, conTransaccion) + schema.sql (12 tablas del modelo + 5 de facturación)
   models/        usuarioModel, logAuditoriaModel, categoriaModel, productoModel,
                   proveedorModel, movimientoInventarioModel, mesaModel, pedidoModel,
                   ventaModel
@@ -118,7 +118,9 @@ esquema (`schema.sql`) definido desde Sprint 1.
 | GET | `/api/facturas` | administrador, cajero | Lista facturas, filtrable por `?desde=` y `?hasta=`. |
 | GET | `/api/facturas/:id` | administrador, cajero | Factura con sus `items`. |
 | GET | `/api/facturas/:id/pdf` | administrador, cajero | PDF imprimible (tirilla de 80 mm). |
-| POST | `/api/facturas/:id/anular` | administrador | Anula la factura y revierte su venta. Body: `{ motivo, reabrir_pedidos? }`. Ver *Anulación*. |
+| GET | `/api/facturas/:id/xml` | administrador, cajero | XML UBL 2.1 (sin firmar) de una factura emitida en modo electrónico; 404 si es interna. Ver *Factura electrónica*. |
+| POST | `/api/facturas/:id/transmitir` | administrador | Transmisión a la DIAN vía proveedor tecnológico. **Aún no conectada: responde 501.** |
+| POST | `/api/facturas/:id/anular` | administrador | Anula la factura y revierte su venta. Body: `{ motivo, reabrir_pedidos? }`. Ver *Anulación*. Una factura electrónica no se anula (409). |
 | GET | `/api/emisor` | administrador, cajero | Datos del negocio que salen en la factura. |
 | PUT | `/api/emisor` | administrador | Edita esos datos (parcial: los campos que no se envían se conservan). El `dv` lo calcula el servidor a partir del `nit` (algoritmo DIAN, módulo 11); un `dv` distinto responde 400. `titulo_documento`: "Comprobante de venta" o "FACTURA DE VENTA" (esta última solo con resolución DIAN). |
 
@@ -143,8 +145,12 @@ título del documento es configurable (`emisor.titulo_documento`, hoy "Comproban
   ```json
   { "forma_pago": "efectivo|tarjeta_debito|tarjeta_credito|transferencia",
     "tipo_consumo": "en_sitio|para_llevar",
-    "cliente": { "nombre": "Juan Pérez", "tipo_doc": "CC|NIT|CE|PP", "num_doc": "1098...", "dv": "solo NIT" } }
+    "cliente": { "nombre": "Juan Pérez", "tipo_doc": "CC|NIT|CE|PP", "num_doc": "1098...", "dv": "solo NIT",
+                 "correo": "opcional; obligatorio en factura electrónica si el cliente se identifica" } }
   ```
+  Al comprador solo se le piden nombre, documento y correo: la ley no permite exigirle el RUT.
+- **Responsabilidad de IVA/INC:** si `emisor.responsable_iva` (o `responsable_inc`) es 0,
+  ninguna venta cobra ese impuesto aunque el producto tenga tasa; el precio queda todo como base.
 - **Datos iniciales:** `npm run seed` crea el emisor (desde `EMISOR_*` del `.env`, o con
   marcadores para completar con `PUT /api/emisor`) y la secuencia interna.
 - **Paso a la DIAN:** insertar una secuencia nueva con `prefijo`, `rango_desde/hasta`,
@@ -162,6 +168,45 @@ Con `reabrir_pedidos: true` (solo ventas de mesa), los pedidos vuelven a quedar 
 `ocupada`, para volver a cobrarlos con los datos correctos y el mismo tratamiento tributario (en el
 sitio, INC). Si la mesa ya tiene pedidos abiertos de otro cliente responde `409` y no cambia nada.
 Una factura ya anulada responde `409`.
+
+## Factura electrónica (base, sin transmisión a la DIAN)
+
+Base para negocios obligados a facturar electrónicamente (Art. 7 Res. DIAN 000165 de 2023).
+Con `emisor.modo_facturacion = 'interno'` (por defecto) **nada cambia**. Con `'electronica_dian'`,
+cada factura genera además, en la misma transacción de la venta:
+
+- **CUFE** (`src/utils/cufe.js`): SHA-384 de `NumFac + FecFac + HorFac + ValFac + 01 + IVA + 04 + INC
+  + 03 + ICA + ValTot + NitFE + NumAdq + ClTec + TipoAmbiente`, con fecha y hora de Colombia
+  (`-05:00`), valores con 2 decimales, NIT sin DV y `222222222222` para Consumidor Final. `npm test`
+  lo verifica contra el ejemplo publicado en el Anexo Técnico.
+- **QR** (paquete `qrcode`) con `https://catalogo-vpfe.dian.gov.co/document/searchqr?documentkey=<CUFE>`
+  (en pruebas, `catalogo-vpfe-hab`).
+- **XML UBL 2.1** (`src/utils/facturaUbl.js`, con `xmlbuilder2`), guardado en `facturas_electronicas`
+  con `estado_transmision = 'pendiente'`. Sin firma XAdES (requiere certificado); `SoftwareID` y `PIN`
+  se leen de `DIAN_SOFTWARE_ID` / `DIAN_SOFTWARE_PIN` en `.env` y, si faltan, quedan "(pendiente)".
+  No se valida contra el XSD oficial.
+- **PDF** con CUFE y QR, y la leyenda **"Documento generado localmente, pendiente de transmisión y
+  validación ante la DIAN"**. El título "FACTURA ELECTRÓNICA DE VENTA" solo se usa si
+  `estado_transmision = 'validada'`, lo que hoy nunca ocurre.
+
+**Configuración (`PUT /api/emisor`):** `modo_facturacion`, `ambiente_dian` (`pruebas`/`produccion`),
+`correo_electronico`, `tipo_persona` (`natural`/`juridica`), `responsable_iva`, `responsable_inc` (0/1),
+`proveedor_tecnologico` (texto libre: "Factus", "Siigo", "Software propio"...),
+`certificado_digital_nombre` y `certificado_digital_vencimiento` (AAAA-MM-DD). Del certificado solo
+se guardan esos metadatos: **el archivo y su clave privada nunca van a la base de datos**. Para
+activar el modo electrónico se exigen correo, tipo de persona y proveedor; para `produccion`,
+además, que la secuencia activa tenga `resolucion_numero` y `clave_tecnica` (entregada por la
+DIAN con la resolución). En pruebas, sin clave técnica, el CUFE usa una de relleno.
+
+**Anulación:** una factura electrónica no se anula (409): se corrige con una nota crédito (CUDE),
+que queda fuera de este alcance. Las facturas internas se siguen anulando igual.
+
+**Lo que no resuelve el software (le corresponde al dueño):** obtener el certificado de firma
+digital, habilitarse ante la DIAN (directamente o con un proveedor tecnológico) y transmitir cada
+factura para su validación previa. Con un proveedor tecnológico, **el CUFE y el XML válidos son los
+que devuelve el proveedor**; lo generado aquí es la base para la vía de "software propio" y una
+previsualización con valor académico. El punto de conexión es
+`src/services/proveedorTecnologicoService.js` (`transmitir`, hoy 501), documentado con un TODO.
 
 ## Cómo se verificó cada criterio de aceptación del Backlog
 

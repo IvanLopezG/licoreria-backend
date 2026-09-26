@@ -215,3 +215,56 @@ CREATE TABLE IF NOT EXISTS factura_items (
   valor_inc        integer NOT NULL,
   total_linea      integer NOT NULL
 );
+
+-- ---------------------------------------------------------------------------
+-- Base para factura electrónica (Resolución DIAN 000165 de 2023)
+-- ---------------------------------------------------------------------------
+-- Con modo_facturacion = 'interno' (por defecto) nada cambia. Con
+-- 'electronica_dian' cada factura genera además CUFE, QR y XML UBL 2.1, que
+-- quedan en facturas_electronicas como pendientes de transmisión: la firma
+-- digital y el envío a la DIAN (normalmente vía un proveedor tecnológico) le
+-- corresponden al dueño del negocio. Ver README, sección "Factura electrónica".
+
+-- Datos del emisor que exige operar electrónicamente. "(pendiente)" marca lo
+-- que el dueño aún no ha llenado. Del certificado de firma solo se guardan
+-- metadatos: el archivo y su clave privada NUNCA van a la base de datos.
+-- responsable_iva / responsable_inc sí afectan el cálculo: si es 0, ninguna
+-- venta cobra ese impuesto aunque el producto tenga tasa (ver facturaModel).
+ALTER TABLE emisor ADD COLUMN IF NOT EXISTS modo_facturacion text NOT NULL DEFAULT 'interno'
+  CHECK (modo_facturacion IN ('interno','electronica_dian'));
+ALTER TABLE emisor ADD COLUMN IF NOT EXISTS ambiente_dian text NOT NULL DEFAULT 'pruebas'
+  CHECK (ambiente_dian IN ('pruebas','produccion'));
+ALTER TABLE emisor ADD COLUMN IF NOT EXISTS correo_electronico text DEFAULT '(pendiente)';
+ALTER TABLE emisor ADD COLUMN IF NOT EXISTS tipo_persona text
+  CHECK (tipo_persona IN ('natural','juridica'));
+ALTER TABLE emisor ADD COLUMN IF NOT EXISTS responsable_iva integer NOT NULL DEFAULT 1
+  CHECK (responsable_iva IN (0,1));
+ALTER TABLE emisor ADD COLUMN IF NOT EXISTS responsable_inc integer NOT NULL DEFAULT 1
+  CHECK (responsable_inc IN (0,1));
+ALTER TABLE emisor ADD COLUMN IF NOT EXISTS proveedor_tecnologico text DEFAULT '(pendiente)';
+ALTER TABLE emisor ADD COLUMN IF NOT EXISTS certificado_digital_nombre text DEFAULT '(pendiente)';
+ALTER TABLE emisor ADD COLUMN IF NOT EXISTS certificado_digital_vencimiento text;
+
+-- Clave técnica que entrega la DIAN con cada resolución de numeración (entra
+-- en el cálculo del CUFE).
+ALTER TABLE secuencias_factura ADD COLUMN IF NOT EXISTS clave_tecnica text;
+
+-- Correo del adquiriente: la ley solo exige nombre, NIT/cédula y correo
+-- (nunca el RUT). Opcional para Consumidor Final.
+ALTER TABLE facturas ADD COLUMN IF NOT EXISTS cliente_correo text;
+
+-- Documento electrónico de una factura emitida en modo 'electronica_dian'.
+-- Tabla aparte para no cargar el XML en los listados de facturas.
+CREATE TABLE IF NOT EXISTS facturas_electronicas (
+  id_factura             integer PRIMARY KEY REFERENCES facturas(id_factura) ON DELETE RESTRICT,
+  cufe                   text NOT NULL UNIQUE,
+  ambiente_dian          text NOT NULL CHECK (ambiente_dian IN ('pruebas','produccion')),
+  qr_url                 text NOT NULL,
+  xml_ubl                text NOT NULL,
+  proveedor_tecnologico  text,
+  estado_transmision     text NOT NULL DEFAULT 'pendiente'
+                         CHECK (estado_transmision IN ('pendiente','validada','rechazada')),
+  mensaje_transmision    text,
+  fecha_generacion       timestamp(0) NOT NULL DEFAULT date_trunc('second', now() AT TIME ZONE 'utc'),
+  fecha_transmision      timestamp(0)
+);

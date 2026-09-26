@@ -76,6 +76,11 @@ ninguna historia pendiente del Backlog Priorizado. Ver `README.md`.
 factura en la misma transacción (tablas `emisor`, `secuencias_factura`, `facturas`,
 `factura_items`; tasas IVA/INC por producto; PDF con pdfkit). Tarifas pendientes de
 validar con contador. Ver sección *Facturación* del `README.md`.
+**Base de factura electrónica DIAN: COMPLETA (sin transmisión).** `emisor.modo_facturacion`
+('interno' por defecto, no cambia nada). En 'electronica_dian': CUFE (SHA-384, `utils/cufe.js`,
+`npm test`), QR, XML UBL 2.1 en `facturas_electronicas` como 'pendiente', PDF con leyenda de
+"pendiente de validación". `responsable_iva/inc` del emisor sí afectan el cálculo. La transmisión
+(proveedor tecnológico) y la nota crédito quedan pendientes. Ver sección *Factura electrónica* del `README.md`.
 
 ---
 

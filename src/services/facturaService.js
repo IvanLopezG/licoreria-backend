@@ -1,5 +1,7 @@
 const facturaModel = require("../models/facturaModel");
 const emisorModel = require("../models/emisorModel");
+const facturaElectronicaModel = require("../models/facturaElectronicaModel");
+const proveedorTecnologicoService = require("./proveedorTecnologicoService");
 const { TIPOS_CONSUMO } = require("../utils/impuestos");
 const { normalizarNit, esNitValido, calcularDv } = require("../utils/nit");
 
@@ -17,6 +19,8 @@ function texto(valor) {
   const limpio = String(valor).trim();
   return limpio === "" ? null : limpio;
 }
+
+const esCorreoValido = (correo) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo);
 
 // Valida los datos de facturación que llegan al cobrar (cierre de mesa o venta
 // de mostrador). Todos son opcionales para no romper a los clientes que aún no
@@ -52,11 +56,18 @@ function validarDatosFactura(body, tipoVenta) {
   if (dv && tipo_doc !== "NIT") {
     throw errorValidacion("cliente.dv solo aplica cuando tipo_doc es NIT.");
   }
+  // Solo nombre, documento y correo: la ley no permite exigir el RUT ni otro
+  // documento al comprador. El correo es obligatorio en factura electrónica
+  // si el cliente se identifica (lo valida facturaModel.emitir, que conoce el modo).
+  const correo = texto(cliente?.correo);
+  if (correo && !esCorreoValido(correo)) {
+    throw errorValidacion("cliente.correo no es un correo electrónico válido.");
+  }
 
   return {
     forma_pago: forma,
     tipo_consumo: consumo,
-    cliente: { nombre: nombre || "Consumidor Final", tipo_doc, num_doc, dv },
+    cliente: { nombre: nombre || "Consumidor Final", tipo_doc, num_doc, dv, correo },
   };
 }
 
@@ -72,6 +83,25 @@ async function obtenerFactura(id_factura) {
     throw err;
   }
   return factura;
+}
+
+function errorNoElectronica() {
+  const err = new Error("Esta factura no se emitió como factura electrónica.");
+  err.status = 404;
+  return err;
+}
+
+async function obtenerXml(id_factura) {
+  const factura = await obtenerFactura(id_factura);
+  const xml = await facturaElectronicaModel.obtenerXml(id_factura);
+  if (!xml) throw errorNoElectronica();
+  return { numero_completo: factura.numero_completo, xml };
+}
+
+async function transmitirFactura(id_factura) {
+  const factura = await obtenerFactura(id_factura);
+  if (!factura.electronica) throw errorNoElectronica();
+  return proveedorTecnologicoService.transmitir(factura, factura.electronica, await emisorModel.obtener());
 }
 
 const MOTIVO_MINIMO = 10;
@@ -96,12 +126,50 @@ const TITULOS_DOCUMENTO = ["Comprobante de venta", "FACTURA DE VENTA"];
 
 const OBLIGATORIOS_EMISOR = ["razon_social", "nit", "dv", "direccion", "municipio", "departamento", "regimen", "titulo_documento", "leyenda_pie"];
 
+const MODOS_FACTURACION = ["interno", "electronica_dian"];
+const AMBIENTES_DIAN = ["pruebas", "produccion"];
+const TIPOS_PERSONA = ["natural", "juridica"];
+const BANDERAS_EMISOR = ["responsable_iva", "responsable_inc"];
+
+// "(pendiente)" es el marcador de un dato que el dueño aún no ha llenado.
+const PENDIENTE = "(pendiente)";
+const lleno = (valor) => Boolean(valor) && valor !== PENDIENTE;
+
+// Banderas 0/1 (la app y la base usan 0/1); también acepta true/false.
+function bandera(valor, campo) {
+  if (valor === true || valor === 1) return 1;
+  if (valor === false || valor === 0) return 0;
+  throw errorValidacion(`${campo} debe ser 0 o 1.`);
+}
+
+// Lo mínimo para operar en modo electrónico. El certificado no se exige: con
+// un proveedor tecnológico, normalmente firma el proveedor.
+async function validarModoElectronico(datos) {
+  const faltantes = [];
+  if (!lleno(datos.correo_electronico)) faltantes.push("correo_electronico");
+  if (!datos.tipo_persona) faltantes.push("tipo_persona");
+  if (!lleno(datos.proveedor_tecnologico)) faltantes.push("proveedor_tecnologico");
+  if (faltantes.length > 0) {
+    throw errorValidacion(`Para activar la factura electrónica faltan: ${faltantes.join(", ")}.`);
+  }
+  if (datos.ambiente_dian === "produccion") {
+    const secuencia = await facturaModel.secuenciaActiva();
+    if (!secuencia?.resolucion_numero || !secuencia?.clave_tecnica) {
+      throw errorValidacion(
+        "Para facturar en producción, la secuencia activa necesita resolución de numeración y clave técnica de la DIAN."
+      );
+    }
+  }
+}
+
 // Edición parcial: los campos que no llegan conservan su valor actual.
 async function editarEmisor(body) {
   const actual = await emisorModel.obtener();
   const datos = {};
   for (const campo of emisorModel.CAMPOS) {
-    datos[campo] = body[campo] === undefined ? actual[campo] : texto(body[campo]);
+    if (body[campo] === undefined) datos[campo] = actual[campo];
+    else if (BANDERAS_EMISOR.includes(campo)) datos[campo] = bandera(body[campo], campo);
+    else datos[campo] = texto(body[campo]);
   }
   const faltantes = OBLIGATORIOS_EMISOR.filter((c) => !datos[c] && c !== "dv");
   if (faltantes.length > 0) {
@@ -123,6 +191,25 @@ async function editarEmisor(body) {
   if (!TITULOS_DOCUMENTO.includes(datos.titulo_documento)) {
     throw errorValidacion(`titulo_documento debe ser: ${TITULOS_DOCUMENTO.join(" o ")}.`);
   }
+
+  if (!MODOS_FACTURACION.includes(datos.modo_facturacion)) {
+    throw errorValidacion(`modo_facturacion debe ser: ${MODOS_FACTURACION.join(" o ")}.`);
+  }
+  if (!AMBIENTES_DIAN.includes(datos.ambiente_dian)) {
+    throw errorValidacion(`ambiente_dian debe ser: ${AMBIENTES_DIAN.join(" o ")}.`);
+  }
+  if (datos.tipo_persona !== null && !TIPOS_PERSONA.includes(datos.tipo_persona)) {
+    throw errorValidacion(`tipo_persona debe ser: ${TIPOS_PERSONA.join(" o ")}.`);
+  }
+  if (lleno(datos.correo_electronico) && !esCorreoValido(datos.correo_electronico)) {
+    throw errorValidacion("correo_electronico no es un correo electrónico válido.");
+  }
+  const vence = datos.certificado_digital_vencimiento;
+  if (vence !== null && !/^\d{4}-\d{2}-\d{2}$/.test(vence)) {
+    throw errorValidacion("certificado_digital_vencimiento debe tener el formato AAAA-MM-DD.");
+  }
+  if (datos.modo_facturacion === "electronica_dian") await validarModoElectronico(datos);
+
   return emisorModel.editar(datos);
 }
 
@@ -145,6 +232,16 @@ async function asegurarDatosIniciales() {
       leyenda_pie:
         "Documento interno de venta. No es factura electrónica de venta ni documento equivalente " +
         "validado por la DIAN. Precios con impuestos incluidos.",
+      // Base para factura electrónica: apagada hasta que el dueño la configure.
+      modo_facturacion: "interno",
+      ambiente_dian: "pruebas",
+      correo_electronico: PENDIENTE,
+      tipo_persona: null,
+      responsable_iva: 1,
+      responsable_inc: 1,
+      proveedor_tecnologico: PENDIENTE,
+      certificado_digital_nombre: PENDIENTE,
+      certificado_digital_vencimiento: null,
     });
   }
   await facturaModel.asegurarSecuenciaInicial();
@@ -155,6 +252,8 @@ module.exports = {
   listarFacturas,
   obtenerFactura,
   anularFactura,
+  obtenerXml,
+  transmitirFactura,
   obtenerEmisor,
   editarEmisor,
   asegurarDatosIniciales,

@@ -1,4 +1,5 @@
 const PDFDocument = require("pdfkit");
+const QRCode = require("qrcode");
 
 // Tirilla de 80 mm (impresora POS). El alto de la página depende de cuántas
 // líneas tenga la factura: se dibuja una vez en una página muy alta solo para
@@ -51,7 +52,12 @@ function impuestosPorTarifa(items) {
   return [...grupos.values()];
 }
 
-function dibujar(doc, f) {
+// Mientras la DIAN no valide el documento, legalmente no es factura
+// electrónica: nunca se titula así y se advierte en el propio documento.
+const LEYENDA_PENDIENTE = "Documento generado localmente, pendiente de transmisión y validación ante la DIAN.";
+
+// qr: imagen PNG del QR de verificación (solo facturas electrónicas).
+function dibujar(doc, f, qr) {
   const ancho = ANCHO - MARGEN * 2;
   const centrado = { width: ancho, align: "center" };
   const separador = () => {
@@ -69,9 +75,24 @@ function dibujar(doc, f) {
     doc.y = Math.max(doc.y, altoDerecha);
   };
 
+  const fe = f.electronica;
+  const validada = fe && fe.estado_transmision === "validada";
+
   // Encabezado del emisor
-  doc.font("Helvetica-Bold").fontSize(11).text(f.titulo_documento.toUpperCase(), MARGEN, MARGEN, centrado);
+  const titulo = validada ? "FACTURA ELECTRÓNICA DE VENTA" : f.titulo_documento.toUpperCase();
+  doc.font("Helvetica-Bold").fontSize(11).text(titulo, MARGEN, MARGEN, centrado);
   doc.moveDown(0.3);
+  if (fe && !validada) {
+    const y = doc.y;
+    doc.font("Helvetica-Bold").fontSize(7.5).text(LEYENDA_PENDIENTE.toUpperCase(), MARGEN + 4, y + 4, { width: ancho - 8, align: "center" });
+    if (fe.ambiente_dian === "pruebas") doc.font("Helvetica").text("Ambiente de pruebas", { width: ancho - 8, align: "center" });
+    const alto = doc.y - y + 4;
+    doc.rect(MARGEN, y, ancho, alto).lineWidth(1.2).stroke().lineWidth(1);
+    doc.x = MARGEN;
+    doc.y = y + alto;
+    doc.moveDown(0.5);
+    doc.font("Helvetica-Bold");
+  }
   doc.fontSize(9).text(f.emisor_razon_social, centrado);
   doc.font("Helvetica").fontSize(8);
   doc.text(`NIT ${f.emisor_nit}-${f.emisor_dv}`, centrado);
@@ -99,6 +120,7 @@ function dibujar(doc, f) {
     const documento = f.cliente_dv ? `${f.cliente_num_doc}-${f.cliente_dv}` : f.cliente_num_doc;
     fila(f.cliente_tipo_doc, documento);
   }
+  if (f.cliente_correo) fila("Correo", f.cliente_correo);
 
   separador();
   fila("Descripción", "Total", { negrita: true });
@@ -127,6 +149,18 @@ function dibujar(doc, f) {
   doc.moveDown(0.2);
   fila("Forma de pago", FORMAS_PAGO[f.forma_pago] || f.forma_pago);
 
+  if (fe) {
+    separador();
+    doc.font("Helvetica-Bold").fontSize(7).text("CUFE", MARGEN, doc.y, centrado);
+    doc.font("Helvetica").fontSize(6).text(fe.cufe, centrado);
+    doc.moveDown(0.4);
+    const lado = 110;
+    doc.image(qr, MARGEN + (ancho - lado) / 2, doc.y, { width: lado, height: lado });
+    doc.y += lado + 2;
+    doc.fontSize(6).text("Escanee para consultar el documento en el catálogo de la DIAN.", MARGEN, doc.y, centrado);
+    if (!validada) doc.font("Helvetica-Bold").text("Aún no transmitido: la consulta no lo encontrará.", centrado);
+  }
+
   separador();
   doc.font("Helvetica").fontSize(7);
   if (f.resolucion_numero) {
@@ -139,9 +173,13 @@ function dibujar(doc, f) {
   doc.text("¡Gracias por su compra!", centrado);
 }
 
-function generarPdfFactura(factura) {
+async function generarPdfFactura(factura) {
+  const qr = factura.electronica
+    ? await QRCode.toBuffer(factura.electronica.qr_url, { errorCorrectionLevel: "M", margin: 1, width: 440 })
+    : null;
+
   const medicion = new PDFDocument({ size: [ANCHO, ALTO_MEDICION], margin: MARGEN });
-  dibujar(medicion, factura);
+  dibujar(medicion, factura, qr);
   const alto = Math.ceil(medicion.y + MARGEN + 4);
   medicion.end();
 
@@ -155,7 +193,7 @@ function generarPdfFactura(factura) {
     doc.on("data", (parte) => partes.push(parte));
     doc.on("end", () => resolve(Buffer.concat(partes)));
     doc.on("error", reject);
-    dibujar(doc, factura);
+    dibujar(doc, factura, qr);
     doc.end();
   });
 }

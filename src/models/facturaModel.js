@@ -1,5 +1,6 @@
 const db = require("../db/db");
 const emisorModel = require("./emisorModel");
+const facturaElectronicaModel = require("./facturaElectronicaModel");
 const movimientoInventarioModel = require("./movimientoInventarioModel");
 const { calcularLinea, totalizar } = require("../utils/impuestos");
 
@@ -21,7 +22,7 @@ const COLUMNAS_FACTURA = [
   "id_secuencia", "numero", "numero_completo", "id_venta", "id_mesa", "id_usuario", "tipo_consumo",
   "emisor_razon_social", "emisor_nit", "emisor_dv", "emisor_direccion", "emisor_municipio",
   "emisor_departamento", "emisor_telefono", "emisor_regimen", "titulo_documento", "leyenda_pie",
-  "cliente_nombre", "cliente_tipo_doc", "cliente_num_doc", "cliente_dv", "forma_pago",
+  "cliente_nombre", "cliente_tipo_doc", "cliente_num_doc", "cliente_dv", "cliente_correo", "forma_pago",
   "subtotal", "total_iva", "total_inc", "total_impuestos", "total",
 ];
 
@@ -35,9 +36,9 @@ function insertar(tabla, columnas, retorno = "") {
   return `INSERT INTO ${tabla} (${columnas.join(", ")}) VALUES (${marcadores})${retorno}`;
 }
 
-function errorFacturacion(mensaje) {
+function errorFacturacion(mensaje, status = 500) {
   const err = new Error(mensaje);
-  err.status = 500;
+  err.status = status;
   return err;
 }
 
@@ -77,14 +78,21 @@ async function emitir({ id_venta, id_mesa, id_usuario, tipo_consumo, forma_pago,
   const emisor = await emisorModel.obtener(cx);
   if (!emisor) throw errorFacturacion("Faltan los datos del emisor de la factura.");
 
+  const electronica = emisor.modo_facturacion === "electronica_dian";
+  if (electronica && cliente.num_doc && !cliente.correo) {
+    throw errorFacturacion("En factura electrónica, si el cliente se identifica, cliente.correo es obligatorio.", 400);
+  }
+
+  // Un emisor que no es responsable de IVA (o de INC) no puede cobrarlo,
+  // aunque el producto tenga tasa: la línea queda sin ese impuesto.
   const lineas = (await cx.todos(SQL_LINEAS_VENTA, [id_venta])).map((l) => ({
     id_producto: l.id_producto,
     descripcion: l.nombre,
     ...calcularLinea({
       cantidad: l.cantidad,
       precio_unitario: l.precio_unitario,
-      tasa_iva_bps: l.tasa_iva_bps,
-      tasa_inc_bps: l.tasa_inc_bps,
+      tasa_iva_bps: emisor.responsable_iva ? l.tasa_iva_bps : 0,
+      tasa_inc_bps: emisor.responsable_inc ? l.tasa_inc_bps : 0,
       tipo_consumo,
     }),
   }));
@@ -111,6 +119,7 @@ async function emitir({ id_venta, id_mesa, id_usuario, tipo_consumo, forma_pago,
     cliente_tipo_doc: cliente.tipo_doc,
     cliente_num_doc: cliente.num_doc,
     cliente_dv: cliente.dv,
+    cliente_correo: cliente.correo ?? null,
     forma_pago,
     ...totalizar(lineas),
   };
@@ -122,6 +131,10 @@ async function emitir({ id_venta, id_mesa, id_usuario, tipo_consumo, forma_pago,
   for (const linea of lineas) {
     const item = { id_factura, ...linea };
     await cx.ejecutar(insertar("factura_items", COLUMNAS_ITEM), COLUMNAS_ITEM.map((c) => item[c]));
+  }
+
+  if (electronica) {
+    await facturaElectronicaModel.generar(await buscarPorId(id_factura, cx), emisor, cx);
   }
 
   return buscarPorId(id_factura, cx);
@@ -141,7 +154,10 @@ async function buscarPorId(id_factura, cx = db) {
   const factura = await cx.uno(`${SELECT_FACTURA} WHERE f.id_factura = $1`, [id_factura]);
   if (!factura) return null;
   const items = await cx.todos("SELECT * FROM factura_items WHERE id_factura = $1 ORDER BY id_item", [id_factura]);
-  return { ...factura, items };
+  // "electronica" solo aparece en facturas emitidas en modo electrónico, así
+  // el JSON de las facturas internas no cambia.
+  const electronica = await facturaElectronicaModel.buscarPorFactura(id_factura, cx);
+  return electronica ? { ...factura, items, electronica } : { ...factura, items };
 }
 
 async function buscarPorVenta(id_venta) {
@@ -176,6 +192,12 @@ function anular({ id_factura, id_usuario, motivo, reabrir_pedidos }) {
     const factura = await cx.uno("SELECT * FROM facturas WHERE id_factura = $1 FOR UPDATE", [id_factura]);
     if (!factura) throw errorConEstado("Factura no encontrada.", 404);
     if (factura.estado === "anulada") throw errorConEstado("La factura ya está anulada.", 409);
+    if (await facturaElectronicaModel.buscarPorFactura(id_factura, cx)) {
+      throw errorConEstado(
+        "Una factura electrónica no se anula: se corrige emitiendo una nota crédito, que aún no está implementada.",
+        409
+      );
+    }
 
     const venta = await cx.uno("SELECT * FROM ventas WHERE id_venta = $1", [factura.id_venta]);
 
@@ -228,4 +250,8 @@ async function asegurarSecuenciaInicial() {
   }
 }
 
-module.exports = { emitir, anular, buscarPorId, buscarPorVenta, listar, asegurarSecuenciaInicial };
+function secuenciaActiva() {
+  return db.uno("SELECT * FROM secuencias_factura WHERE activa = 1");
+}
+
+module.exports = { emitir, anular, buscarPorId, buscarPorVenta, listar, asegurarSecuenciaInicial, secuenciaActiva };

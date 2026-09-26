@@ -11,6 +11,15 @@ const CAMPOS = [
   "regimen",
   "titulo_documento",
   "leyenda_pie",
+  "modo_facturacion",
+  "ambiente_dian",
+  "correo_electronico",
+  "tipo_persona",
+  "responsable_iva",
+  "responsable_inc",
+  "proveedor_tecnologico",
+  "certificado_digital_nombre",
+  "certificado_digital_vencimiento",
 ];
 
 function obtener(cx = db) {

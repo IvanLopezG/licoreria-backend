@@ -29,6 +29,25 @@ async function pdf(req, res) {
   }
 }
 
+async function xml(req, res) {
+  try {
+    const { numero_completo, xml: contenido } = await facturaService.obtenerXml(Number(req.params.id));
+    res.setHeader("Content-Type", "application/xml; charset=utf-8");
+    res.setHeader("Content-Disposition", `inline; filename=factura_${numero_completo}.xml`);
+    return res.send(contenido);
+  } catch (err) {
+    return res.status(err.status || 500).json({ error: err.message });
+  }
+}
+
+async function transmitir(req, res) {
+  try {
+    return res.json(await facturaService.transmitirFactura(Number(req.params.id)));
+  } catch (err) {
+    return res.status(err.status || 500).json({ error: err.message });
+  }
+}
+
 async function anular(req, res) {
   try {
     const factura = await facturaService.anularFactura(Number(req.params.id), req.body || {}, req.usuario.id_usuario);
@@ -59,4 +78,4 @@ async function editarEmisor(req, res) {
   }
 }
 
-module.exports = { listar, obtener, pdf, anular, obtenerEmisor, editarEmisor };
+module.exports = { listar, obtener, pdf, xml, transmitir, anular, obtenerEmisor, editarEmisor };
