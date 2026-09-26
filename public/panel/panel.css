@@ -71,6 +71,20 @@ body {
   color: #fff;
 }
 
+/* "Cerrar sesión" (lo agrega menu.js): un botón con el aspecto de los enlaces. */
+.nav-salir {
+  width: 100%;
+  margin-top: 12px;
+  border: 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 0 0 6px 6px;
+  padding-top: 14px;
+  background: transparent;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
 .nav-item.activo {
   background: var(--azul-medio);
   color: #fff;

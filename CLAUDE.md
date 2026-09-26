@@ -95,7 +95,11 @@ validar con contador. Ver sección *Facturación* del `README.md`.
   Endpoints nuevos: `PUT /api/proveedores/:id` (parcial) y
   `DELETE /api/proveedores/:id/productos/:id_producto` (quita la asociación), auditados.
 - UI: login rediseñado (pantalla propia sin barra lateral, "Ingresando…", aviso si Render
-  tarda > 4 s, enlace "Ir al panel"); títulos sin "Sprint N"; productos y proveedores con
+  tarda > 4 s). El login solo muestra el formulario: tras ingresar va a Pedidos, y si al abrirlo ya
+  hay token lo valida con `GET /api/auth/me` (200 → Pedidos; 401 → limpia la sesión y queda el
+  formulario; sin conexión → formulario y aviso, sin redirigir). No muestra usuario ni rol. "Cerrar
+  sesión" está al final del menú lateral de todas las páginas (lo agrega `menu.js`, que también
+  quita el enlace "Login" cuando hay sesión); títulos sin "Sprint N"; productos y proveedores con
   formulario por secciones, buscador (nombre/SKU, nombre/NIT) y Editar; margen
   (precio − costo) / precio en el listado; los selectores de venta de mostrador y de entradas
   de inventario ocultan productos y proveedores inactivos.

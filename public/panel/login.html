@@ -101,11 +101,6 @@
     color: #7a4f16;
   }
 
-  .sesion-activa { text-align: center; }
-  .sesion-activa p { margin: 0 0 16px; font-size: 15px; line-height: 1.4; }
-  .sesion-acciones { display: flex; flex-direction: column; gap: 8px; }
-  .sesion-acciones .btn { width: 100%; margin: 0; justify-content: center; text-decoration: none; }
-  #estado { margin-top: 0; }
 
   @media (max-width: 420px) {
     .tarjeta-login { padding: 26px 20px 22px; border-radius: 14px; }
@@ -142,20 +137,16 @@
       </p>
     </form>
 
-    <div id="bloqueSesion" class="sesion-activa oculto">
-      <p id="estado"></p>
-      <div class="sesion-acciones">
-        <a class="btn btn-primario" href="pedidos.html">Ir al panel</a>
-        <button class="btn" onclick="probarInventario()">Probar acceso a inventario</button>
-        <button class="btn btn-secundario" onclick="cerrarSesion()">Cerrar sesión</button>
-      </div>
-    </div>
+    <!-- Solo mientras se valida un token guardado; no muestra datos del usuario. -->
+    <p id="verificando" class="login-espera oculto" role="status">Verificando sesión…</p>
   </main>
 
 <script>
   // El servidor está en Render (plan gratuito) y puede tardar en despertar:
   // si el login demora más de esto, se avisa en vez de dejar al usuario a ciegas.
   const ESPERA_LENTA_MS = 4000;
+  // Pedidos es accesible para los tres roles (mesero, cajero, administrador).
+  const INICIO_PANEL = "pedidos.html";
   let enviando = false;
 
   function guardarSesion(token, usuario) {
@@ -163,22 +154,49 @@
     localStorage.setItem("usuario", JSON.stringify(usuario));
   }
 
-  function sesionActual() {
-    const token = localStorage.getItem("token");
-    const usuario = JSON.parse(localStorage.getItem("usuario") || "null");
-    return { token, usuario };
+  function limpiarSesion() {
+    localStorage.removeItem("token");
+    localStorage.removeItem("usuario");
   }
 
-  function mostrarSesion() {
-    const { usuario } = sesionActual();
-    if (usuario) {
-      document.getElementById("bloqueLogin").classList.add("oculto");
-      document.getElementById("bloqueSesion").classList.remove("oculto");
-      document.getElementById("estado").textContent =
-        `Sesión activa: ${usuario.nombre} (${usuario.usuario_login}) — rol: ${usuario.rol}`;
-    } else {
-      document.getElementById("bloqueLogin").classList.remove("oculto");
-      document.getElementById("bloqueSesion").classList.add("oculto");
+  function irAlPanel() {
+    // replace: "Atrás" desde Pedidos no vuelve al login.
+    window.location.replace(INICIO_PANEL);
+  }
+
+  function mostrarFormulario() {
+    document.getElementById("verificando").classList.add("oculto");
+    document.getElementById("bloqueLogin").classList.remove("oculto");
+  }
+
+  // Si ya hay un token, se valida con el backend antes de redirigir: así un
+  // token vencido no manda a Pedidos (y no hay bucle, porque Pedidos nunca
+  // redirige al login). 401 → se limpia la sesión y queda el formulario.
+  async function verificarSesionGuardada() {
+    if (!localStorage.getItem("token")) {
+      mostrarFormulario();
+      return;
+    }
+    document.getElementById("bloqueLogin").classList.add("oculto");
+    const verificando = document.getElementById("verificando");
+    verificando.classList.remove("oculto");
+    const avisoLento = setTimeout(() => {
+      verificando.textContent = "Conectando con el servidor, puede tardar unos segundos…";
+    }, ESPERA_LENTA_MS);
+    try {
+      await Api.pedir("/api/auth/me");
+      irAlPanel();
+    } catch (err) {
+      if (err.status === 401) {
+        limpiarSesion();
+      } else {
+        // Sin conexión o error del servidor: no se puede confirmar la sesión.
+        // Se muestra el formulario (sin redirigir) y el motivo.
+        Api.error(err);
+      }
+      mostrarFormulario();
+    } finally {
+      clearTimeout(avisoLento);
     }
   }
 
@@ -214,32 +232,18 @@
       const data = await Api.pedir("/api/auth/login", { method: "POST", body: { usuario_login, password }, auth: false });
       guardarSesion(data.token, data.usuario);
       document.getElementById("password").value = "";
-      mostrarSesion();
+      clearTimeout(avisoLento);
+      irAlPanel();
+      return;
     } catch (err) {
       Api.error(err);
     } finally {
       clearTimeout(avisoLento);
-      estadoEnvio(false);
     }
+    estadoEnvio(false);
   }
 
-  // Inventario solo es para administrador y cajero: sirve para comprobar el rol.
-  async function probarInventario() {
-    try {
-      await Api.pedir("/api/inventario/movimientos?desde=2100-01-01");
-      Api.exito("Tienes acceso al módulo de inventario.");
-    } catch (err) {
-      Api.error(err);
-    }
-  }
-
-  function cerrarSesion() {
-    localStorage.removeItem("token");
-    localStorage.removeItem("usuario");
-    mostrarSesion();
-  }
-
-  mostrarSesion();
+  verificarSesionGuardada();
 </script>
 </body>
 </html>
