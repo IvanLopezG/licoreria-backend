@@ -81,6 +81,24 @@ validar con contador. Ver sección *Facturación* del `README.md`.
 `npm test`), QR, XML UBL 2.1 en `facturas_electronicas` como 'pendiente', PDF con leyenda de
 "pendiente de validación". `responsable_iva/inc` del emisor sí afectan el cálculo. La transmisión
 (proveedor tecnológico) y la nota crédito quedan pendientes. Ver sección *Factura electrónica* del `README.md`.
+**Productos y proveedores ampliados (panel web): COMPLETO.** Migración aditiva al final de
+`schema.sql` (todo opcional en la API; si un campo no llega, se conserva):
+- `productos`: `costo` (>= 0), `codigo_barras` (código de barras / SKU, único cuando no es
+  NULL, índice parcial; duplicado → 409), `marca`, `volumen_ml` (entero > 0), `grado_alcohol`
+  (0-100; se borra si `es_bebida_alcoholica` = 0), `descripcion` (máx. 300), `activo` (0/1,
+  defecto 1). **Inactivo:** no sale en `GET /api/catalogo/:token`, y el autopedido por QR y la
+  venta de mostrador lo rechazan (400); sigue en ventas, facturas y movimientos.
+- `proveedores`: `nit` + `dv` (DV calculado por el servidor con `utils/nit.js`, igual que el
+  emisor), `telefono`, `correo` (formato validado), `direccion`, `ciudad`, `condicion_pago`
+  (`contado`/`credito`), `dias_credito` (solo con crédito), `notas`, `activo` (defecto 1).
+  `contacto` se conserva y el panel la muestra como "Persona de contacto".
+  Endpoints nuevos: `PUT /api/proveedores/:id` (parcial) y
+  `DELETE /api/proveedores/:id/productos/:id_producto` (quita la asociación), auditados.
+- UI: login rediseñado (pantalla propia sin barra lateral, "Ingresando…", aviso si Render
+  tarda > 4 s, enlace "Ir al panel"); títulos sin "Sprint N"; productos y proveedores con
+  formulario por secciones, buscador (nombre/SKU, nombre/NIT) y Editar; margen
+  (precio − costo) / precio en el listado; los selectores de venta de mostrador y de entradas
+  de inventario ocultan productos y proveedores inactivos.
 
 ## Pendientes futuros (no urgentes)
 - **Android: correo del cliente al cobrar.** Antes de activar de verdad `modo_facturacion =
@@ -89,6 +107,17 @@ validar con contador. Ver sección *Facturación* del `README.md`.
   con cliente identificado responde 400 ("cliente.correo es obligatorio"). En modo interno (el
   de por defecto) no afecta. La app tolera los campos nuevos de las respuestas
   (`ignoreUnknownKeys = true` en `ApiClient.kt`).
+- **Android: campos nuevos de productos y proveedores.** La app sigue funcionando sin
+  cambios, pero no los muestra ni los edita. Para reflejarlos:
+  - `ProductoDto`: `costo`, `codigo_barras`, `marca`, `volumen_ml`, `grado_alcohol`,
+    `descripcion`, `activo`, todos opcionales, en el formulario y en el listado (margen, insignia
+    de inactivo, búsqueda por SKU).
+  - Ocultar productos inactivos (`activo = 0`) en la venta de mostrador de la app (hoy el
+    backend responde 400 si se intenta venderlos).
+  - `ProveedorDto`: `nit`/`dv`, `telefono`, `correo`, `direccion`, `ciudad`, `condicion_pago`,
+    `dias_credito`, `notas`, `activo`; pantalla de edición con `PUT /api/proveedores/:id`
+    y quitar producto con `DELETE /api/proveedores/:id/productos/:id_producto`.
+  - Ocultar proveedores inactivos al registrar entradas de inventario.
 
 ---
 
