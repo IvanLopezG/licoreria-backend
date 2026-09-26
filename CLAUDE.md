@@ -82,6 +82,14 @@ validar con contador. Ver sección *Facturación* del `README.md`.
 "pendiente de validación". `responsable_iva/inc` del emisor sí afectan el cálculo. La transmisión
 (proveedor tecnológico) y la nota crédito quedan pendientes. Ver sección *Factura electrónica* del `README.md`.
 
+## Pendientes futuros (no urgentes)
+- **Android: correo del cliente al cobrar.** Antes de activar de verdad `modo_facturacion =
+  'electronica_dian'`, agregar `cliente.correo` al flujo de cobro de la app Android
+  (`DatosFacturaRequest` en `LicoreriaPanel`). Hoy no lo envía, y en modo electrónico un cobro
+  con cliente identificado responde 400 ("cliente.correo es obligatorio"). En modo interno (el
+  de por defecto) no afecta. La app tolera los campos nuevos de las respuestas
+  (`ignoreUnknownKeys = true` en `ApiClient.kt`).
+
 ---
 
 ## Sprint 2 — Módulo de Inventario (Semana 3-4)
