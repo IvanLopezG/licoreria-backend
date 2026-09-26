@@ -37,4 +37,28 @@ async function asociarProducto(req, res) {
   }
 }
 
-module.exports = { crear, listar, obtener, asociarProducto };
+async function editar(req, res) {
+  try {
+    const actualizado = await proveedorService.editarProveedor(Number(req.params.id), req.body);
+
+    req.auditoria = { accion: "editar", entidad: "proveedores", id_entidad: actualizado.id_proveedor };
+
+    return res.json(actualizado);
+  } catch (err) {
+    return res.status(err.status || 400).json({ error: err.message });
+  }
+}
+
+async function quitarProducto(req, res) {
+  try {
+    const actualizado = await proveedorService.quitarProducto(Number(req.params.id), Number(req.params.id_producto));
+
+    req.auditoria = { accion: "editar", entidad: "proveedores", id_entidad: actualizado.id_proveedor };
+
+    return res.json(actualizado);
+  } catch (err) {
+    return res.status(err.status || 400).json({ error: err.message });
+  }
+}
+
+module.exports = { crear, listar, obtener, editar, asociarProducto, quitarProducto };

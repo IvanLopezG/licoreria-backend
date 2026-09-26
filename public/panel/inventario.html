@@ -176,7 +176,9 @@
       manejarError(err);
       return;
     }
+    // Los proveedores inactivos no se ofrecen para entradas nuevas.
     document.getElementById("entradaProveedor").innerHTML = proveedores
+      .filter((p) => p.activo !== 0)
       .map((p) => `<option value="${p.id_proveedor}">${escapeHtml(p.nombre)}</option>`)
       .join("");
   }

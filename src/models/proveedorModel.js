@@ -1,9 +1,27 @@
 const db = require("../db/db");
 
-async function crear({ nombre, contacto }) {
+// Columnas que se escriben al crear y al editar.
+const COLUMNAS = [
+  "nombre", "contacto", "nit", "dv", "telefono", "correo", "direccion", "ciudad",
+  "condicion_pago", "dias_credito", "notas", "activo",
+];
+
+async function crear(datos) {
   const { id_proveedor } = await db.uno(
-    "INSERT INTO proveedores (nombre, contacto) VALUES ($1, $2) RETURNING id_proveedor",
-    [nombre, contacto || null]
+    `INSERT INTO proveedores (${COLUMNAS.join(", ")})
+     VALUES (${COLUMNAS.map((_, i) => `$${i + 1}`).join(", ")})
+     RETURNING id_proveedor`,
+    COLUMNAS.map((c) => datos[c] ?? null)
+  );
+  return buscarPorId(id_proveedor);
+}
+
+async function editar(id_proveedor, datos) {
+  await db.ejecutar(
+    `UPDATE proveedores
+     SET ${COLUMNAS.map((c, i) => `${c} = $${i + 1}`).join(", ")}
+     WHERE id_proveedor = $${COLUMNAS.length + 1}`,
+    [...COLUMNAS.map((c) => datos[c] ?? null), id_proveedor]
   );
   return buscarPorId(id_proveedor);
 }
@@ -24,6 +42,15 @@ async function asociarProducto(id_proveedor, id_producto) {
   );
 }
 
+// Devuelve cuántas filas quitó (0 si no estaban asociados).
+async function quitarProducto(id_proveedor, id_producto) {
+  const resultado = await db.ejecutar(
+    "DELETE FROM producto_proveedor WHERE id_producto = $1 AND id_proveedor = $2",
+    [id_producto, id_proveedor]
+  );
+  return resultado.rowCount;
+}
+
 function listarProductos(id_proveedor) {
   return db.todos(
     `SELECT p.*
@@ -35,4 +62,4 @@ function listarProductos(id_proveedor) {
   );
 }
 
-module.exports = { crear, buscarPorId, listar, asociarProducto, listarProductos };
+module.exports = { crear, editar, buscarPorId, listar, asociarProducto, quitarProducto, listarProductos };

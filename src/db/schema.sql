@@ -288,3 +288,22 @@ ALTER TABLE productos ADD COLUMN IF NOT EXISTS activo integer NOT NULL DEFAULT 1
 -- Código de barras / SKU único solo cuando viene informado.
 CREATE UNIQUE INDEX IF NOT EXISTS productos_codigo_barras_unico
   ON productos(codigo_barras) WHERE codigo_barras IS NOT NULL;
+
+-- ---------------------------------------------------------------------------
+-- Proveedores: datos de contacto y condiciones (migración aditiva)
+-- ---------------------------------------------------------------------------
+-- "contacto" (texto libre existente) se conserva tal cual y se muestra como
+-- "Persona de contacto". Todo lo nuevo es opcional salvo activo (defecto 1).
+-- El dv lo calcula el servidor a partir del nit (mismo algoritmo del emisor).
+ALTER TABLE proveedores ADD COLUMN IF NOT EXISTS nit text;
+ALTER TABLE proveedores ADD COLUMN IF NOT EXISTS dv text;
+ALTER TABLE proveedores ADD COLUMN IF NOT EXISTS telefono text;
+ALTER TABLE proveedores ADD COLUMN IF NOT EXISTS correo text;
+ALTER TABLE proveedores ADD COLUMN IF NOT EXISTS direccion text;
+ALTER TABLE proveedores ADD COLUMN IF NOT EXISTS ciudad text;
+ALTER TABLE proveedores ADD COLUMN IF NOT EXISTS condicion_pago text
+  CHECK (condicion_pago IN ('contado','credito'));
+ALTER TABLE proveedores ADD COLUMN IF NOT EXISTS dias_credito integer CHECK (dias_credito > 0);
+ALTER TABLE proveedores ADD COLUMN IF NOT EXISTS notas text;
+ALTER TABLE proveedores ADD COLUMN IF NOT EXISTS activo integer NOT NULL DEFAULT 1
+  CHECK (activo IN (0,1));

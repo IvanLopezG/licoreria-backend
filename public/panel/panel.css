@@ -281,7 +281,7 @@ label.casilla input { width: auto; margin: 0; }
 .barra-filtros .filtro { margin: 0 0 8px; }
 
 .tabla-desplazable { overflow-x: auto; }
-.dato-secundario { font-size: 11px; color: var(--gris-texto); margin-top: 2px; }
+.dato-secundario { font-size: 11px; color: var(--gris-texto); margin-top: 2px; white-space: nowrap; }
 .badge-inactivo { background: #ECEEF1; color: var(--gris-texto); }
 .fila-inactiva td { color: var(--gris-texto); }
 .margen-negativo { color: var(--rojo); font-weight: bold; }

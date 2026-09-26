@@ -10,6 +10,9 @@
   .asociar { display: flex; gap: 6px; align-items: center; }
   .asociar select { width: auto; flex: 1; margin-top: 0; }
   .asociar .btn { margin-top: 0; padding: 6px 10px; }
+  .fila-form label.campo-dv { flex: 0 0 80px; min-width: 70px; }
+  .lista-asociados { min-width: 160px; }
+  .asociado { display: inline-flex; align-items: center; margin: 2px 8px 2px 0; white-space: nowrap; }
 </style>
 </head>
 <body>
@@ -56,28 +59,98 @@
 
     <div id="contenido">
       <form id="formProveedor" onsubmit="return guardarProveedor(event)">
-        <div class="fila-form">
-          <label>Nombre
-            <input id="nombre" required>
+        <input type="hidden" id="id_proveedor">
+
+        <section class="seccion">
+          <h2>General</h2>
+          <div class="fila-form">
+            <label>Nombre
+              <input id="nombre" required>
+            </label>
+            <label>Persona de contacto (opcional)
+              <input id="contacto">
+            </label>
+          </div>
+          <div class="fila-form">
+            <label>NIT sin DV (opcional)
+              <input id="nit" inputmode="numeric" oninput="actualizarDv()">
+            </label>
+            <label class="campo-dv">DV
+              <input id="dv" readonly tabindex="-1" class="solo-lectura" title="Se calcula a partir del NIT">
+            </label>
+            <label class="casilla">
+              <input type="checkbox" id="activo" checked> Activo
+            </label>
+          </div>
+          <p class="ayuda">El dígito de verificación se calcula solo a partir del NIT. Un proveedor inactivo no se ofrece para entradas nuevas de inventario.</p>
+        </section>
+
+        <section class="seccion">
+          <h2>Contacto</h2>
+          <div class="fila-form">
+            <label>Teléfono (opcional)
+              <input id="telefono" type="tel">
+            </label>
+            <label>Correo (opcional)
+              <input id="correo" type="email">
+            </label>
+          </div>
+          <div class="fila-form">
+            <label>Dirección (opcional)
+              <input id="direccion">
+            </label>
+            <label>Ciudad (opcional)
+              <input id="ciudad">
+            </label>
+          </div>
+        </section>
+
+        <section class="seccion">
+          <h2>Condiciones</h2>
+          <div class="fila-form">
+            <label>Condición de pago (opcional)
+              <select id="condicion_pago" onchange="actualizarCredito()">
+                <option value="">Sin definir</option>
+                <option value="contado">Contado</option>
+                <option value="credito">Crédito</option>
+              </select>
+            </label>
+            <label id="campoDias" class="oculto">Días de crédito
+              <input id="dias_credito" type="number" min="1" step="1" placeholder="30">
+            </label>
+          </div>
+          <label>Notas (opcional)
+            <textarea id="notas" rows="2"></textarea>
           </label>
-          <label>Contacto
-            <input id="contacto" placeholder="teléfono, correo...">
-          </label>
+        </section>
+
+        <div class="acciones-form">
+          <button type="submit" class="btn btn-primario" id="btnGuardar">Crear proveedor</button>
+          <button type="button" class="btn btn-secundario oculto" id="btnCancelar" onclick="cancelarEdicion()">Cancelar edición</button>
         </div>
-        <button type="submit" class="btn btn-primario">Crear proveedor</button>
       </form>
 
-      <table>
-        <thead>
-          <tr><th>Nombre</th><th>Contacto</th><th>Productos asociados</th><th>Asociar producto</th></tr>
-        </thead>
-        <tbody id="filas"></tbody>
-      </table>
+      <div class="barra-filtros">
+        <label class="buscador">Buscar
+          <input id="buscar" type="search" placeholder="Nombre o NIT" oninput="pintarProveedores()">
+        </label>
+      </div>
+
+      <div class="tabla-desplazable">
+        <table>
+          <thead>
+            <tr><th>Nombre</th><th>Persona de contacto</th><th>Teléfono</th><th>Correo</th><th>Productos asociados</th><th>Asociar producto</th><th>Acción</th></tr>
+          </thead>
+          <tbody id="filas"></tbody>
+        </table>
+      </div>
+      <p id="sinResultados" class="ayuda oculto">Ningún proveedor coincide con la búsqueda.</p>
     </div>
   </main>
 
 <script>
   function token() { return localStorage.getItem("token"); }
+  const el = (id) => document.getElementById(id);
 
   function escapeHtml(texto) {
     return String(texto).replace(/[&<>"']/g, (c) => ({
@@ -86,7 +159,7 @@
   }
 
   function mostrarPermisoDenegado() {
-    document.getElementById("contenido").innerHTML =
+    el("contenido").innerHTML =
       '<p class="error-permiso">No tienes permiso para ver esta sección.</p>';
   }
 
@@ -97,7 +170,28 @@
     else Api.error(err);
   }
 
+  // DV del NIT, algoritmo de la DIAN (módulo 11); el mismo de src/utils/nit.js,
+  // que es quien lo guarda. Aquí solo se muestra mientras se escribe.
+  const PESOS = [3, 7, 13, 17, 19, 23, 29, 37, 41, 43, 47, 53, 59, 67, 71];
+  function calcularDv(nit) {
+    const suma = nit.split("").reverse().reduce((acc, d, i) => acc + Number(d) * PESOS[i], 0);
+    const residuo = suma % 11;
+    return String(residuo > 1 ? 11 - residuo : residuo);
+  }
+  const limpiarNit = (nit) => nit.replace(/[.\s-]/g, "");
+  function actualizarDv() {
+    const nit = limpiarNit(el("nit").value);
+    el("dv").value = /^\d{5,15}$/.test(nit) ? calcularDv(nit) : "";
+  }
+
+  // Los días de crédito solo aplican a pago a crédito.
+  function actualizarCredito() {
+    el("campoDias").classList.toggle("oculto", el("condicion_pago").value !== "credito");
+  }
+
   let productosCache = [];
+  let proveedoresDetalle = [];
+  let proveedoresPorId = {};
 
   async function cargarProductos() {
     try {
@@ -108,50 +202,103 @@
   }
 
   async function cargarProveedores() {
-    let detalles;
     try {
       const proveedores = await Api.pedir("/api/proveedores");
       // El listado general no trae los productos asociados; se pide el detalle
       // de cada proveedor aparte para mostrarlos en la misma fila.
-      detalles = await Promise.all(proveedores.map((p) => Api.pedir(`/api/proveedores/${p.id_proveedor}`)));
+      proveedoresDetalle = await Promise.all(proveedores.map((p) => Api.pedir(`/api/proveedores/${p.id_proveedor}`)));
     } catch (err) {
       manejarError(err);
       return;
     }
+    proveedoresPorId = {};
+    for (const p of proveedoresDetalle) proveedoresPorId[p.id_proveedor] = p;
+    pintarProveedores();
+  }
 
-    const filas = document.getElementById("filas");
+  const normalizar = (t) => String(t ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+
+  function pintarProveedores() {
+    const texto = normalizar(el("buscar").value.trim());
+    const textoNit = limpiarNit(el("buscar").value.trim());
+    const visibles = texto
+      ? proveedoresDetalle.filter((p) => normalizar(p.nombre).includes(texto) || (textoNit && String(p.nit ?? "").includes(textoNit)))
+      : proveedoresDetalle;
+
+    const filas = el("filas");
     filas.innerHTML = "";
-    for (const p of detalles) {
+    for (const p of visibles) {
       const opciones = productosCache
         .filter((prod) => !p.productos.some((asociado) => asociado.id_producto === prod.id_producto))
         .map((prod) => `<option value="${prod.id_producto}">${escapeHtml(prod.nombre)}</option>`)
         .join("");
+      const asociados = p.productos.length
+        ? p.productos.map((x) => `<span class="asociado">${escapeHtml(x.nombre)}<button type="button" class="btn btn-peligro btn-chico"
+            title="Quitar ${escapeHtml(x.nombre)}" aria-label="Quitar ${escapeHtml(x.nombre)}"
+            onclick="quitarProducto(${p.id_proveedor}, ${x.id_producto})">×</button></span>`).join("")
+        : "—";
       const tr = document.createElement("tr");
+      if (p.activo === 0) tr.className = "fila-inactiva";
       tr.innerHTML = `
-        <td>${escapeHtml(p.nombre)}</td>
+        <td>${escapeHtml(p.nombre)}${p.activo === 0 ? '<span class="badge badge-inactivo">INACTIVO</span>' : ""}
+          ${p.nit ? `<div class="dato-secundario">NIT ${escapeHtml(p.nit)}-${escapeHtml(p.dv ?? "")}</div>` : ""}</td>
         <td>${escapeHtml(p.contacto || "—")}</td>
-        <td>${p.productos.length ? escapeHtml(p.productos.map((x) => x.nombre).join(", ")) : "—"}</td>
+        <td>${escapeHtml(p.telefono || "—")}</td>
+        <td>${p.correo ? `<a href="mailto:${escapeHtml(p.correo)}">${escapeHtml(p.correo)}</a>` : "—"}</td>
+        <td class="lista-asociados">${asociados}</td>
         <td>
           <div class="asociar">
             <select id="select-${p.id_proveedor}">${opciones || "<option>(sin productos por asociar)</option>"}</select>
             <button type="button" class="btn" onclick="asociarProducto(${p.id_proveedor})">Asociar</button>
           </div>
         </td>
+        <td><button type="button" class="btn" onclick="editarProveedor(${p.id_proveedor})">Editar</button></td>
       `;
       filas.appendChild(tr);
     }
+    el("sinResultados").classList.toggle("oculto", visibles.length > 0 || proveedoresDetalle.length === 0);
+  }
+
+  const CAMPOS_TEXTO = ["nombre", "contacto", "nit", "telefono", "correo", "direccion", "ciudad", "condicion_pago", "notas"];
+
+  function editarProveedor(id_proveedor) {
+    const p = proveedoresPorId[id_proveedor];
+    el("id_proveedor").value = p.id_proveedor;
+    for (const campo of CAMPOS_TEXTO) el(campo).value = p[campo] ?? "";
+    el("dias_credito").value = p.dias_credito ?? "";
+    el("activo").checked = p.activo !== 0;
+    actualizarDv();
+    actualizarCredito();
+    el("btnGuardar").textContent = "Actualizar proveedor";
+    el("btnCancelar").classList.remove("oculto");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function cancelarEdicion() {
+    el("formProveedor").reset();
+    el("id_proveedor").value = "";
+    el("btnGuardar").textContent = "Crear proveedor";
+    el("btnCancelar").classList.add("oculto");
+    actualizarDv();
+    actualizarCredito();
   }
 
   async function guardarProveedor(evento) {
     evento.preventDefault();
-    const cuerpo = {
-      nombre: document.getElementById("nombre").value,
-      contacto: document.getElementById("contacto").value || null,
-    };
+    const id_proveedor = el("id_proveedor").value;
+    // Vacíos como null: el backend los borra. El DV no se envía: lo calcula el servidor.
+    const cuerpo = {};
+    for (const campo of CAMPOS_TEXTO) cuerpo[campo] = el(campo).value.trim() || null;
+    if (cuerpo.nit) cuerpo.nit = limpiarNit(cuerpo.nit);
+    cuerpo.dias_credito = cuerpo.condicion_pago === "credito" ? el("dias_credito").value.trim() || null : null;
+    cuerpo.activo = el("activo").checked;
+
+    const url = id_proveedor ? `/api/proveedores/${id_proveedor}` : "/api/proveedores";
+    const method = id_proveedor ? "PUT" : "POST";
     try {
-      const proveedor = await Api.pedir("/api/proveedores", { method: "POST", body: cuerpo });
-      Api.exito(`Proveedor "${proveedor.nombre}" creado.`);
-      document.getElementById("formProveedor").reset();
+      const proveedor = await Api.pedir(url, { method, body: cuerpo });
+      Api.exito(`Proveedor "${proveedor.nombre}" ${id_proveedor ? "actualizado" : "creado"}.`);
+      cancelarEdicion();
       cargarProveedores();
     } catch (err) {
       manejarError(err);
@@ -159,13 +306,27 @@
   }
 
   async function asociarProducto(id_proveedor) {
-    const select = document.getElementById(`select-${id_proveedor}`);
+    const select = el(`select-${id_proveedor}`);
     const id_producto = Number(select.value);
     if (!id_producto) return;
 
     try {
       await Api.pedir(`/api/proveedores/${id_proveedor}/productos`, { method: "POST", body: { id_producto } });
       Api.exito("Producto asociado al proveedor.");
+      cargarProveedores();
+    } catch (err) {
+      manejarError(err);
+    }
+  }
+
+  async function quitarProducto(id_proveedor, id_producto) {
+    const proveedor = proveedoresPorId[id_proveedor];
+    const producto = proveedor.productos.find((x) => x.id_producto === id_producto);
+    if (!confirm(`¿Quitar "${producto.nombre}" de los productos de ${proveedor.nombre}? El producto no se borra.`)) return;
+
+    try {
+      await Api.pedir(`/api/proveedores/${id_proveedor}/productos/${id_producto}`, { method: "DELETE" });
+      Api.exito("Producto quitado del proveedor.");
       cargarProveedores();
     } catch (err) {
       manejarError(err);
