@@ -104,6 +104,9 @@ validar con contador. Ver sección *Facturación* del `README.md`.
   (precio − costo) / precio en el listado; los selectores de venta de mostrador y de entradas
   de inventario ocultan productos y proveedores inactivos.
 
+**Sesiones de mesa en el catálogo QR (factura y estado de pedidos en el celular): COMPLETA.** Ver la
+sección *Sesiones de mesa en el catálogo QR* más abajo.
+
 **Resolución de numeración (panel web, solo administrador): COMPLETA.** Cada fila de
 `secuencias_factura` es una resolución (se agregaron `vigencia_desde` y `fecha_registro`); solo una
 activa. `src/services/resolucionService.js`, endpoints en `emisor.routes.js`:
@@ -135,7 +138,8 @@ activa. `src/services/resolucionService.js`, endpoints en `emisor.routes.js`:
   fijo, sin librerías): el último día de vigencia factura hasta las 11:59 p. m. hora de Colombia.
   Pruebas: `test/vigenciaResolucion.test.js`.
 
-## Sesiones de mesa en el catálogo QR — auditoría (Fase 0, 2026-09-27, sobre `9a46ae9`)
+## Sesiones de mesa en el catálogo QR (factura y estado de pedidos en el celular)
+Auditoría (Fase 0) del 2026-09-27 sobre `9a46ae9`, desviaciones e implementación.
 Objetivo: el cliente ve en su pestaña del catálogo el estado de sus pedidos y su factura al cerrar la
 cuenta, y el siguiente cliente de la misma mesa ve el catálogo limpio.
 
@@ -188,6 +192,59 @@ cuenta, y el siguiente cliente de la misma mesa ve el catálogo limpio.
    reinicia con el proceso) y `app.set("trust proxy", 1)` para ver la IP real detrás del proxy de Render.
 8. `db.js` acepta `PGSSLMODE=disable` para probar contra un Postgres local sin SSL (por defecto, igual que antes).
 
+**Implementación (COMPLETA):**
+- **Modelo** (final de `schema.sql`): `mesa_sesiones` (`id_sesion`, `id_mesa`, `estado` activa/cerrada/cancelada,
+  `abierta_en`, `cerrada_en`, `revision`, `id_factura`, `reabierta`; índice único: una activa por mesa),
+  `mesa_sesion_tokens` (`token_hash` SHA-256 único, `id_sesion`, `creado_en`, `revocado_en`) y
+  `pedidos.id_sesion` (nulo en el historial previo). La migración deja en una sesión activa los pedidos abiertos
+  existentes. Reversión: `scripts/revertir-sesiones-mesa.sql` (solo junto con volver el código atrás).
+- **Ciclo de vida** (`models/mesaSesionModel.js`, siempre dentro de la transacción de la operación): el primer
+  pedido de una ocupación abre la sesión (mesa `FOR UPDATE`); pedido nuevo, entregado y cancelado suben
+  `revision`; cancelar todos los pedidos abiertos → `cancelada`; cierre de cuenta → `cerrada` con `id_factura`
+  y `cerrada_en`, y la mesa libre; anulación con reapertura → `activa`, `reabierta = 1`, sin factura (pedidos
+  reabiertos ligados a ella); sin reapertura → sigue cerrada, `revision++`. Una ocupación nueva siempre abre otra
+  sesión: un token viejo nunca ve la sesión nueva.
+- **Tokens:** `crypto.randomBytes(32)` en base64url, se entregan una sola vez como `token_sesion` (campo nuevo
+  opcional) en `POST /api/catalogo/:token/pedidos` cuando el celular no manda un `X-Sesion-Token` válido de la
+  sesión activa de esa mesa. Solo se guarda el hash; se busca por índice y se compara en tiempo constante.
+  Varios celulares por sesión: cada uno que pidió ve la cuenta completa de la mesa; uno que no pidió, nada.
+- **Endpoints públicos** (sin login, token solo en el encabezado `X-Sesion-Token`; en la URL se ignora → 401;
+  todos con `Cache-Control: no-store`):
+  - `GET /api/catalogo/sesion/estado` → `{estado, revision, mesa:{numero}, reabierta, pedidos:[{numero,
+    fecha_hora, estado, items:[{producto, cantidad, precio_unitario}]}], total_pedidos, factura, factura_anulada,
+    vence_en}`. `factura` (solo cerrada, vigente y emitida): título, número, fecha, emisor, cliente con documento
+    enmascarado (`CC *******432`, sin correo), ítems, subtotal, IVA, INC, total, forma de pago, leyenda. Sin ids
+    internos. `ETag: W/"<revision>-<estado>"`; `If-None-Match` igual → 304 sin cuerpo (una sola consulta).
+  - `GET /api/catalogo/sesion/factura.pdf` → el PDF de 80 mm de siempre (datos completos del cliente);
+    404 si la cuenta sigue abierta, 410 si la factura se anuló.
+  - `POST /api/catalogo/sesion/listo` → revoca el token de ese celular (`{ok:true}`; otra vez → 410).
+  - Códigos: 401 "Sesión no válida." si el token no existe o no llegó (no revela nada); 410 si se revocó, la
+    sesión se canceló o venció. La factura sigue en el sistema; solo deja de verse desde el público.
+  - `GET /api/catalogo/:token/pedidos` (formato de siempre): sin `X-Sesion-Token` de la sesión activa de esa
+    mesa devuelve `[]`. El catálogo ya no lo usa.
+- **Vencimiento:** `SESION_FACTURA_MINUTOS` (opcional, **30** por defecto; un valor inválido usa 30), contado desde
+  `cerrada_en`. Sin cron: se valida en cada consulta.
+- **Limitación de intentos** (`middlewares/limiteIntentos.js`, en memoria por IP, se reinicia con el proceso):
+  30 respuestas 401/404 cada 10 min en `/api/catalogo/*`; 60 pedidos cada 5 min; 300 consultas de sesión por
+  minuto (generoso: los celulares del local comparten la IP del wifi). Excedido → 429 con `Retry-After`.
+  `app.set("trust proxy", 1)` para la IP real en Render.
+- **Catálogo** (`public/catalogo/index.html`): guarda el token en `localStorage` con la clave
+  `licoreria.sesion.<token del QR>`. Polling cada 5 s con la pestaña visible; tras 6 respuestas 304 seguidas,
+  cada 15 s; vuelve a 5 s al cambiar algo; pausa con la pestaña oculta (Page Visibility API) y consulta de
+  inmediato al volver; sin keep-alive. Muestra "En preparación"/"Entregado ✓", la factura con "Descargar PDF"
+  (fetch con el encabezado) y "Listo", el aviso "La cuenta fue reabierta" y el de factura anulada. Con la cuenta
+  cerrada oculta el menú hasta tocar "Listo". Con 410, 401, "Listo" o al vencer borra el token y el carrito y
+  queda el catálogo limpio.
+- **Limitación aceptada:** el token queda en el celular que hizo el pedido. Si el pedido lo hace el mesero
+  desde su propio celular con el QR de la mesa (no hay otra forma de crear pedidos), el cliente no verá la factura
+  en el suyo.
+- **Pruebas:** `npm test` (`test/sesionCliente.test.js`) y
+  `DATABASE_URL=<postgres local> PGSSLMODE=disable node scripts/prueba-sesiones-mesa.js` (se niega a correr si
+  la base no es localhost). Verificado el 2026-09-27 contra PGlite local: 39/39 en `npm test`, 72/72 en el
+  script, flujo en Chrome móvil (polling, pausa, 5→15 s, factura, PDF, Listo, reabierta, vencida), migración
+  desde el esquema de `9a46ae9` con datos (dos veces y con reversión), y `escenario-api.js` antes/después:
+  solo cambian `token_sesion` en los 3 pedidos y el historial por QR sin token (`[]`); el resto, idéntico.
+
 ## Pendientes futuros (no urgentes)
 - La app Android ya refleja todo lo de este backend: campos nuevos de productos y proveedores,
   impuestos deshabilitados para el cajero y `cliente.correo` al cobrar (app `82941d4`, `c887b11`,
@@ -232,6 +289,7 @@ esta tabla** (y la de `LicoreriaPanel/CLAUDE.md`).
 | Factura electrónica: descargar XML UBL (con CUFE) | Sí | Sí | No |
 | Factura electrónica: transmitir a la DIAN (hoy 501) | Sí | No | No |
 | Catálogo público y autopedido por QR | sin login | sin login | sin login |
+| Estado de la cuenta, factura y PDF del cliente (`/api/catalogo/sesion/*`) | con token de sesión del celular | con token de sesión del celular | con token de sesión del celular |
 
 (1) Los impuestos van en el mismo `POST`/`PUT /api/productos` que admite al cajero, así que la regla
 está en `productoService.verificarPermisoImpuestos` (servidor, antes de guardar): el cajero puede editar
