@@ -111,17 +111,46 @@ validar con contador. Ver sección *Facturación* del `README.md`.
   con cliente identificado responde 400 ("cliente.correo es obligatorio"). En modo interno (el
   de por defecto) no afecta. La app tolera los campos nuevos de las respuestas
   (`ignoreUnknownKeys = true` en `ApiClient.kt`).
-- **Android: campos nuevos de productos y proveedores.** La app sigue funcionando sin
-  cambios, pero no los muestra ni los edita. Para reflejarlos:
-  - `ProductoDto`: `costo`, `codigo_barras`, `marca`, `volumen_ml`, `grado_alcohol`,
-    `descripcion`, `activo`, todos opcionales, en el formulario y en el listado (margen, insignia
-    de inactivo, búsqueda por SKU).
-  - Ocultar productos inactivos (`activo = 0`) en la venta de mostrador de la app (hoy el
-    backend responde 400 si se intenta venderlos).
-  - `ProveedorDto`: `nit`/`dv`, `telefono`, `correo`, `direccion`, `ciudad`, `condicion_pago`,
-    `dias_credito`, `notas`, `activo`; pantalla de edición con `PUT /api/proveedores/:id`
-    y quitar producto con `DELETE /api/proveedores/:id/productos/:id_producto`.
-  - Ocultar proveedores inactivos al registrar entradas de inventario.
+
+## Permisos por rol (fuente de verdad)
+Verificados con curl el 2026-09-26 sobre `6b404ad`, en local contra una base desechable con
+`admin`, `cajero_prueba` y `mesero_prueba` (las acciones que modifican datos nunca se prueban contra
+Supabase). El código HTTP real coincidió en todos los casos con `requireRole(...)` en `src/routes/*.routes.js`;
+no hay comprobaciones de rol en controladores ni servicios. Permitido = 200/201 (transmitir: 501 porque aún
+no está conectado); no permitido = 403 con token, 401 sin token. **No cambiar un permiso sin actualizar
+esta tabla** (y la de `LicoreriaPanel/CLAUDE.md`).
+
+| Acción | Administrador | Cajero | Mesero |
+|---|---|---|---|
+| Crear mesa (`POST /api/mesas`) | Sí | No | No |
+| Ver mesas (`GET /api/mesas[/:id]`) | Sí | Sí | Sí |
+| Ver QR de mesa (`GET /api/mesas/:id/qr`) | Sí | Sí | No |
+| Ver pedidos entrantes / marcar entregado | Sí | Sí | Sí |
+| Cancelar pedido (`DELETE /api/pedidos/:id`) | Sí | Sí | No |
+| Cerrar cuenta de mesa (genera factura) | Sí | Sí | No |
+| Venta de mostrador (genera factura, `POST /api/ventas`) | Sí | Sí | No |
+| Productos: listar, ver, crear, editar | Sí | Sí | No |
+| Productos: tasas IVA/INC y "bebida alcohólica" (van en el mismo `PUT /api/productos/:id`) | Sí | Sí | No |
+| Categorías: listar y crear | Sí | Sí | No |
+| Proveedores: listar, ver, crear, editar, asociar y quitar producto | Sí | Sí | No |
+| Inventario: entradas y salidas | Sí | Sí | No |
+| Reportes: ventas y movimientos de inventario (JSON y CSV) | Sí | Sí | No |
+| Bitácora de auditoría (`GET /api/auditoria`) | Sí | No | No |
+| Usuarios: listar y crear | Sí | No | No |
+| Ver datos del emisor (`GET /api/emisor`) | Sí | Sí | No |
+| Editar datos del emisor: negocio, NIT (`PUT /api/emisor`) | Sí | No | No |
+| Cambiar título del documento (`PUT /api/emisor`) | Sí | No | No |
+| Configurar factura electrónica y responsabilidad IVA/INC del emisor (`PUT /api/emisor`) | Sí | No | No |
+| Resolución de numeración (`secuencias_factura`) | — | — | — |
+| Listado de facturas / ver una factura | Sí | Sí | No |
+| Ver e imprimir PDF de factura | Sí | Sí | No |
+| Anular factura (revierte stock; reabre pedidos y mesa) | Sí | No | No |
+| Factura electrónica: descargar XML UBL (con CUFE) | Sí | Sí | No |
+| Factura electrónica: transmitir a la DIAN (hoy 501) | Sí | No | No |
+| Catálogo público y autopedido por QR | sin login | sin login | sin login |
+
+La resolución de numeración (prefijo, rango, resolución, vigencia, clave técnica) **no tiene endpoint**:
+solo se cambia por SQL en Supabase.
 
 ---
 
