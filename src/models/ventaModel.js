@@ -1,6 +1,7 @@
 const db = require("../db/db");
 const movimientoInventarioModel = require("./movimientoInventarioModel");
 const facturaModel = require("./facturaModel");
+const mesaSesionModel = require("./mesaSesionModel");
 
 // Cada cobro usa db.conTransaccion: un solo client del pool con
 // BEGIN/COMMIT/ROLLBACK. Si algo falla a mitad de camino (crear venta, copiar
@@ -82,6 +83,9 @@ function cerrarCuentaMesa(id_mesa, id_usuario, datosFactura) {
     await cx.ejecutar("UPDATE mesas SET estado = 'libre' WHERE id_mesa = $1", [id_mesa]);
 
     const factura = await facturaModel.emitir({ id_venta, id_mesa, id_usuario, ...datosFactura }, cx);
+    // La sesión de la mesa se cierra con su factura en la misma transacción:
+    // el cliente la ve en su celular y el siguiente pedido abre otra sesión.
+    await mesaSesionModel.cerrarActiva(id_mesa, factura.id_factura, cx);
     return { ...(await buscarPorId(id_venta, cx)), factura };
   });
 }

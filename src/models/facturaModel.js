@@ -2,6 +2,7 @@ const db = require("../db/db");
 const emisorModel = require("./emisorModel");
 const facturaElectronicaModel = require("./facturaElectronicaModel");
 const movimientoInventarioModel = require("./movimientoInventarioModel");
+const mesaSesionModel = require("./mesaSesionModel");
 const { calcularLinea, totalizar } = require("../utils/impuestos");
 const { hoyColombia } = require("../utils/fechaColombia");
 
@@ -238,9 +239,15 @@ function anular({ id_factura, id_usuario, motivo, reabrir_pedidos }) {
       await movimientoInventarioModel.devolverPorAnulacion({ ...linea, id_venta: venta.id_venta, id_usuario }, cx);
     }
 
+    // La sesión del catálogo QR sigue a la factura: con reapertura vuelve a
+    // estar activa (el cliente ve "La cuenta fue reabierta"); sin reapertura
+    // sigue cerrada y el cliente deja de ver la factura anulada.
     if (reabrir_pedidos) {
-      await cx.ejecutar("UPDATE pedidos SET id_venta = NULL WHERE id_venta = $1", [venta.id_venta]);
+      const id_sesion = await mesaSesionModel.reabrirPorAnulacion({ id_factura, id_mesa: venta.id_mesa }, cx);
+      await cx.ejecutar("UPDATE pedidos SET id_venta = NULL, id_sesion = $2 WHERE id_venta = $1", [venta.id_venta, id_sesion]);
       await cx.ejecutar("UPDATE mesas SET estado = 'ocupada' WHERE id_mesa = $1", [venta.id_mesa]);
+    } else {
+      await mesaSesionModel.avisarFacturaAnulada(id_factura, cx);
     }
 
     return buscarPorId(id_factura, cx);
