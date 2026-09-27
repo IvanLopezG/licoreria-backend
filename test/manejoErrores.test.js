@@ -21,6 +21,7 @@ for (const prefijo of ["/api/interna", "/api/catalogo"]) {
   app.post(`${prefijo}/json`, (req, res) => res.json(req.body));
 }
 app.get("/api/interna/legado", lanzar(() => Object.assign(new Error("Mesa no encontrada."), { status: 404 })));
+app.get("/api/interna/http-errors", lanzar(() => Object.assign(new Error("Forbidden"), { status: 403, expose: true })));
 app.get("/api/interna/sincrono", () => {
   throw new TypeError("Cannot read properties of undefined (reading 'x')");
 });
@@ -91,8 +92,14 @@ test("429 lleva Retry-After; ruta inexistente → 404 'Ruta no encontrada.'", as
   assert.deepStrictEqual(cuerpo(n), { error: "Ruta no encontrada." });
 });
 
-test("transición: un error con status numérico del patrón anterior conserva código y mensaje", async () => {
+test("un Error suelto con status numérico ya no decide la respuesta: solo ErrorApp lo hace → 500", async () => {
   const r = await pedir("/api/interna/legado");
-  assert.strictEqual(r.status, 404);
-  assert.deepStrictEqual(cuerpo(r), { error: "Mesa no encontrada." });
+  assert.strictEqual(r.status, 500);
+  assert.deepStrictEqual(cuerpo(r), { error: MENSAJE_500 });
+});
+
+test("4xx de librerías (http-errors con expose) conservan su código, con mensaje en español", async () => {
+  const r = await pedir("/api/interna/http-errors");
+  assert.strictEqual(r.status, 403);
+  assert.deepStrictEqual(cuerpo(r), { error: "La petición no es válida." });
 });
