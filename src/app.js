@@ -19,6 +19,9 @@ const facturasRoutes = require("./routes/facturas.routes");
 const emisorRoutes = require("./routes/emisor.routes");
 
 const app = express();
+// Render atiende detrás de un proxy: req.ip es la IP real del cliente (la usa
+// el limitador de intentos del catálogo público).
+app.set("trust proxy", 1);
 
 app.use(cors());
 app.use(express.json());

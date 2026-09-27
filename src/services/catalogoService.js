@@ -1,6 +1,7 @@
 const mesaModel = require("../models/mesaModel");
 const productoModel = require("../models/productoModel");
 const pedidoModel = require("../models/pedidoModel");
+const mesaSesionModel = require("../models/mesaSesionModel");
 
 async function buscarMesaPorToken(token) {
   const mesa = await mesaModel.buscarPorToken(token);
@@ -32,7 +33,9 @@ async function obtenerCatalogo(token) {
 
 // RF-12: valida cada línea contra el producto real y copia precio_unitario
 // al momento del pedido (regla de negocio ya decidida, no se normaliza).
-async function crearPedido(token, items) {
+// token_sesion: el que ya tiene el celular (encabezado X-Sesion-Token); si no
+// sirve para la sesión activa de la mesa, la respuesta trae uno nuevo.
+async function crearPedido(token, items, token_sesion) {
   const mesa = await buscarMesaPorToken(token);
 
   if (!Array.isArray(items) || items.length === 0) {
@@ -70,16 +73,19 @@ async function crearPedido(token, items) {
     lineas.push({ id_producto, cantidad: cantidadNum, precio_unitario: producto.precio });
   }
 
-  return pedidoModel.crear({ id_mesa: mesa.id_mesa, items: lineas });
+  return pedidoModel.crear({ id_mesa: mesa.id_mesa, items: lineas, token_sesion });
 }
 
-// Permite que el cliente vea su historial de pedidos en esa mesa (aunque
-// recargue la página o vuelva a abrir el link más tarde), sin exponer
-// pedidos de otras mesas. Solo los abiertos (id_venta nulo): una vez cerrada
-// la cuenta, la mesa vuelve a quedar libre para un cliente nuevo, que no
-// debe ver pedidos ya cobrados de quien estuvo antes en esa misma mesa.
-async function listarPedidos(token) {
+// Historial de pedidos abiertos de la mesa (formato de siempre). El token del
+// QR está impreso en la mesa y no rota: por sí solo ya no muestra nada ([]),
+// porque cualquiera con una foto del QR vería la cuenta de los clientes
+// siguientes. Con el token de sesión (X-Sesion-Token) de la sesión activa de
+// esa mesa, devuelve sus pedidos abiertos. El catálogo usa ahora
+// GET /api/catalogo/sesion/estado.
+async function listarPedidos(token, token_sesion) {
   const mesa = await buscarMesaPorToken(token);
+  const sesion = token_sesion ? await mesaSesionModel.buscarPorToken(token_sesion) : undefined;
+  if (!sesion || sesion.revocado_en || sesion.estado !== "activa" || sesion.id_mesa !== mesa.id_mesa) return [];
   return (await pedidoModel.listar({ id_mesa: mesa.id_mesa })).filter((p) => p.id_venta === null);
 }
 
