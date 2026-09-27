@@ -293,6 +293,88 @@ async function main() {
   const clavesCierre = Object.keys(cierre3.body).join(",");
   verificar(cierre3.status === 201 && !clavesCierre.includes("sesion"), "cerrar cuenta → 201 sin campos de sesión", clavesCierre);
 
+  // ---------------------------------------------------------------------------
+  // Verificación adicional (2026-09-27): casos 10 y 11, cada uno en una mesa propia.
+  // Cantidades distintas por celular (A=1, B=3, D=5) para saber de quién es cada pedido.
+  // ---------------------------------------------------------------------------
+  const cantidades = (estado) => estado.body.pedidos.map((p) => p.items.map((i) => i.cantidad).join("+")).join(",");
+
+  titulo("10. Varios celulares en la misma mesa ven la cuenta completa");
+  const mesaX = await crearMesa(numeroBase + 3);
+  const pedA = await pedir("POST", `/api/catalogo/${mesaX.qr}/pedidos`, { body: item(1) });
+  const tokA = pedA.body.token_sesion;
+  const pedB = await pedir("POST", `/api/catalogo/${mesaX.qr}/pedidos`, { body: item(3) });
+  const tokB = pedB.body.token_sesion;
+  verificar(pedA.status === 201 && pedB.status === 201 && tokA && tokB && tokA !== tokB, "A y B piden sin token → cada uno recibe su propio token");
+  verificar((await idSesionDe(tokA)) === (await idSesionDe(tokB)), "los dos tokens son de la MISMA sesión");
+  const estA = await pedir("GET", "/api/catalogo/sesion/estado", { sesion: tokA });
+  const estB = await pedir("GET", "/api/catalogo/sesion/estado", { sesion: tokB });
+  verificar(estA.status === 200 && cantidades(estA) === "1,3", "con el token de A se ven los 2 pedidos (el de A y el de B)", cantidades(estA));
+  verificar(estB.status === 200 && cantidades(estB) === "1,3", "con el token de B se ven los mismos 2 pedidos", cantidades(estB));
+  verificar(JSON.stringify(estA.body) === JSON.stringify(estB.body) && estA.headers.get("etag") === estB.headers.get("etag"), "A y B reciben exactamente la misma cuenta (mismo cuerpo y ETag)");
+  verificar(estA.body.total_pedidos === 40000, "total acumulado de la mesa (1 + 3 unidades × 10.000)", estA.body.total_pedidos);
+  const catC = await pedir("GET", `/api/catalogo/${mesaX.qr}`);
+  verificar(catC.status === 200 && Object.keys(catC.body).join(",") === "mesa,productos", "C (nunca pidió) abre el catálogo: solo mesa y productos, sin cuenta");
+  verificar((await pedir("GET", "/api/catalogo/sesion/estado")).status === 401, "C sin token: estado de la sesión → 401");
+  verificar((await pedir("GET", `/api/catalogo/${mesaX.qr}/pedidos`)).body.length === 0, "C sin token: historial por QR → []");
+  verificar((await pedir("GET", "/api/catalogo/sesion/factura.pdf")).status === 401, "C sin token: PDF → 401");
+  const cierreX = await pedir("POST", `/api/mesas/${mesaX.id_mesa}/cerrar-cuenta`, { jwt: cajero, body: {} });
+  const numeroX = cierreX.body.factura.numero_completo;
+  verificar(cierreX.status === 201 && cierreX.body.factura.total === 40000, "se cierra la cuenta de la mesa (factura por el total de A + B)");
+  for (const [quien, tok] of [["A", tokA], ["B", tokB]]) {
+    const e = await pedir("GET", "/api/catalogo/sesion/estado", { sesion: tok });
+    verificar(e.body.estado === "cerrada" && e.body.factura && e.body.factura.numero === numeroX && e.body.factura.total === 40000, `${quien} ve la factura ${numeroX} con el total de la mesa`);
+    const pdf = await pedir("GET", "/api/catalogo/sesion/factura.pdf", { sesion: tok });
+    verificar(
+      pdf.status === 200 && pdf.body.slice(0, 4).toString() === "%PDF" && (pdf.headers.get("content-disposition") || "").includes(`factura_${numeroX}.pdf`),
+      `${quien} descarga el PDF de la factura ${numeroX}`
+    );
+  }
+
+  titulo("11. Token de una sesión cerrada frente a la sesión nueva de la misma mesa");
+  // Sigue en mesaX: la sesión de A (y B) está cerrada, dentro de la ventana de vencimiento.
+  const antesD = await pedir("GET", "/api/catalogo/sesion/estado", { sesion: tokA });
+  verificar(antesD.status === 200 && antesD.body.estado === "cerrada" && antesD.body.factura.numero === numeroX, "dentro de la ventana, A sigue viendo su factura");
+  const mesaLibre = (await pedir("GET", `/api/mesas/${mesaX.id_mesa}`, { jwt: cajero })).body;
+  verificar(mesaLibre.estado === "libre", "la mesa quedó libre tras el cierre");
+  const pedD = await pedir("POST", `/api/catalogo/${mesaX.qr}/pedidos`, { body: item(5) });
+  const tokD = pedD.body.token_sesion;
+  verificar(pedD.status === 201 && tokD && ![tokA, tokB].includes(tokD), "D pide tras liberarse la mesa → token nuevo");
+  verificar((await idSesionDe(tokD)) !== (await idSesionDe(tokA)), "D está en una sesión distinta a la de A");
+
+  const aTrasD = await pedir("GET", "/api/catalogo/sesion/estado", { sesion: tokA });
+  verificar(aTrasD.status === 200 && JSON.stringify(aTrasD.body) === JSON.stringify(antesD.body), "A ve exactamente lo mismo que antes del pedido de D");
+  verificar(cantidades(aTrasD) === "1,3" && !cantidades(aTrasD).includes("5"), "A no ve el pedido de D", cantidades(aTrasD));
+  verificar(aTrasD.headers.get("etag") === antesD.headers.get("etag"), "el ETag de A no cambió con la actividad de D");
+  const e304A = await pedir("GET", "/api/catalogo/sesion/estado", { sesion: tokA, headers: { "If-None-Match": antesD.headers.get("etag") } });
+  verificar(e304A.status === 304, "A con su ETag → 304 (la sesión nueva no le afecta)");
+  const pdfATrasD = await pedir("GET", "/api/catalogo/sesion/factura.pdf", { sesion: tokA });
+  verificar(pdfATrasD.status === 200 && (pdfATrasD.headers.get("content-disposition") || "").includes(`factura_${numeroX}.pdf`), "el PDF de A sigue siendo el de su factura");
+  const histA = await pedir("GET", `/api/catalogo/${mesaX.qr}/pedidos`, { sesion: tokA });
+  verificar(histA.body.length === 0, "el token de A no da el historial de la sesión de D");
+
+  const estD = await pedir("GET", "/api/catalogo/sesion/estado", { sesion: tokD });
+  verificar(estD.status === 200 && estD.body.estado === "activa" && cantidades(estD) === "5", "D ve solo su pedido", cantidades(estD));
+  verificar(estD.body.factura === null && estD.body.factura_anulada === false && estD.body.vence_en === null, "D no ve factura (tampoco la de A)");
+  verificar(!JSON.stringify(estD.body).includes(`"numero":"${numeroX}"`), "ningún dato de la factura de A en la vista de D");
+  verificar((await pedir("GET", "/api/catalogo/sesion/factura.pdf", { sesion: tokD })).status === 404, "D: PDF → 404 (su cuenta sigue abierta; nunca el de A)");
+
+  // Vencimiento de la sesión de A manipulando cerrada_en en la base local.
+  await db.ejecutar("UPDATE mesa_sesiones SET cerrada_en = cerrada_en - interval '31 minutes' WHERE id_sesion = $1", [await idSesionDe(tokA)]);
+  verificar((await pedir("GET", "/api/catalogo/sesion/estado", { sesion: tokA })).status === 410, "A vencido → estado 410");
+  verificar((await pedir("GET", "/api/catalogo/sesion/factura.pdf", { sesion: tokA })).status === 410, "A vencido → PDF 410");
+  verificar((await pedir("GET", "/api/catalogo/sesion/estado", { sesion: tokB })).status === 410, "B (misma sesión que A) también → 410");
+  const dTrasVencer = await pedir("GET", "/api/catalogo/sesion/estado", { sesion: tokD });
+  verificar(dTrasVencer.status === 200 && dTrasVencer.body.estado === "activa" && cantidades(dTrasVencer) === "5", "D sigue activo con normalidad");
+  const pedD2 = await pedir("POST", `/api/catalogo/${mesaX.qr}/pedidos`, { body: item(2), sesion: tokD });
+  verificar(pedD2.status === 201 && !("token_sesion" in pedD2.body), "D sigue pidiendo con su token (sin token nuevo)");
+  const pedAVencido = await pedir("POST", `/api/catalogo/${mesaX.qr}/pedidos`, { body: item(1), sesion: tokA });
+  verificar(pedAVencido.status === 201 && pedAVencido.body.token_sesion && (await idSesionDe(pedAVencido.body.token_sesion)) === (await idSesionDe(tokD)), "si A vuelve a pedir, recibe un token NUEVO de la sesión actual (no reutiliza el vencido)");
+  verificar((await pedir("GET", "/api/catalogo/sesion/estado", { sesion: tokA })).status === 410, "el token viejo de A sigue en 410");
+  const cierreD = await pedir("POST", `/api/mesas/${mesaX.id_mesa}/cerrar-cuenta`, { jwt: cajero, body: {} });
+  const finD = await pedir("GET", "/api/catalogo/sesion/estado", { sesion: tokD });
+  verificar(cierreD.status === 201 && finD.body.factura.numero === cierreD.body.factura.numero_completo && finD.body.factura.numero !== numeroX, "al cerrar, D ve su propia factura (distinta a la de A)");
+
   servidor.close();
   console.log(`\n${pasos - fallos}/${pasos} verificaciones correctas.`);
   process.exit(fallos === 0 ? 0 : 1);
