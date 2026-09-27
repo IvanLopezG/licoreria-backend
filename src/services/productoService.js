@@ -1,4 +1,5 @@
 const productoModel = require("../models/productoModel");
+const { ErrorConflicto, ErrorNoEncontrado, ErrorPermiso, ErrorValidacion } = require("../utils/errores");
 
 // RF-08: el umbral es configurable por producto (columna umbral_alerta);
 // esta función solo calcula la bandera para que el listado la resalte (US-08).
@@ -8,21 +9,15 @@ function agregarAlerta(producto) {
 
 async function validarCamposBase({ nombre, id_categoria, unidad_medida, precio }) {
   if (!nombre || !id_categoria || !unidad_medida || precio === undefined || precio === null || precio === "") {
-    const err = new Error("nombre, id_categoria, unidad_medida y precio son obligatorios.");
-    err.status = 400;
-    throw err;
+    throw new ErrorValidacion("nombre, id_categoria, unidad_medida y precio son obligatorios.");
   }
 
   if (Number(precio) <= 0) {
-    const err = new Error("precio debe ser mayor a 0.");
-    err.status = 400;
-    throw err;
+    throw new ErrorValidacion("precio debe ser mayor a 0.");
   }
 
   if (!(await productoModel.existeCategoria(id_categoria))) {
-    const err = new Error("id_categoria no existe.");
-    err.status = 400;
-    throw err;
+    throw new ErrorValidacion("id_categoria no existe.");
   }
 }
 
@@ -34,9 +29,7 @@ function validarImpuestos(body, actuales) {
   for (const campo of ["tasa_iva_bps", "tasa_inc_bps"]) {
     const valor = body[campo] === undefined ? actuales[campo] : Number(body[campo]);
     if (!Number.isInteger(valor) || valor < 0 || valor > 10000) {
-      const err = new Error(`${campo} debe ser un entero entre 0 y 10000 (1900 = 19 %).`);
-      err.status = 400;
-      throw err;
+      throw new ErrorValidacion(`${campo} debe ser un entero entre 0 y 10000 (1900 = 19 %).`);
     }
     resultado[campo] = valor;
   }
@@ -65,19 +58,13 @@ function verificarPermisoImpuestos(rol, body, referencia) {
   const cambia = CAMPOS_IMPUESTOS.some(
     (campo) => body[campo] !== undefined && valorImpuesto(campo, body[campo]) !== referencia[campo]
   );
-  if (cambia) throw errorValidacion("Solo el administrador puede modificar los impuestos de un producto.", 403);
+  if (cambia) throw new ErrorPermiso("Solo el administrador puede modificar los impuestos de un producto.");
 }
 
 const EXTRAS_POR_DEFECTO = {
   costo: null, codigo_barras: null, marca: null, volumen_ml: null, grado_alcohol: null, descripcion: null, activo: 1,
 };
 const MAX_DESCRIPCION = 300;
-
-function errorValidacion(mensaje, status = 400) {
-  const err = new Error(mensaje);
-  err.status = status;
-  return err;
-}
 
 // Campo opcional: si no llega se conserva el valor de "actuales"; "" o null lo borran.
 const vacio = (valor) => valor === null || (typeof valor === "string" && valor.trim() === "");
@@ -87,7 +74,7 @@ function numeroOpcional(body, actuales, campo, { entero = false, min, max, mensa
   if (vacio(body[campo])) return null;
   const n = Number(body[campo]);
   if (!Number.isFinite(n) || (entero && !Number.isInteger(n)) || (min !== undefined && n < min) || (max !== undefined && n > max)) {
-    throw errorValidacion(mensaje);
+    throw new ErrorValidacion(mensaje);
   }
   return n;
 }
@@ -115,7 +102,7 @@ async function validarExtras(body, actuales, { id_producto = null, es_bebida_alc
   };
 
   if (extras.descripcion && extras.descripcion.length > MAX_DESCRIPCION) {
-    throw errorValidacion(`descripcion admite máximo ${MAX_DESCRIPCION} caracteres.`);
+    throw new ErrorValidacion(`descripcion admite máximo ${MAX_DESCRIPCION} caracteres.`);
   }
   if (!es_bebida_alcoholica) extras.grado_alcohol = null;
 
@@ -123,10 +110,10 @@ async function validarExtras(body, actuales, { id_producto = null, es_bebida_alc
   if (activo === undefined) extras.activo = actuales.activo;
   else if (activo === true || activo === 1 || activo === "true" || activo === "1") extras.activo = 1;
   else if (activo === false || activo === 0 || activo === "false" || activo === "0") extras.activo = 0;
-  else throw errorValidacion("activo debe ser true/false o 1/0.");
+  else throw new ErrorValidacion("activo debe ser true/false o 1/0.");
 
   if (extras.codigo_barras && (await productoModel.codigoEnUso(extras.codigo_barras, id_producto))) {
-    throw errorValidacion(`El código de barras / SKU "${extras.codigo_barras}" ya está asignado a otro producto.`, 409);
+    throw new ErrorConflicto(`El código de barras / SKU "${extras.codigo_barras}" ya está asignado a otro producto.`);
   }
   return extras;
 }
@@ -143,9 +130,7 @@ async function crearProducto(body, rol) {
   const umbral = umbral_alerta === undefined ? 0 : Number(umbral_alerta);
 
   if (stockInicial < 0 || umbral < 0) {
-    const err = new Error("stock_actual y umbral_alerta no pueden ser negativos.");
-    err.status = 400;
-    throw err;
+    throw new ErrorValidacion("stock_actual y umbral_alerta no pueden ser negativos.");
   }
 
   const producto = await productoModel.crear({
@@ -167,9 +152,7 @@ async function editarProducto(id_producto, body, rol) {
   const { nombre, id_categoria, unidad_medida, precio, umbral_alerta } = body;
   const existente = await productoModel.buscarPorId(id_producto);
   if (!existente) {
-    const err = new Error("Producto no encontrado.");
-    err.status = 404;
-    throw err;
+    throw new ErrorNoEncontrado("Producto no encontrado.");
   }
   verificarPermisoImpuestos(rol, body, existente);
 
@@ -179,9 +162,7 @@ async function editarProducto(id_producto, body, rol) {
 
   const umbral = umbral_alerta === undefined ? existente.umbral_alerta : Number(umbral_alerta);
   if (umbral < 0) {
-    const err = new Error("umbral_alerta no puede ser negativo.");
-    err.status = 400;
-    throw err;
+    throw new ErrorValidacion("umbral_alerta no puede ser negativo.");
   }
 
   const producto = await productoModel.editar(id_producto, {
@@ -204,9 +185,7 @@ async function listarProductos({ soloAlerta } = {}) {
 async function obtenerProducto(id_producto) {
   const producto = await productoModel.buscarPorId(id_producto);
   if (!producto) {
-    const err = new Error("Producto no encontrado.");
-    err.status = 404;
-    throw err;
+    throw new ErrorNoEncontrado("Producto no encontrado.");
   }
   return agregarAlerta(producto);
 }

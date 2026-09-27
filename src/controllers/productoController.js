@@ -1,28 +1,20 @@
 const productoService = require("../services/productoService");
 
 async function crear(req, res) {
-  try {
-    const nuevo = await productoService.crearProducto(req.body, req.usuario.rol);
+  const nuevo = await productoService.crearProducto(req.body, req.usuario.rol);
 
-    // El middleware de auditoría escribe el registro al ver este campo.
-    req.auditoria = { accion: "crear", entidad: "productos", id_entidad: nuevo.id_producto };
+  // El middleware de auditoría escribe el registro al ver este campo.
+  req.auditoria = { accion: "crear", entidad: "productos", id_entidad: nuevo.id_producto };
 
-    return res.status(201).json(nuevo);
-  } catch (err) {
-    return res.status(err.status || 400).json({ error: err.message });
-  }
+  return res.status(201).json(nuevo);
 }
 
 async function editar(req, res) {
-  try {
-    const actualizado = await productoService.editarProducto(Number(req.params.id), req.body, req.usuario.rol);
+  const actualizado = await productoService.editarProducto(Number(req.params.id), req.body, req.usuario.rol);
 
-    req.auditoria = { accion: "editar", entidad: "productos", id_entidad: actualizado.id_producto };
+  req.auditoria = { accion: "editar", entidad: "productos", id_entidad: actualizado.id_producto };
 
-    return res.json(actualizado);
-  } catch (err) {
-    return res.status(err.status || 400).json({ error: err.message });
-  }
+  return res.json(actualizado);
 }
 
 async function listar(req, res) {
@@ -31,11 +23,7 @@ async function listar(req, res) {
 }
 
 async function obtener(req, res) {
-  try {
-    return res.json(await productoService.obtenerProducto(Number(req.params.id)));
-  } catch (err) {
-    return res.status(err.status || 400).json({ error: err.message });
-  }
+  return res.json(await productoService.obtenerProducto(Number(req.params.id)));
 }
 
 module.exports = { crear, editar, listar, obtener };

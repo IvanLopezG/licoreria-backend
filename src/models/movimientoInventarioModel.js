@@ -1,5 +1,6 @@
 const db = require("../db/db");
 const productoModel = require("./productoModel");
+const { ErrorNoEncontrado, ErrorValidacion } = require("../utils/errores");
 
 const SELECT_MOVIMIENTO = `
   SELECT m.*, u.nombre AS usuario_nombre, p.nombre AS producto_nombre
@@ -60,17 +61,13 @@ async function verificarStockParaVenta(lineas, cx) {
     if (!disponible.has(id_producto)) {
       const producto = await productoModel.buscarPorIdParaActualizar(id_producto, cx);
       if (!producto) {
-        const err = new Error(`Producto ${id_producto} no encontrado.`);
-        err.status = 404;
-        throw err;
+        throw new ErrorNoEncontrado(`Producto ${id_producto} no encontrado.`);
       }
       disponible.set(id_producto, { nombre: producto.nombre, stock: producto.stock_actual });
     }
     const producto = disponible.get(id_producto);
     if (producto.stock < cantidad) {
-      const err = new Error(`No hay stock suficiente de "${producto.nombre}" para completar la venta.`);
-      err.status = 400;
-      throw err;
+      throw new ErrorValidacion(`No hay stock suficiente de "${producto.nombre}" para completar la venta.`);
     }
     producto.stock -= cantidad;
   }
@@ -84,14 +81,10 @@ async function verificarStockParaVenta(lineas, cx) {
 async function descontarPorVenta({ id_producto, cantidad, id_venta, id_usuario }, cx) {
   const producto = await productoModel.buscarPorIdParaActualizar(id_producto, cx);
   if (!producto) {
-    const err = new Error(`Producto ${id_producto} no encontrado.`);
-    err.status = 404;
-    throw err;
+    throw new ErrorNoEncontrado(`Producto ${id_producto} no encontrado.`);
   }
   if (producto.stock_actual < cantidad) {
-    const err = new Error(`No hay stock suficiente de "${producto.nombre}" para completar la venta.`);
-    err.status = 400;
-    throw err;
+    throw new ErrorValidacion(`No hay stock suficiente de "${producto.nombre}" para completar la venta.`);
   }
 
   await productoModel.ajustarStock(id_producto, -cantidad, cx);

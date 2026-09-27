@@ -1,16 +1,13 @@
 const categoriaModel = require("../models/categoriaModel");
+const { ErrorConflicto, ErrorValidacion } = require("../utils/errores");
 
 async function crearCategoria({ nombre }) {
   if (!nombre) {
-    const err = new Error("nombre es obligatorio.");
-    err.status = 400;
-    throw err;
+    throw new ErrorValidacion("nombre es obligatorio.");
   }
 
   if (await categoriaModel.buscarPorNombre(nombre)) {
-    const err = new Error("Ya existe una categoría con ese nombre.");
-    err.status = 409;
-    throw err;
+    throw new ErrorConflicto("Ya existe una categoría con ese nombre.");
   }
 
   return categoriaModel.crear({ nombre });

@@ -12,28 +12,20 @@ const COLUMNAS_CSV = [
 ];
 
 async function entrada(req, res) {
-  try {
-    const movimiento = await movimientoService.registrarEntrada(req.body, req.usuario.id_usuario);
+  const movimiento = await movimientoService.registrarEntrada(req.body, req.usuario.id_usuario);
 
-    // El middleware de auditoría escribe el registro al ver este campo.
-    req.auditoria = { accion: "crear", entidad: "movimientos_inventario", id_entidad: movimiento.id_movimiento };
+  // El middleware de auditoría escribe el registro al ver este campo.
+  req.auditoria = { accion: "crear", entidad: "movimientos_inventario", id_entidad: movimiento.id_movimiento };
 
-    return res.status(201).json(movimiento);
-  } catch (err) {
-    return res.status(err.status || 400).json({ error: err.message });
-  }
+  return res.status(201).json(movimiento);
 }
 
 async function salida(req, res) {
-  try {
-    const movimiento = await movimientoService.registrarSalida(req.body, req.usuario.id_usuario);
+  const movimiento = await movimientoService.registrarSalida(req.body, req.usuario.id_usuario);
 
-    req.auditoria = { accion: "crear", entidad: "movimientos_inventario", id_entidad: movimiento.id_movimiento };
+  req.auditoria = { accion: "crear", entidad: "movimientos_inventario", id_entidad: movimiento.id_movimiento };
 
-    return res.status(201).json(movimiento);
-  } catch (err) {
-    return res.status(err.status || 400).json({ error: err.message });
-  }
+  return res.status(201).json(movimiento);
 }
 
 // US-19 (opcional): ?formato=csv reutiliza el mismo filtro que el JSON normal.
