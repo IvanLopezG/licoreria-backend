@@ -20,9 +20,10 @@ if (!process.env.DATABASE_URL) {
 
 // Supabase exige SSL. rejectUnauthorized: false acepta la cadena de
 // certificados del pooler de Supabase sin tener que instalar su CA.
+// PGSSLMODE=disable solo para pruebas contra un Postgres local sin SSL.
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false },
+  ssl: process.env.PGSSLMODE === "disable" ? false : { rejectUnauthorized: false },
   max: Number(process.env.PG_POOL_MAX) || 10,
 });
 
