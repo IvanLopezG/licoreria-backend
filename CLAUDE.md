@@ -105,18 +105,17 @@ validar con contador. Ver sección *Facturación* del `README.md`.
   de inventario ocultan productos y proveedores inactivos.
 
 ## Pendientes futuros (no urgentes)
-- **Android: correo del cliente al cobrar.** Antes de activar de verdad `modo_facturacion =
-  'electronica_dian'`, agregar `cliente.correo` al flujo de cobro de la app Android
-  (`DatosFacturaRequest` en `LicoreriaPanel`). Hoy no lo envía, y en modo electrónico un cobro
-  con cliente identificado responde 400 ("cliente.correo es obligatorio"). En modo interno (el
-  de por defecto) no afecta. La app tolera los campos nuevos de las respuestas
-  (`ignoreUnknownKeys = true` en `ApiClient.kt`).
+- La app Android ya refleja todo lo de este backend: campos nuevos de productos y proveedores,
+  impuestos deshabilitados para el cajero y `cliente.correo` al cobrar (app `82941d4`, `c887b11`,
+  `e861c27`). No quedan pendientes de Android.
+- Siguen vigentes los ya descritos en **Estado actual**: tarifas de IVA/INC por validar con el
+  contador, transmisión a la DIAN vía proveedor tecnológico (hoy 501) y nota crédito (CUDE).
 
 ## Permisos por rol (fuente de verdad)
 Verificados con curl el 2026-09-26 sobre `6b404ad`, en local contra una base desechable con
 `admin`, `cajero_prueba` y `mesero_prueba` (las acciones que modifican datos nunca se prueban contra
 Supabase). El código HTTP real coincidió en todos los casos con `requireRole(...)` en `src/routes/*.routes.js`;
-no hay comprobaciones de rol en controladores ni servicios. Permitido = 200/201 (transmitir: 501 porque aún
+la única comprobación de rol fuera de las rutas es `productoService.verificarPermisoImpuestos` (ver nota (1)). Permitido = 200/201 (transmitir: 501 porque aún
 no está conectado); no permitido = 403 con token, 401 sin token. **No cambiar un permiso sin actualizar
 esta tabla** (y la de `LicoreriaPanel/CLAUDE.md`).
 
