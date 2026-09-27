@@ -2,13 +2,12 @@ const mesaModel = require("../models/mesaModel");
 const productoModel = require("../models/productoModel");
 const pedidoModel = require("../models/pedidoModel");
 const mesaSesionModel = require("../models/mesaSesionModel");
+const { ErrorNoEncontrado, ErrorValidacion } = require("../utils/errores");
 
 async function buscarMesaPorToken(token) {
   const mesa = await mesaModel.buscarPorToken(token);
   if (!mesa) {
-    const err = new Error("Mesa no encontrada.");
-    err.status = 404;
-    throw err;
+    throw new ErrorNoEncontrado("Mesa no encontrada.");
   }
   return mesa;
 }
@@ -39,35 +38,25 @@ async function crearPedido(token, items, token_sesion) {
   const mesa = await buscarMesaPorToken(token);
 
   if (!Array.isArray(items) || items.length === 0) {
-    const err = new Error("El pedido debe tener al menos un producto.");
-    err.status = 400;
-    throw err;
+    throw new ErrorValidacion("El pedido debe tener al menos un producto.");
   }
 
   const lineas = [];
   for (const { id_producto, cantidad } of items) {
     const cantidadNum = Number(cantidad);
     if (!id_producto || cantidad === undefined || cantidad === null || !Number.isInteger(cantidadNum) || cantidadNum < 1) {
-      const err = new Error("Cada línea del pedido requiere id_producto y una cantidad entera mayor o igual a 1.");
-      err.status = 400;
-      throw err;
+      throw new ErrorValidacion("Cada línea del pedido requiere id_producto y una cantidad entera mayor o igual a 1.");
     }
 
     const producto = await productoModel.buscarPorId(id_producto);
     if (!producto) {
-      const err = new Error(`Producto ${id_producto} no encontrado.`);
-      err.status = 404;
-      throw err;
+      throw new ErrorNoEncontrado(`Producto ${id_producto} no encontrado.`);
     }
     if (producto.activo !== 1) {
-      const err = new Error(`${producto.nombre} ya no está disponible.`);
-      err.status = 400;
-      throw err;
+      throw new ErrorValidacion(`${producto.nombre} ya no está disponible.`);
     }
     if (cantidadNum > producto.stock_actual) {
-      const err = new Error(`Solo quedan ${producto.stock_actual} unidades de ${producto.nombre}.`);
-      err.status = 400;
-      throw err;
+      throw new ErrorValidacion(`Solo quedan ${producto.stock_actual} unidades de ${producto.nombre}.`);
     }
 
     lineas.push({ id_producto, cantidad: cantidadNum, precio_unitario: producto.precio });

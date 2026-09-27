@@ -2,6 +2,7 @@ const mesaSesionModel = require("../models/mesaSesionModel");
 const mesaModel = require("../models/mesaModel");
 const pedidoModel = require("../models/pedidoModel");
 const facturaModel = require("../models/facturaModel");
+const { ErrorNoAutenticado, ErrorNoDisponible, ErrorNoEncontrado } = require("../utils/errores");
 
 // Vista pública del cliente en el catálogo QR, autenticada con el token de
 // sesión que recibió su celular al pedir (encabezado X-Sesion-Token, nunca en
@@ -19,12 +20,6 @@ function minutosVigencia() {
   return Number.isFinite(n) && n > 0 ? n : MINUTOS_POR_DEFECTO;
 }
 
-function errorConEstado(mensaje, status) {
-  const err = new Error(mensaje);
-  err.status = status;
-  return err;
-}
-
 // "YYYY-MM-DD HH:MM:SS" (UTC) → milisegundos.
 const msUtc = (texto) => Date.parse(`${texto.replace(" ", "T")}Z`);
 const textoUtc = (ms) => new Date(ms).toISOString().slice(0, 19).replace("T", " ");
@@ -37,10 +32,10 @@ function venceEn(sesion) {
 // 410 si fue revocado ("Listo"), si la sesión se canceló o si ya venció.
 async function autenticar(token) {
   const sesion = await mesaSesionModel.buscarPorToken(token);
-  if (!sesion) throw errorConEstado("Sesión no válida.", 401);
-  if (sesion.revocado_en || sesion.estado === "cancelada") throw errorConEstado("Esta cuenta ya no está disponible.", 410);
+  if (!sesion) throw new ErrorNoAutenticado("Sesión no válida.");
+  if (sesion.revocado_en || sesion.estado === "cancelada") throw new ErrorNoDisponible("Esta cuenta ya no está disponible.");
   const vence = venceEn(sesion);
-  if (vence !== null && Date.now() > vence) throw errorConEstado("Esta cuenta ya no está disponible.", 410);
+  if (vence !== null && Date.now() > vence) throw new ErrorNoDisponible("Esta cuenta ya no está disponible.");
   return sesion;
 }
 
@@ -127,16 +122,16 @@ async function estado(sesion) {
 
 // Factura completa para el PDF: solo con la sesión cerrada y la factura emitida.
 async function facturaParaPdf(sesion) {
-  if (sesion.estado !== "cerrada" || !sesion.id_factura) throw errorConEstado("La cuenta aún no se ha cerrado.", 404);
+  if (sesion.estado !== "cerrada" || !sesion.id_factura) throw new ErrorNoEncontrado("La cuenta aún no se ha cerrado.");
   const f = await facturaModel.buscarPorId(sesion.id_factura);
-  if (!f || f.estado !== "emitida") throw errorConEstado("Esta factura ya no está disponible.", 410);
+  if (!f || f.estado !== "emitida") throw new ErrorNoDisponible("Esta factura ya no está disponible.");
   return f;
 }
 
 async function listo(token) {
   const sesion = await mesaSesionModel.buscarPorToken(token);
-  if (!sesion) throw errorConEstado("Sesión no válida.", 401);
-  if (sesion.revocado_en) throw errorConEstado("Esta cuenta ya no está disponible.", 410);
+  if (!sesion) throw new ErrorNoAutenticado("Sesión no válida.");
+  if (sesion.revocado_en) throw new ErrorNoDisponible("Esta cuenta ya no está disponible.");
   await mesaSesionModel.revocarToken(sesion.id_token);
   return { ok: true };
 }

@@ -7,68 +7,44 @@ const { generarPdfFactura } = require("../utils/facturaPdf");
 const tokenSesion = (req) => req.get("X-Sesion-Token") || undefined;
 
 async function obtener(req, res) {
-  try {
-    return res.json(await catalogoService.obtenerCatalogo(req.params.token));
-  } catch (err) {
-    return res.status(err.status || 400).json({ error: err.message });
-  }
+  return res.json(await catalogoService.obtenerCatalogo(req.params.token));
 }
 
 async function crearPedido(req, res) {
-  try {
-    const pedido = await catalogoService.crearPedido(req.params.token, req.body.items, tokenSesion(req));
-    res.setHeader("Cache-Control", "no-store");
-    return res.status(201).json(pedido);
-  } catch (err) {
-    return res.status(err.status || 400).json({ error: err.message });
-  }
+  const pedido = await catalogoService.crearPedido(req.params.token, req.body?.items, tokenSesion(req));
+  res.setHeader("Cache-Control", "no-store");
+  return res.status(201).json(pedido);
 }
 
 async function listarPedidos(req, res) {
-  try {
-    res.setHeader("Cache-Control", "no-store");
-    return res.json(await catalogoService.listarPedidos(req.params.token, tokenSesion(req)));
-  } catch (err) {
-    return res.status(err.status || 400).json({ error: err.message });
-  }
+  res.setHeader("Cache-Control", "no-store");
+  return res.json(await catalogoService.listarPedidos(req.params.token, tokenSesion(req)));
 }
 
 // Polling del cliente: If-None-Match con la revisión → 304 sin cuerpo y sin
 // más consultas que la del token.
 async function estadoSesion(req, res) {
   res.setHeader("Cache-Control", "no-store");
-  try {
-    const sesion = await clienteSesionService.autenticar(tokenSesion(req));
-    const etag = clienteSesionService.etagDe(sesion);
-    res.setHeader("ETag", etag);
-    if (req.get("If-None-Match") === etag) return res.status(304).end();
-    return res.json(await clienteSesionService.estado(sesion));
-  } catch (err) {
-    return res.status(err.status || 500).json({ error: err.message });
-  }
+  const sesion = await clienteSesionService.autenticar(tokenSesion(req));
+  const etag = clienteSesionService.etagDe(sesion);
+  res.setHeader("ETag", etag);
+  if (req.get("If-None-Match") === etag) return res.status(304).end();
+  return res.json(await clienteSesionService.estado(sesion));
 }
 
 async function pdfSesion(req, res) {
   res.setHeader("Cache-Control", "no-store");
-  try {
-    const sesion = await clienteSesionService.autenticar(tokenSesion(req));
-    const factura = await clienteSesionService.facturaParaPdf(sesion);
-    const buffer = await generarPdfFactura(factura);
-    res.setHeader("Content-Type", "application/pdf");
-    res.setHeader("Content-Disposition", `attachment; filename=factura_${factura.numero_completo}.pdf`);
-    return res.send(buffer);
-  } catch (err) {
-    return res.status(err.status || 500).json({ error: err.message });
-  }
+  const sesion = await clienteSesionService.autenticar(tokenSesion(req));
+  const factura = await clienteSesionService.facturaParaPdf(sesion);
+  const buffer = await generarPdfFactura(factura);
+  res.setHeader("Content-Type", "application/pdf");
+  res.setHeader("Content-Disposition", `attachment; filename=factura_${factura.numero_completo}.pdf`);
+  return res.send(buffer);
 }
 
 async function listoSesion(req, res) {
   res.setHeader("Cache-Control", "no-store");
-  try {
-    return res.json(await clienteSesionService.listo(tokenSesion(req)));
-  } catch (err) {
-    return res.status(err.status || 500).json({ error: err.message });
-  }
+  return res.json(await clienteSesionService.listo(tokenSesion(req)));
 }
 
 module.exports = { obtener, crearPedido, listarPedidos, estadoSesion, pdfSesion, listoSesion };

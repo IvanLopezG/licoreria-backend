@@ -1,4 +1,5 @@
 const pedidoModel = require("../models/pedidoModel");
+const { ErrorNoEncontrado, ErrorValidacion } = require("../utils/errores");
 
 // RF-13: el panel agrupa por mesa del lado del cliente; aquí solo se filtra.
 function listarPedidos({ estado, id_mesa }) {
@@ -8,9 +9,7 @@ function listarPedidos({ estado, id_mesa }) {
 async function marcarEntregado(id_pedido) {
   const pedido = await pedidoModel.buscarPorId(id_pedido);
   if (!pedido) {
-    const err = new Error("Pedido no encontrado.");
-    err.status = 404;
-    throw err;
+    throw new ErrorNoEncontrado("Pedido no encontrado.");
   }
   return pedidoModel.marcarEntregado(id_pedido);
 }
@@ -24,14 +23,10 @@ async function marcarEntregado(id_pedido) {
 async function cancelar(id_pedido) {
   const pedido = await pedidoModel.buscarPorId(id_pedido);
   if (!pedido) {
-    const err = new Error("Pedido no encontrado.");
-    err.status = 404;
-    throw err;
+    throw new ErrorNoEncontrado("Pedido no encontrado.");
   }
   if (pedido.id_venta !== null && pedido.id_venta !== undefined) {
-    const err = new Error("No se puede cancelar un pedido que ya fue cobrado.");
-    err.status = 400;
-    throw err;
+    throw new ErrorValidacion("No se puede cancelar un pedido que ya fue cobrado.");
   }
 
   await pedidoModel.cancelar(id_pedido);

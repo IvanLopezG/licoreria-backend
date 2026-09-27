@@ -6,29 +6,21 @@ async function listar(req, res) {
 }
 
 async function entregado(req, res) {
-  try {
-    const pedido = await pedidoService.marcarEntregado(Number(req.params.id));
+  const pedido = await pedidoService.marcarEntregado(Number(req.params.id));
 
-    req.auditoria = { accion: "editar", entidad: "pedidos", id_entidad: pedido.id_pedido };
+  req.auditoria = { accion: "editar", entidad: "pedidos", id_entidad: pedido.id_pedido };
 
-    return res.json(pedido);
-  } catch (err) {
-    return res.status(err.status || 400).json({ error: err.message });
-  }
+  return res.json(pedido);
 }
 
 async function cancelar(req, res) {
-  try {
-    const id_pedido = Number(req.params.id);
-    const resultado = await pedidoService.cancelar(id_pedido);
+  const id_pedido = Number(req.params.id);
+  const resultado = await pedidoService.cancelar(id_pedido);
 
-    // El middleware de auditoría escribe el registro al ver este campo.
-    req.auditoria = { accion: "eliminar", entidad: "pedidos", id_entidad: id_pedido };
+  // El middleware de auditoría escribe el registro al ver este campo.
+  req.auditoria = { accion: "eliminar", entidad: "pedidos", id_entidad: id_pedido };
 
-    return res.json(resultado);
-  } catch (err) {
-    return res.status(err.status || 400).json({ error: err.message });
-  }
+  return res.json(resultado);
 }
 
 module.exports = { listar, entregado, cancelar };

@@ -1,16 +1,13 @@
 const QRCode = require("qrcode");
 const mesaModel = require("../models/mesaModel");
+const { ErrorNoEncontrado, ErrorValidacion } = require("../utils/errores");
 
 async function crearMesa({ numero }) {
   if (numero === undefined || numero === null || Number(numero) <= 0) {
-    const err = new Error("numero es obligatorio y debe ser mayor a 0.");
-    err.status = 400;
-    throw err;
+    throw new ErrorValidacion("numero es obligatorio y debe ser mayor a 0.");
   }
   if (await mesaModel.buscarPorNumero(Number(numero))) {
-    const err = new Error("Ya existe una mesa con ese número.");
-    err.status = 400;
-    throw err;
+    throw new ErrorValidacion("Ya existe una mesa con ese número.");
   }
   return mesaModel.crear({ numero: Number(numero) });
 }
@@ -22,9 +19,7 @@ function listarMesas() {
 async function obtenerMesa(id_mesa) {
   const mesa = await mesaModel.buscarPorId(id_mesa);
   if (!mesa) {
-    const err = new Error("Mesa no encontrada.");
-    err.status = 404;
-    throw err;
+    throw new ErrorNoEncontrado("Mesa no encontrada.");
   }
   return mesa;
 }
