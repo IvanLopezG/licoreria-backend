@@ -1,16 +1,11 @@
 const db = require("../db/db");
 const { calcularCufe, fechaHoraColombia, urlVerificacion } = require("../utils/cufe");
 const { generarXmlFactura } = require("../utils/facturaUbl");
+const { ErrorInterno } = require("../utils/errores");
 
 // Clave técnica de relleno para el ambiente de pruebas mientras la secuencia
 // no tenga la real. En producción es obligatoria (ver facturaService.editarEmisor).
 const CLAVE_TECNICA_PENDIENTE = "clave-tecnica-pendiente";
-
-function errorFacturacion(mensaje) {
-  const err = new Error(mensaje);
-  err.status = 500;
-  return err;
-}
 
 // Genera CUFE, URL del QR y XML UBL de una factura recién insertada y los
 // guarda como pendientes de transmisión. NO abre transacción: recibe el cx de
@@ -22,7 +17,7 @@ async function generar(factura, emisor, cx) {
   );
   const ambiente = emisor.ambiente_dian;
   const clave_tecnica = secuencia.clave_tecnica || (ambiente === "pruebas" ? CLAVE_TECNICA_PENDIENTE : null);
-  if (!clave_tecnica) throw errorFacturacion("La secuencia de facturación activa no tiene clave técnica de la DIAN.");
+  if (!clave_tecnica) throw new ErrorInterno("La secuencia de facturación activa no tiene clave técnica de la DIAN.");
 
   const { fecha, hora } = fechaHoraColombia(factura.fecha_expedicion);
   const cufe = calcularCufe({

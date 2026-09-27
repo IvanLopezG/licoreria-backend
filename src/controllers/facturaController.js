@@ -10,55 +10,35 @@ async function listar(req, res) {
 }
 
 async function obtener(req, res) {
-  try {
-    return res.json(await facturaService.obtenerFactura(Number(req.params.id)));
-  } catch (err) {
-    return res.status(err.status || 400).json({ error: err.message });
-  }
+  return res.json(await facturaService.obtenerFactura(Number(req.params.id)));
 }
 
 async function pdf(req, res) {
-  try {
-    const factura = await facturaService.obtenerFactura(Number(req.params.id));
-    const buffer = await generarPdfFactura(factura);
-    res.setHeader("Content-Type", "application/pdf");
-    res.setHeader("Content-Disposition", `inline; filename=factura_${factura.numero_completo}.pdf`);
-    return res.send(buffer);
-  } catch (err) {
-    return res.status(err.status || 500).json({ error: err.message });
-  }
+  const factura = await facturaService.obtenerFactura(Number(req.params.id));
+  const buffer = await generarPdfFactura(factura);
+  res.setHeader("Content-Type", "application/pdf");
+  res.setHeader("Content-Disposition", `inline; filename=factura_${factura.numero_completo}.pdf`);
+  return res.send(buffer);
 }
 
 async function xml(req, res) {
-  try {
-    const { numero_completo, xml: contenido } = await facturaService.obtenerXml(Number(req.params.id));
-    res.setHeader("Content-Type", "application/xml; charset=utf-8");
-    res.setHeader("Content-Disposition", `inline; filename=factura_${numero_completo}.xml`);
-    return res.send(contenido);
-  } catch (err) {
-    return res.status(err.status || 500).json({ error: err.message });
-  }
+  const { numero_completo, xml: contenido } = await facturaService.obtenerXml(Number(req.params.id));
+  res.setHeader("Content-Type", "application/xml; charset=utf-8");
+  res.setHeader("Content-Disposition", `inline; filename=factura_${numero_completo}.xml`);
+  return res.send(contenido);
 }
 
 async function transmitir(req, res) {
-  try {
-    return res.json(await facturaService.transmitirFactura(Number(req.params.id)));
-  } catch (err) {
-    return res.status(err.status || 500).json({ error: err.message });
-  }
+  return res.json(await facturaService.transmitirFactura(Number(req.params.id)));
 }
 
 async function anular(req, res) {
-  try {
-    const factura = await facturaService.anularFactura(Number(req.params.id), req.body || {}, req.usuario.id_usuario);
+  const factura = await facturaService.anularFactura(Number(req.params.id), req.body || {}, req.usuario.id_usuario);
 
-    // El middleware de auditoría escribe el registro al ver este campo.
-    req.auditoria = { accion: "editar", entidad: "facturas", id_entidad: factura.id_factura };
+  // El middleware de auditoría escribe el registro al ver este campo.
+  req.auditoria = { accion: "editar", entidad: "facturas", id_entidad: factura.id_factura };
 
-    return res.json(factura);
-  } catch (err) {
-    return res.status(err.status || 400).json({ error: err.message });
-  }
+  return res.json(factura);
 }
 
 async function obtenerEmisor(req, res) {
@@ -66,16 +46,12 @@ async function obtenerEmisor(req, res) {
 }
 
 async function editarEmisor(req, res) {
-  try {
-    const emisor = await facturaService.editarEmisor(req.body || {});
+  const emisor = await facturaService.editarEmisor(req.body || {});
 
-    // El middleware de auditoría escribe el registro al ver este campo.
-    req.auditoria = { accion: "editar", entidad: "emisor", id_entidad: emisor.id };
+  // El middleware de auditoría escribe el registro al ver este campo.
+  req.auditoria = { accion: "editar", entidad: "emisor", id_entidad: emisor.id };
 
-    return res.json(emisor);
-  } catch (err) {
-    return res.status(err.status || 400).json({ error: err.message });
-  }
+  return res.json(emisor);
 }
 
 module.exports = { listar, obtener, pdf, xml, transmitir, anular, obtenerEmisor, editarEmisor };

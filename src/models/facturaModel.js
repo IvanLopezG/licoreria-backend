@@ -5,6 +5,7 @@ const movimientoInventarioModel = require("./movimientoInventarioModel");
 const mesaSesionModel = require("./mesaSesionModel");
 const { calcularLinea, totalizar } = require("../utils/impuestos");
 const { hoyColombia } = require("../utils/fechaColombia");
+const { ErrorConflicto, ErrorInterno, ErrorNoEncontrado, ErrorValidacion } = require("../utils/errores");
 
 // Las líneas de la venta, consolidadas por producto y precio: al cerrar una
 // mesa, el mismo producto pudo pedirse en varios pedidos y en la factura
@@ -38,36 +39,30 @@ function insertar(tabla, columnas, retorno = "") {
   return `INSERT INTO ${tabla} (${columnas.join(", ")}) VALUES (${marcadores})${retorno}`;
 }
 
-function errorFacturacion(mensaje, status = 500) {
-  const err = new Error(mensaje);
-  err.status = status;
-  return err;
-}
-
 // Toma el siguiente número de la secuencia activa. Debe llamarse dentro de la
 // transacción que crea la venta: si algo falla después, el ROLLBACK devuelve
 // el número y no queda un salto en la numeración. FOR UPDATE bloquea la fila
 // de la secuencia hasta el COMMIT, así dos cobros simultáneos se turnan.
 async function tomarSiguienteNumero(cx) {
   const secuencia = await cx.uno("SELECT * FROM secuencias_factura WHERE activa = 1 FOR UPDATE");
-  if (!secuencia) throw errorFacturacion("No hay una secuencia de facturación activa.");
+  if (!secuencia) throw new ErrorInterno("No hay una secuencia de facturación activa.");
 
   const siguiente = Math.max(secuencia.numero_actual + 1, secuencia.rango_desde);
   // Rango agotado o resolución vencida: 409 (conflicto con el estado de la
   // resolución, no falla del servidor). La transacción revierte venta y stock.
   if (secuencia.rango_hasta !== null && siguiente > secuencia.rango_hasta) {
-    throw errorFacturacion("Se agotó el rango de numeración de facturas.", 409);
+    throw new ErrorConflicto("Se agotó el rango de numeración de facturas.");
   }
   // El último día de vigencia se puede facturar hasta las 11:59 p. m. de Colombia.
   if (secuencia.vigencia_hasta && hoyColombia() > secuencia.vigencia_hasta) {
-    throw errorFacturacion("La resolución de numeración de facturas está vencida.", 409);
+    throw new ErrorConflicto("La resolución de numeración de facturas está vencida.");
   }
 
   const cambio = await cx.ejecutar(
     "UPDATE secuencias_factura SET numero_actual = $1 WHERE id_secuencia = $2 AND numero_actual = $3",
     [siguiente, secuencia.id_secuencia, secuencia.numero_actual]
   );
-  if (cambio.rowCount !== 1) throw errorFacturacion("No se pudo reservar el número de factura.");
+  if (cambio.rowCount !== 1) throw new ErrorInterno("No se pudo reservar el número de factura.");
 
   return {
     id_secuencia: secuencia.id_secuencia,
@@ -81,11 +76,11 @@ async function tomarSiguienteNumero(cx) {
 // que a descontarPorVenta, para que venta, stock y factura sean atómicos.
 async function emitir({ id_venta, id_mesa, id_usuario, tipo_consumo, forma_pago, cliente }, cx) {
   const emisor = await emisorModel.obtener(cx);
-  if (!emisor) throw errorFacturacion("Faltan los datos del emisor de la factura.");
+  if (!emisor) throw new ErrorInterno("Faltan los datos del emisor de la factura.");
 
   const electronica = emisor.modo_facturacion === "electronica_dian";
   if (electronica && cliente.num_doc && !cliente.correo) {
-    throw errorFacturacion("En factura electrónica, si el cliente se identifica, cliente.correo es obligatorio.", 400);
+    throw new ErrorValidacion("En factura electrónica, si el cliente se identifica, cliente.correo es obligatorio.");
   }
 
   // Un emisor que no es responsable de IVA (o de INC) no puede cobrarlo,
@@ -177,12 +172,6 @@ function listar({ desde, hasta } = {}) {
   return db.todos(`${SELECT_FACTURA} WHERE 1 = 1${f.where()} ORDER BY f.id_factura DESC`, f.params);
 }
 
-function errorConEstado(mensaje, status) {
-  const err = new Error(mensaje);
-  err.status = status;
-  return err;
-}
-
 // Anula la factura y revierte su venta: devuelve el stock (entradas con motivo
 // "anulacion") y marca la venta como anulada. El número de factura no se
 // reutiliza ni se descuenta del consecutivo.
@@ -195,12 +184,11 @@ function anular({ id_factura, id_usuario, motivo, reabrir_pedidos }) {
     // FOR UPDATE: dos anulaciones simultáneas de la misma factura se turnan y
     // la segunda ve el estado "anulada".
     const factura = await cx.uno("SELECT * FROM facturas WHERE id_factura = $1 FOR UPDATE", [id_factura]);
-    if (!factura) throw errorConEstado("Factura no encontrada.", 404);
-    if (factura.estado === "anulada") throw errorConEstado("La factura ya está anulada.", 409);
+    if (!factura) throw new ErrorNoEncontrado("Factura no encontrada.");
+    if (factura.estado === "anulada") throw new ErrorConflicto("La factura ya está anulada.");
     if (await facturaElectronicaModel.buscarPorFactura(id_factura, cx)) {
-      throw errorConEstado(
-        "Una factura electrónica no se anula: se corrige emitiendo una nota crédito, que aún no está implementada.",
-        409
+      throw new ErrorConflicto(
+        "Una factura electrónica no se anula: se corrige emitiendo una nota crédito, que aún no está implementada."
       );
     }
 
@@ -208,16 +196,15 @@ function anular({ id_factura, id_usuario, motivo, reabrir_pedidos }) {
 
     if (reabrir_pedidos) {
       if (venta.tipo !== "mesa") {
-        throw errorConEstado("Solo se pueden reabrir pedidos de una venta de mesa.", 400);
+        throw new ErrorValidacion("Solo se pueden reabrir pedidos de una venta de mesa.");
       }
       const { n: abiertos } = await cx.uno(
         "SELECT COUNT(*) AS n FROM pedidos WHERE id_mesa = $1 AND id_venta IS NULL",
         [venta.id_mesa]
       );
       if (abiertos > 0) {
-        throw errorConEstado(
-          "La mesa ya tiene pedidos abiertos de otro cliente. Cierre esa cuenta antes de reabrir estos pedidos.",
-          409
+        throw new ErrorConflicto(
+          "La mesa ya tiene pedidos abiertos de otro cliente. Cierre esa cuenta antes de reabrir estos pedidos."
         );
       }
     }

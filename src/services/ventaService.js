@@ -2,20 +2,17 @@ const mesaModel = require("../models/mesaModel");
 const ventaModel = require("../models/ventaModel");
 const productoModel = require("../models/productoModel");
 const facturaService = require("./facturaService");
+const { ErrorNoEncontrado, ErrorValidacion } = require("../utils/errores");
 
 // La mesa solo pasa a "ocupada" al recibir un pedido (US-12) y solo vuelve
 // a "libre" al cerrar cuenta (US-14); si no está ocupada no hay nada que cobrar.
 async function cerrarCuentaMesa(id_mesa, id_usuario, body) {
   const mesa = await mesaModel.buscarPorId(id_mesa);
   if (!mesa) {
-    const err = new Error("Mesa no encontrada.");
-    err.status = 404;
-    throw err;
+    throw new ErrorNoEncontrado("Mesa no encontrada.");
   }
   if (mesa.estado !== "ocupada") {
-    const err = new Error("La mesa no está ocupada; no hay cuenta que cerrar.");
-    err.status = 400;
-    throw err;
+    throw new ErrorValidacion("La mesa no está ocupada; no hay cuenta que cerrar.");
   }
 
   const datosFactura = facturaService.validarDatosFactura(body, "mesa");
@@ -27,28 +24,20 @@ async function cerrarCuentaMesa(id_mesa, id_usuario, body) {
 // único punto donde eso puede verificarse de forma atómica.
 async function validarItems(items) {
   if (!Array.isArray(items) || items.length === 0) {
-    const err = new Error("La venta debe tener al menos un producto.");
-    err.status = 400;
-    throw err;
+    throw new ErrorValidacion("La venta debe tener al menos un producto.");
   }
 
   const lineas = [];
   for (const { id_producto, cantidad } of items) {
     if (!id_producto || cantidad === undefined || cantidad === null || Number(cantidad) <= 0) {
-      const err = new Error("Cada línea requiere id_producto y cantidad mayor a 0.");
-      err.status = 400;
-      throw err;
+      throw new ErrorValidacion("Cada línea requiere id_producto y cantidad mayor a 0.");
     }
     const producto = await productoModel.buscarPorId(id_producto);
     if (!producto) {
-      const err = new Error(`Producto ${id_producto} no encontrado.`);
-      err.status = 404;
-      throw err;
+      throw new ErrorNoEncontrado(`Producto ${id_producto} no encontrado.`);
     }
     if (producto.activo !== 1) {
-      const err = new Error(`${producto.nombre} está inactivo y no se puede vender.`);
-      err.status = 400;
-      throw err;
+      throw new ErrorValidacion(`${producto.nombre} está inactivo y no se puede vender.`);
     }
     lineas.push({ id_producto, cantidad: Number(cantidad), precio_unitario: producto.precio });
   }

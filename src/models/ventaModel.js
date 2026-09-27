@@ -2,6 +2,7 @@ const db = require("../db/db");
 const movimientoInventarioModel = require("./movimientoInventarioModel");
 const facturaModel = require("./facturaModel");
 const mesaSesionModel = require("./mesaSesionModel");
+const { ErrorValidacion } = require("../utils/errores");
 
 // Cada cobro usa db.conTransaccion: un solo client del pool con
 // BEGIN/COMMIT/ROLLBACK. Si algo falla a mitad de camino (crear venta, copiar
@@ -37,9 +38,7 @@ function cerrarCuentaMesa(id_mesa, id_usuario, datosFactura) {
       [id_mesa]
     );
     if (pedidos.length === 0) {
-      const err = new Error("La mesa no tiene pedidos pendientes de cobro.");
-      err.status = 400;
-      throw err;
+      throw new ErrorValidacion("La mesa no tiene pedidos pendientes de cobro.");
     }
 
     for (const pedido of pedidos) {

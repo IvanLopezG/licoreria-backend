@@ -1,6 +1,7 @@
 const db = require("../db/db");
 const resolucionModel = require("../models/resolucionModel");
 const { hoyColombia } = require("../utils/fechaColombia");
+const { ErrorConflicto, ErrorNoEncontrado, ErrorValidacion } = require("../utils/errores");
 
 // Resolución de numeración de facturas (solo administrador).
 //
@@ -16,12 +17,6 @@ const MAX_CLAVE_TECNICA = 128;
 // Umbrales de aviso del panel.
 const PORCENTAJE_POR_AGOTARSE = 0.1;
 const DIAS_POR_VENCER = 30;
-
-function errorConEstado(mensaje, status = 400) {
-  const err = new Error(mensaje);
-  err.status = status;
-  return err;
-}
 
 // "AAAA-MM-DD" válida (rechaza 2026-02-30); null si no lo es.
 function fecha(valor) {
@@ -52,37 +47,37 @@ function validar(body, base = {}) {
   const prefijoTexto = String(valor("prefijo") ?? "").trim().toUpperCase();
   const prefijo = prefijoTexto === "" ? null : prefijoTexto;
   if (prefijo !== null && !PREFIJO.test(prefijo)) {
-    throw errorConEstado("El prefijo debe tener de 1 a 4 letras o números, sin espacios ni símbolos (o dejarse vacío).");
+    throw new ErrorValidacion("El prefijo debe tener de 1 a 4 letras o números, sin espacios ni símbolos (o dejarse vacío).");
   }
 
   const resolucion_numero = String(valor("resolucion_numero") ?? "").trim();
   if (!NUMERO_RESOLUCION.test(resolucion_numero)) {
-    throw errorConEstado("El número de resolución es obligatorio y debe contener solo dígitos.");
+    throw new ErrorValidacion("El número de resolución es obligatorio y debe contener solo dígitos.");
   }
   const resolucion_fecha = fecha(valor("resolucion_fecha"));
-  if (!resolucion_fecha) throw errorConEstado("La fecha de la resolución es obligatoria y debe ser una fecha válida (AAAA-MM-DD).");
+  if (!resolucion_fecha) throw new ErrorValidacion("La fecha de la resolución es obligatoria y debe ser una fecha válida (AAAA-MM-DD).");
 
   const rango_desde = entero(valor("rango_desde"));
   const rango_hasta = entero(valor("rango_hasta"));
   if (!Number.isInteger(rango_desde) || rango_desde < 1 || !Number.isInteger(rango_hasta) || rango_hasta < 1) {
-    throw errorConEstado("El rango (desde y hasta) es obligatorio y debe ser de números enteros mayores a 0.");
+    throw new ErrorValidacion("El rango (desde y hasta) es obligatorio y debe ser de números enteros mayores a 0.");
   }
   if (rango_desde > rango_hasta) {
-    throw errorConEstado("El inicio del rango no puede ser mayor que el final.");
+    throw new ErrorValidacion("El inicio del rango no puede ser mayor que el final.");
   }
 
   const vigencia_desde = fecha(valor("vigencia_desde"));
   const vigencia_hasta = fecha(valor("vigencia_hasta"));
   if (!vigencia_desde || !vigencia_hasta) {
-    throw errorConEstado("Las fechas de vigencia (desde y hasta) son obligatorias y deben ser fechas válidas (AAAA-MM-DD).");
+    throw new ErrorValidacion("Las fechas de vigencia (desde y hasta) son obligatorias y deben ser fechas válidas (AAAA-MM-DD).");
   }
   if (vigencia_hasta <= vigencia_desde) {
-    throw errorConEstado("La vigencia debe terminar después de la fecha en que empieza.");
+    throw new ErrorValidacion("La vigencia debe terminar después de la fecha en que empieza.");
   }
   // Una resolución ya vencida bloquearía toda venta al activarse (la emisión de
   // facturas rechaza resoluciones vencidas): se rechaza al guardarla.
   if (vigencia_hasta < hoy()) {
-    throw errorConEstado(`La vigencia terminó el ${vigencia_hasta}: con una resolución vencida no se podría facturar.`);
+    throw new ErrorValidacion(`La vigencia terminó el ${vigencia_hasta}: con una resolución vencida no se podría facturar.`);
   }
 
   // Solo se toma si el administrador la escribió; vacía = se conserva la guardada.
@@ -90,7 +85,7 @@ function validar(body, base = {}) {
   const claveTexto = body.clave_tecnica === undefined || body.clave_tecnica === null ? "" : String(body.clave_tecnica).trim();
   if (claveTexto !== "") {
     if (claveTexto.length > MAX_CLAVE_TECNICA || /\s/.test(claveTexto)) {
-      throw errorConEstado(`La clave técnica no puede tener espacios ni más de ${MAX_CLAVE_TECNICA} caracteres.`);
+      throw new ErrorValidacion(`La clave técnica no puede tener espacios ni más de ${MAX_CLAVE_TECNICA} caracteres.`);
     }
     clave_tecnica = claveTexto;
   }
@@ -108,10 +103,9 @@ async function verificarNumeracion(datos, cx) {
   const ultimo = await resolucionModel.ultimoNumeroConPrefijo(datos.prefijo, cx);
   if (datos.rango_desde <= ultimo) {
     const conPrefijo = datos.prefijo ? `con el prefijo "${datos.prefijo}"` : "sin prefijo";
-    throw errorConEstado(
+    throw new ErrorConflicto(
       `La numeración no se puede reusar ni retroceder: el último número emitido ${conPrefijo} es ${ultimo}, ` +
-        `así que el rango debe empezar en ${ultimo + 1} o después.`,
-      409
+        `así que el rango debe empezar en ${ultimo + 1} o después.`
     );
   }
 }
@@ -176,7 +170,7 @@ function resumen(s, facturas_emitidas) {
 
 async function obtener() {
   const activa = await resolucionModel.activa();
-  if (!activa) throw errorConEstado("No hay una resolución de numeración activa.", 404);
+  if (!activa) throw new ErrorNoEncontrado("No hay una resolución de numeración activa.");
   const historicas = await resolucionModel.historicas();
   return {
     activa: resumen(activa, await resolucionModel.contarFacturas(activa.id_secuencia)),
@@ -188,13 +182,12 @@ async function obtener() {
 async function actualizar(body = {}) {
   const resultado = await db.conTransaccion(async (cx) => {
     const actual = await resolucionModel.activaParaActualizar(cx);
-    if (!actual) throw errorConEstado("No hay una resolución de numeración activa.", 404);
+    if (!actual) throw new ErrorNoEncontrado("No hay una resolución de numeración activa.");
     const facturas = await resolucionModel.contarFacturas(actual.id_secuencia, cx);
     if (facturas > 0) {
-      throw errorConEstado(
+      throw new ErrorConflicto(
         `La resolución activa ya emitió ${facturas} factura(s) y no se puede modificar, porque sus datos salen en ` +
-          "esas facturas. Registra una resolución nueva: la actual quedará como histórica.",
-        409
+          "esas facturas. Registra una resolución nueva: la actual quedará como histórica."
       );
     }
     const datos = validar(body, actual);

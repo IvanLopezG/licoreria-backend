@@ -3,11 +3,7 @@ const resolucionService = require("../services/resolucionService");
 // Resolución de numeración (solo administrador, ver emisor.routes.js).
 
 async function obtener(req, res) {
-  try {
-    return res.json(await resolucionService.obtener());
-  } catch (err) {
-    return res.status(err.status || 500).json({ error: err.message });
-  }
+  return res.json(await resolucionService.obtener());
 }
 
 // La bitácora registra qué campos cambiaron, nunca sus valores (la clave
@@ -22,23 +18,15 @@ function auditar(req, accion, { id_secuencia, campos }) {
 }
 
 async function actualizar(req, res) {
-  try {
-    const { auditoria, ...respuesta } = await resolucionService.actualizar(req.body || {});
-    auditar(req, "editar", auditoria);
-    return res.json(respuesta);
-  } catch (err) {
-    return res.status(err.status || 400).json({ error: err.message });
-  }
+  const { auditoria, ...respuesta } = await resolucionService.actualizar(req.body || {});
+  auditar(req, "editar", auditoria);
+  return res.json(respuesta);
 }
 
 async function registrar(req, res) {
-  try {
-    const { auditoria, ...respuesta } = await resolucionService.registrar(req.body || {});
-    auditar(req, "crear", auditoria);
-    return res.status(201).json(respuesta);
-  } catch (err) {
-    return res.status(err.status || 400).json({ error: err.message });
-  }
+  const { auditoria, ...respuesta } = await resolucionService.registrar(req.body || {});
+  auditar(req, "crear", auditoria);
+  return res.status(201).json(respuesta);
 }
 
 module.exports = { obtener, actualizar, registrar };

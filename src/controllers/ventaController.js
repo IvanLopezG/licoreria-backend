@@ -13,16 +13,12 @@ const COLUMNAS_CSV = [
 ];
 
 async function crearMostrador(req, res) {
-  try {
-    const venta = await ventaService.crearVentaMostrador(req.body, req.usuario.id_usuario);
+  const venta = await ventaService.crearVentaMostrador(req.body, req.usuario.id_usuario);
 
-    // El middleware de auditoría escribe el registro al ver este campo.
-    req.auditoria = { accion: "crear", entidad: "ventas", id_entidad: venta.id_venta };
+  // El middleware de auditoría escribe el registro al ver este campo.
+  req.auditoria = { accion: "crear", entidad: "ventas", id_entidad: venta.id_venta };
 
-    return res.status(201).json(venta);
-  } catch (err) {
-    return res.status(err.status || 400).json({ error: err.message });
-  }
+  return res.status(201).json(venta);
 }
 
 // US-19 (opcional): ?formato=csv reutiliza el mismo filtro que el JSON normal.

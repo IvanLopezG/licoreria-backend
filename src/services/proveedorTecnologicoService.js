@@ -14,13 +14,13 @@
 //   cufe = <CUFE del proveedor>, xml_ubl = <XML firmado>, fecha_transmision = ahora.
 // - rechazada: estado_transmision = 'rechazada', mensaje_transmision = <errores>.
 
+const { ErrorNoImplementado } = require("../utils/errores");
+
 async function transmitir(/* factura, documentoElectronico, emisor */) {
-  const err = new Error(
+  throw new ErrorNoImplementado(
     "La transmisión a la DIAN aún no está conectada: falta configurar la API del proveedor tecnológico " +
       "(ver src/services/proveedorTecnologicoService.js)."
   );
-  err.status = 501;
-  throw err;
 }
 
 module.exports = { transmitir };
