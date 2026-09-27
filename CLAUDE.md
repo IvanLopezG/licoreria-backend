@@ -31,7 +31,9 @@ verdad si algo aquí queda ambiguo.
 - Middlewares en `src/middlewares/`: `auth.js` (verifica JWT), `roles.js` (RBAC por rol),
   `auditoria.js` (escribe en `log_auditoria` automáticamente cuando un controlador
   fija `req.auditoria = { accion, entidad, id_entidad }` — no lo hagas manualmente
-  en el servicio, usa ese patrón).
+  en el servicio, usa ese patrón), `manejoErrores.js` (único lugar donde un error se vuelve respuesta
+  HTTP) y `registroPeticiones.js` (log de cada petición). Ver la sección **Manejo de errores** (incluye logging): los
+  servicios lanzan un error de `utils/errores.js`, nunca `res.status(...)` ni `err.status = N` a mano.
 - Esquema completo (12 tablas) ya está en `src/db/schema.sql`. Si un sprint necesita
   un campo que no está ahí, agrégalo al schema, no lo improvises en el código.
 - Frontend: `public/catalogo` (cliente, sin login, vía QR — aún no existe, es de Sprint 3)
@@ -103,6 +105,8 @@ validar con contador. Ver sección *Facturación* del `README.md`.
   formulario por secciones, buscador (nombre/SKU, nombre/NIT) y Editar; margen
   (precio − costo) / precio en el listado; los selectores de venta de mostrador y de entradas
   de inventario ocultan productos y proveedores inactivos.
+
+**Manejo de errores central y logging con Pino: COMPLETO.** Ver la sección *Manejo de errores* más abajo.
 
 **Sesiones de mesa en el catálogo QR (factura y estado de pedidos en el celular): COMPLETA.** Ver la
 sección *Sesiones de mesa en el catálogo QR* más abajo.
@@ -251,7 +255,7 @@ cuenta, y el siguiente cliente de la misma mesa ve el catálogo limpio.
 
 ## Manejo de errores
 ### Auditoría (Bloque 1, 2026-09-27, sobre `c8beaea`)
-- **Controladores:** 13 archivos en `src/controllers/`, 45 handlers. **35 bloques `try/catch`**, todos con la
+- **Controladores:** 13 archivos en `src/controllers/`, 47 handlers. **35 bloques `try/catch`**, todos con la
   misma forma `res.status(err.status || N).json({ error: err.message })`. El `N` por defecto varía: **400** en
   27 catch, **500** en 7 (`facturaController` pdf/xml/transmitir, `resolucionController.obtener` y los 3 de
   sesión del catálogo) y **401** en 1 (`authController.login`). 12 handlers no tienen `try` (listados,
@@ -306,6 +310,53 @@ una falla real salga como 400/401 con el mensaje de pg. Con clases tipadas el se
   listados arriba se conservan exactamente.
 - Controladores sin `try/catch`: Express 5 pasa a `next(err)` el rechazo de un handler `async`, así que el
   handler solo hace `await` y el error llega al middleware central.
+
+### Diseño final (implementado, 2026-09-27)
+- **Jerarquía** (`src/utils/errores.js`): `ErrorApp(mensaje, status, codigo?)` y subclases
+  `ErrorValidacion` 400, `ErrorNoAutenticado` 401, `ErrorPermiso` 403, `ErrorNoEncontrado` 404,
+  `ErrorConflicto` 409, `ErrorNoDisponible` 410, `ErrorDemasiadosIntentos` 429 (`reintentarEn` → `Retry-After`),
+  `ErrorInterno` 500 (falta configuración: emisor, secuencia, clave técnica) y `ErrorNoImplementado` 501.
+  El `codigo` interno opcional solo va al log. **Regla:** servicios y modelos lanzan la clase que describe lo
+  que pasó; controladores y middlewares no arman respuestas de error (los middlewares hacen `next(error)`).
+- **Cómo se decide el código** (`middlewares/manejoErrores.js`, `clasificar`), en este orden:
+  1. `ErrorApp` → su `status` y su mensaje, tal cual.
+  2. Error 4xx de una librería que sigue `http-errors` (`expose: true`: body-parser, `express.static`) → su
+     código, con mensaje en español ("El cuerpo de la petición no es un JSON válido.", "…demasiado grande.",
+     o "La petición no es válida.").
+  3. Cualquier otra cosa (pg, un bug, un `Error` suelto aunque traiga `status`) → **500**.
+  Ruta inexistente → `rutaNoEncontrada` lanza `ErrorNoEncontrado("Ruta no encontrada.")`. `app.js` normaliza
+  `req.body` a `{}` si no llega JSON, para que la validación responda su 400 y no un TypeError (500).
+- **Formato:** siempre `{"error": "mensaje"}`, en panel, app Android y catálogo (sin campos nuevos, sin stack).
+  - **Panel y app** (todo lo que no es `/api/catalogo`): 4xx y 5xx de `ErrorApp` con su mensaje (un
+    `ErrorInterno` le dice al personal qué configurar); un 500 inesperado → "Ocurrió un error inesperado en el
+    servidor. Inténtalo de nuevo en un momento."
+  - **Catálogo público** (`/api/catalogo/*`): mismos códigos; 4xx de negocio iguales ("Solo quedan N unidades
+    de X.", "Sesión no válida."…); **todo 500**, incluso `ErrorInterno`, → "Ocurrió un error, intenta de nuevo."
+- **Cambios de comportamiento (solo en fallas no previstas; ningún caso de negocio cambió):** una falla de pg
+  ya no sale como 400/401 con el texto de pg sino como 500 genérico; un handler que falla o un JSON mal
+  formado ya no devuelven la página HTML de Express con el stack sino JSON. Verificado con `escenario-api.js`
+  (136 respuestas idénticas a la línea base tras cada commit; solo varía el `token_sesion` aleatorio),
+  `npm test` (52) y `scripts/prueba-sesiones-mesa.js` (109) contra PGlite local.
+
+### Logging (Pino)
+- `src/utils/logger.js` (`pino`); `pino-pretty` es **devDependency**. Sin `pino-http` (no aprobada): el log de
+  peticiones es `middlewares/registroPeticiones.js`.
+- **Qué se registra:** por petición, `info` "petición" con `metodo`, `ruta`, `status`, `ms`. Por error, desde el
+  manejador central: 5xx en `error` "error del servidor" con `status`, `metodo`, `ruta`, `tipo`, `codigo`,
+  `mensaje` y `stack`; 4xx en `warn` "error de la petición", igual pero sin stack. El stack nunca va en la
+  respuesta. También: conexión inactiva de pg caída (`db.js`), fallo al escribir la bitácora, arranque.
+- **Qué se redacta (nunca aparece en un log):** contraseñas, JWT, token de sesión del catálogo (`X-Sesion-Token`),
+  token del QR de la mesa y clave técnica. Cuatro capas: (1) solo se registran campos elegidos, nunca cuerpos,
+  encabezados ni query string; (2) `redact` de Pino por nombre (`password`, `token`, `token_sesion`,
+  `clave_tecnica`, `authorization`, `x-sesion-token`, `cookie`…, hasta 4 niveles) → `[REDACTADO]`; (3) en
+  rutas, mensajes y stacks se borran JWT y cadenas de 32+ caracteres, y la ruta del catálogo sale como
+  `/api/catalogo/:token/...`; (4) en los errores, además, los valores exactos que trajo la petición en campos
+  secretos (p. ej. una clave técnica corta repetida por una excepción). Pruebas: `test/logger.test.js`.
+- **Producción vs. desarrollo:** en Render la salida no es una terminal → JSON crudo, una línea por evento
+  (`level` numérico de Pino, `time` ISO). `pino-pretty` solo se usa si `NODE_ENV` no es `production` y la salida
+  es una terminal o `LOG_PRETTY=1`; con `NODE_ENV=production` nunca, aunque esté instalado. `LOG_PRETTY=0` lo
+  apaga. Nivel: `LOG_LEVEL` (por defecto `info`; bajo `node --test`, `silent`). dotenv va con `quiet: true`
+  para que stdout sea solo JSON. Ninguna variable nueva es obligatoria en Render.
 
 ## Pendientes futuros (no urgentes)
 - La app Android ya refleja todo lo de este backend: campos nuevos de productos y proveedores,
