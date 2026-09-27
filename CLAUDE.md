@@ -135,6 +135,59 @@ activa. `src/services/resolucionService.js`, endpoints en `emisor.routes.js`:
   fijo, sin librerías): el último día de vigencia factura hasta las 11:59 p. m. hora de Colombia.
   Pruebas: `test/vigenciaResolucion.test.js`.
 
+## Sesiones de mesa en el catálogo QR — auditoría (Fase 0, 2026-09-27, sobre `9a46ae9`)
+Objetivo: el cliente ve en su pestaña del catálogo el estado de sus pedidos y su factura al cerrar la
+cuenta, y el siguiente cliente de la misma mesa ve el catálogo limpio.
+
+**Hallazgos del código real:**
+- (a) **Token de mesa:** `mesaModel.generarToken` (`crypto.randomBytes(16)`, hex) al crear la mesa; se guarda
+  en claro en `mesas.codigo_qr_token` (UNIQUE), nunca expira ni rota. `mesaService.generarQR` arma
+  `/catalogo/index.html?token=…`. El catálogo (`public/catalogo/index.html`) lo lee de la URL y lo pone en la
+  ruta: `GET /api/catalogo/:token`, `POST /api/catalogo/:token/pedidos`, `GET /api/catalogo/:token/pedidos`.
+  El backend (`catalogoService.buscarMesaPorToken`) solo verifica que exista (404 "Mesa no encontrada.").
+  No hay limitación de intentos en ninguna ruta del proyecto.
+- (b) **Estado de la mesa:** `mesas.estado` (`libre`/`ocupada`). Lo cambian: `pedidoModel.crear` → ocupada
+  (misma transacción que el pedido); `ventaModel.cerrarCuentaMesa` → libre; `facturaModel.anular` con
+  `reabrir_pedidos` → ocupada. Cancelar un pedido (`pedidoModel.cancelar`) no toca la mesa. Android usa
+  `GET/POST /api/mesas`, `GET /api/mesas/:id/qr`, `GET /api/pedidos`, `PUT /api/pedidos/:id/entregado`,
+  `DELETE /api/pedidos/:id`, `POST /api/mesas/:id/cerrar-cuenta`, `GET /api/facturas/:id/pdf`,
+  `POST /api/facturas/:id/anular` y `POST/GET /api/ventas`; **ningún endpoint del catálogo**. Parsea con
+  `ignoreUnknownKeys = true` (campos nuevos no la rompen).
+- (c) **Agrupación de pedidos:** la cuenta abierta de una mesa = sus pedidos con `id_venta IS NULL`.
+  `ventaModel.cerrarCuentaMesa` los toma `FOR UPDATE`, copia sus líneas a `venta_detalle`, descuenta stock,
+  los marca entregados con `id_venta`, libera la mesa y llama a `facturaModel.emitir`, todo en una
+  `conTransaccion`. **No existe endpoint para que el mesero cree pedidos**: todo pedido entra por el QR.
+- (d) **Historial público:** `GET /api/catalogo/:token/pedidos` devuelve los pedidos abiertos de la mesa
+  (ids internos, ítems, precios, horas) a cualquiera que tenga el token del QR, que está impreso en la mesa y
+  no rota: una foto del QR basta para ver la cuenta de los clientes siguientes. **Fuga de privacidad**
+  (baja: no hay datos personales, sí consumos). Solo lo usa el catálogo; Android no.
+- (e) **Cierre, PDF y anulación:** `generarPdfFactura(factura)` (`utils/facturaPdf.js`, 80 mm) recibe el
+  objeto de `facturaModel.buscarPorId` y pinta datos completos del cliente. `facturaModel.anular` (una
+  transacción): factura y venta → anuladas, devuelve stock y, con `reabrir_pedidos` (solo venta de mesa, 409
+  si la mesa ya tiene pedidos abiertos), pone `id_venta = NULL` en los pedidos y la mesa ocupada.
+- (f) **Esquema:** un solo `src/db/schema.sql` idempotente (`CREATE … IF NOT EXISTS`, `ALTER … ADD COLUMN IF
+  NOT EXISTS`), aplicado completo por `db.inicializarEsquema` en cada `npm run seed` / `npm start` (o sea, en
+  cada despliegue de Render contra Supabase). No hay tabla de versiones de migración: todo lo nuevo debe
+  poder ejecutarse muchas veces. SQL estándar de Postgres, compatible con Supabase.
+
+**Conclusión:** el diseño acordado es viable y seguro. **Desviaciones** (motivo entre paréntesis):
+1. Nombres `id_sesion`, `id_mesa`, `id_factura`, `pedidos.id_sesion` y tabla `mesa_sesion_tokens` en vez de
+   `id`, `mesa_id`, `factura_id`, `sesion_id` (convención del esquema: `id_<entidad>`).
+2. Estado extra de sesión `cancelada`: si se cancelan todos los pedidos abiertos de una sesión, se cierra
+   sin factura (si no, el siguiente cliente entraría en la sesión del anterior porque la mesa sigue
+   ocupada). La mesa no cambia (Android igual que antes).
+3. "Pedidos tomados por el mesero" no existen en el backend (hallazgo c). La limitación queda así: si el
+   pedido se hace desde un celular que no es del cliente (p. ej. el del mesero), el token queda en ese celular.
+4. Anulación **sin** reapertura: la sesión sigue cerrada, `revision++`, y el cliente ve "La factura fue
+   anulada" sin datos ni PDF (el diseño solo cubría la anulación con reapertura).
+5. Anulación con reapertura de una venta anterior a esta migración (sin sesión): se crea una sesión nueva
+   sin tokens para los pedidos reabiertos (nadie la ve desde el público).
+6. `GET /api/catalogo/:token/pedidos` se conserva (mismo formato, arreglo) pero sin token de sesión devuelve
+   `[]`; con un token válido de la sesión activa de esa mesa, los pedidos de esa sesión (hallazgo d).
+7. Limitación de intentos: no había nada; se agrega un limitador en memoria por IP (sin dependencias; se
+   reinicia con el proceso) y `app.set("trust proxy", 1)` para ver la IP real detrás del proxy de Render.
+8. `db.js` acepta `PGSSLMODE=disable` para probar contra un Postgres local sin SSL (por defecto, igual que antes).
+
 ## Pendientes futuros (no urgentes)
 - La app Android ya refleja todo lo de este backend: campos nuevos de productos y proveedores,
   impuestos deshabilitados para el cajero y `cliente.correo` al cobrar (app `82941d4`, `c887b11`,
