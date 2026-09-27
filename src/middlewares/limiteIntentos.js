@@ -1,3 +1,5 @@
+const { ErrorDemasiadosIntentos } = require("../utils/errores");
+
 // Limitador de intentos por IP para las rutas públicas del catálogo, sin
 // dependencias: ventana fija en memoria. Se reinicia con el proceso y cuenta
 // por instancia (Render free corre una sola). req.ip es la IP real del cliente
@@ -25,8 +27,13 @@ function limiteIntentos({ ventanaMs, maximo, soloFallos = false }) {
     const ip = req.ip || "desconocida";
     const c = contadores.get(ip);
     if (c && c.reinicio > ahora && c.n >= maximo) {
-      res.setHeader("Retry-After", Math.ceil((c.reinicio - ahora) / 1000));
-      return res.status(429).json({ error: "Demasiados intentos. Espera unos minutos e inténtalo de nuevo." });
+      // El manejador central pone Retry-After con reintentarEn.
+      return next(
+        new ErrorDemasiadosIntentos(
+          "Demasiados intentos. Espera unos minutos e inténtalo de nuevo.",
+          Math.ceil((c.reinicio - ahora) / 1000)
+        )
+      );
     }
     if (soloFallos) {
       res.on("finish", () => {

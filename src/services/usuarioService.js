@@ -1,26 +1,21 @@
 const bcrypt = require("bcryptjs");
 const usuarioModel = require("../models/usuarioModel");
+const { ErrorConflicto, ErrorValidacion } = require("../utils/errores");
 
 const ROLES_VALIDOS = ["administrador", "mesero", "cajero"];
 const SALT_ROUNDS = 10;
 
 async function crearUsuario({ nombre, usuario_login, password, rol }) {
   if (!nombre || !usuario_login || !password || !rol) {
-    const err = new Error("nombre, usuario_login, password y rol son obligatorios.");
-    err.status = 400;
-    throw err;
+    throw new ErrorValidacion("nombre, usuario_login, password y rol son obligatorios.");
   }
 
   if (!ROLES_VALIDOS.includes(rol)) {
-    const err = new Error(`Rol inválido. Debe ser uno de: ${ROLES_VALIDOS.join(", ")}.`);
-    err.status = 400;
-    throw err;
+    throw new ErrorValidacion(`Rol inválido. Debe ser uno de: ${ROLES_VALIDOS.join(", ")}.`);
   }
 
   if (await usuarioModel.buscarPorLogin(usuario_login)) {
-    const err = new Error("Ya existe un usuario con ese usuario_login.");
-    err.status = 409;
-    throw err;
+    throw new ErrorConflicto("Ya existe un usuario con ese usuario_login.");
   }
 
   const password_hash = bcrypt.hashSync(password, SALT_ROUNDS);

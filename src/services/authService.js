@@ -1,6 +1,7 @@
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const usuarioModel = require("../models/usuarioModel");
+const { ErrorNoAutenticado } = require("../utils/errores");
 
 const MENSAJE_CREDENCIALES_INVALIDAS = "Usuario o contraseña incorrectos.";
 
@@ -10,16 +11,12 @@ async function login(usuario_login, password) {
   if (!usuario || !usuario.activo) {
     // Mismo mensaje que una contraseña incorrecta: no revelamos si el
     // usuario existe o no (buena práctica de seguridad, RNF01).
-    const err = new Error(MENSAJE_CREDENCIALES_INVALIDAS);
-    err.status = 401;
-    throw err;
+    throw new ErrorNoAutenticado(MENSAJE_CREDENCIALES_INVALIDAS);
   }
 
   const passwordValida = bcrypt.compareSync(password, usuario.password_hash);
   if (!passwordValida) {
-    const err = new Error(MENSAJE_CREDENCIALES_INVALIDAS);
-    err.status = 401;
-    throw err;
+    throw new ErrorNoAutenticado(MENSAJE_CREDENCIALES_INVALIDAS);
   }
 
   const payload = {

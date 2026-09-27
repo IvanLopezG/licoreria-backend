@@ -96,7 +96,7 @@ test("factura anulada: la vista no trae sus datos y el PDF responde 410", async 
   await assert.rejects(servicio.facturaParaPdf(sesion), (e) => e.status === 410);
 });
 
-test("limitador: con soloFallos solo cuentan 401/404; al llegar al máximo → 429", () => {
+test("limitador: con soloFallos solo cuentan 401/404; al llegar al máximo → ErrorDemasiadosIntentos (429)", () => {
   const mw = limiteIntentos({ ventanaMs: 60000, maximo: 2, soloFallos: true });
   const llamar = (status) => {
     let fin;
@@ -107,14 +107,16 @@ test("limitador: con soloFallos solo cuentan 401/404; al llegar al máximo → 4
       json() { return this; },
       on(ev, fn) { fin = fn; },
     };
+    let error;
     let siguio = false;
-    mw({ ip: "1.2.3.4" }, res, () => { siguio = true; });
+    mw({ ip: "1.2.3.4" }, res, (err) => { siguio = true; error = err; });
+    if (error) return `${error.status} ${error.reintentarEn > 0} ${error.message}`;
     if (siguio && fin) fin();
-    return siguio ? "sigue" : res.statusCode;
+    return "sigue";
   };
   assert.strictEqual(llamar(200), "sigue");
   assert.strictEqual(llamar(200), "sigue");
   assert.strictEqual(llamar(401), "sigue");
   assert.strictEqual(llamar(404), "sigue");
-  assert.strictEqual(llamar(200), 429);
+  assert.strictEqual(llamar(200), "429 true Demasiados intentos. Espera unos minutos e inténtalo de nuevo.");
 });

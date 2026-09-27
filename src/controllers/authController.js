@@ -1,18 +1,16 @@
 const authService = require("../services/authService");
+const { ErrorValidacion } = require("../utils/errores");
 
+// Los errores (datos faltantes, credenciales inválidas) los responde el
+// manejador central (middlewares/manejoErrores.js).
 async function login(req, res) {
-  const { usuario_login, password } = req.body;
+  const { usuario_login, password } = req.body ?? {};
 
   if (!usuario_login || !password) {
-    return res.status(400).json({ error: "usuario_login y password son obligatorios." });
+    throw new ErrorValidacion("usuario_login y password son obligatorios.");
   }
 
-  try {
-    const resultado = await authService.login(usuario_login, password);
-    return res.json(resultado);
-  } catch (err) {
-    return res.status(err.status || 401).json({ error: err.message });
-  }
+  return res.json(await authService.login(usuario_login, password));
 }
 
 function me(req, res) {
