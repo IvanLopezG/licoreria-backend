@@ -249,6 +249,64 @@ cuenta, y el siguiente cliente de la misma mesa ve el catálogo limpio.
   token de una sesión cerrada nunca ve la sesión nueva de la misma mesa (ni cambia su ETag), vence a 410 mientras
   la sesión nueva sigue normal, y si ese celular vuelve a pedir recibe un token nuevo.
 
+## Manejo de errores
+### Auditoría (Bloque 1, 2026-09-27, sobre `c8beaea`)
+- **Controladores:** 13 archivos en `src/controllers/`, 45 handlers. **35 bloques `try/catch`**, todos con la
+  misma forma `res.status(err.status || N).json({ error: err.message })`. El `N` por defecto varía: **400** en
+  27 catch, **500** en 7 (`facturaController` pdf/xml/transmitir, `resolucionController.obtener` y los 3 de
+  sesión del catálogo) y **401** en 1 (`authController.login`). 12 handlers no tienen `try` (listados,
+  `auth.me`, `obtenerEmisor`). Además responden errores a mano: `authController.login` (400 sin datos),
+  `middlewares/auth.js` (401 ×2), `middlewares/roles.js` (401, 403), `middlewares/limiteIntentos.js` (429 con
+  `Retry-After`) y el 404 final de `app.js`. **No había middleware de errores de 4 argumentos.**
+- **Dónde nace el código HTTP:** en los servicios y modelos, con `const err = new Error(m); err.status = N`
+  (~55 sitios) o con helpers locales repetidos (`errorConEstado` ×4, `errorValidacion` ×2, `errorFacturacion` ×2,
+  `errorNoElectronica`). **Todos los errores de negocio traen `status` explícito**. Los únicos `throw` sin
+  estado son `utils/cufe.js` (ambiente inválido, falta la clave técnica: no alcanzables porque
+  `facturaElectronicaModel` lo valida antes con 500) y `db.js` al arrancar sin `DATABASE_URL`.
+- **Códigos y mensajes de negocio en uso (se conservan tal cual):**
+  - 400 validación (p. ej. "precio debe ser mayor a 0.", "La mesa no está ocupada; no hay cuenta que cerrar.",
+    "Solo quedan N unidades de X.", "Ya existe una mesa con ese número." — este es 400, no 409, y así se queda).
+  - 401 "Token no proporcionado.", "Token inválido o expirado.", "No autenticado.", "Usuario o contraseña
+    incorrectos.", "Sesión no válida." (token de sesión del catálogo).
+  - 403 "No tienes permisos para esta acción. Rol requerido: …" (roles) y "Solo el administrador puede modificar
+    los impuestos de un producto." (`productoService`).
+  - 404 "… no encontrado/a." (producto, proveedor, mesa, pedido, factura, "Ruta no encontrada."), la factura no
+    electrónica al pedir XML, y "La cuenta aún no se ha cerrado." (PDF del catálogo).
+  - 409 SKU duplicado, usuario y categoría duplicados, resolución vencida o rango agotado, factura ya anulada,
+    factura electrónica no anulable, reabrir con la mesa ocupada, resolución con facturas no editable, rango que
+    retrocede.
+  - 410 sesión del catálogo vencida/revocada/cancelada y factura anulada en el PDF del catálogo.
+  - 429 limitador del catálogo. 501 transmisión a la DIAN.
+  - 500 **intencionales** con mensaje útil para el personal: "No hay una secuencia de facturación activa.", "Faltan
+    los datos del emisor de la factura.", "No se pudo reservar el número de factura.", "La secuencia de
+    facturación activa no tiene clave técnica de la DIAN."
+- **Errores inesperados hoy (fallas reales, no de negocio):** con la base caída, `GET /api/productos/1` responde
+  **400** `{"error":"connect ECONNREFUSED …"}` y el login **401** con ese mismo texto (el mensaje crudo de pg, con
+  código de cliente). Un handler sin `try` o un JSON mal formado caen en el manejador por defecto de Express 5:
+  **HTML con el stack completo** (rutas del servidor incluidas), no JSON.
+- **Formato que consumen los clientes:** idéntico en ambos: `{"error": "mensaje"}`. El panel web (`api.js`) lee
+  `.error` y, si no hay JSON, usa un texto por código; la app Android (`ApiErrors.kt`, `ErrorResponse(error)`)
+  hace lo mismo con `ignoreUnknownKeys`. El catálogo público usa el mismo `api.js` y, para la sesión, solo el
+  código (401/410).
+- **Validación:** no hay librería (ni express-validator, joi, zod ni yup); todo es validación manual en los
+  servicios. Los únicos errores de terceros que hay que mapear son los de `express.json()` (body-parser:
+  `type = "entity.parse.failed"` 400, `"entity.too.large"` 413) y los de `pg`.
+
+### Decisión de diseño
+Sí conviene una jerarquía propia: los códigos ya están bien decididos en la capa de negocio, pero se expresan
+con un patrón manual repetido (~55 sitios y 9 helpers locales), y el valor por defecto de cada `catch` hace que
+una falla real salga como 400/401 con el mensaje de pg. Con clases tipadas el servicio dice *qué* pasó
+(`ErrorNoEncontrado`, `ErrorConflicto`…) y un único middleware decide la respuesta.
+- Nombres en español (convención del repo) en `src/utils/errores.js`: base `ErrorApp(mensaje, status, codigo)` y
+  una subclase por código en uso (400, 401, 403, 404, 409, 410, 429, 500 intencional, 501).
+- **La forma de la respuesta no cambia:** siempre `{"error": "mensaje"}`; el `codigo` interno va solo al log.
+- **Único cambio de comportamiento, deliberado:** un error que *no* es `ErrorApp` (pg, bug) pasa a ser **500**
+  con mensaje genérico en español, en vez de 400/401 con el texto crudo o HTML con stack. Los errores de
+  body-parser conservan su código (400/413) con mensaje en español. Todos los códigos y mensajes de negocio
+  listados arriba se conservan exactamente.
+- Controladores sin `try/catch`: Express 5 pasa a `next(err)` el rechazo de un handler `async`, así que el
+  handler solo hace `await` y el error llega al middleware central.
+
 ## Pendientes futuros (no urgentes)
 - La app Android ya refleja todo lo de este backend: campos nuevos de productos y proveedores,
   impuestos deshabilitados para el cajero y `cliente.correo` al cobrar (app `82941d4`, `c887b11`,
