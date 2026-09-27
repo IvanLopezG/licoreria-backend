@@ -15,9 +15,10 @@ const Api = (() => {
   const SIN_CONEXION = "No se pudo conectar con el servidor. Revisa tu conexión e inténtalo de nuevo.";
 
   // opciones: { method, body (objeto, se envía como JSON), auth (por defecto
-  // true: agrega el token del panel), respuesta: "json" | "blob" | "texto" }.
-  async function pedir(ruta, { method = "GET", body, auth = true, respuesta = "json" } = {}) {
-    const headers = {};
+  // true: agrega el token del panel), respuesta: "json" | "blob" | "texto",
+  // headers (encabezados extra, p. ej. X-Sesion-Token del catálogo) }.
+  async function pedir(ruta, { method = "GET", body, auth = true, respuesta = "json", headers: extra = {} } = {}) {
+    const headers = { ...extra };
     if (body !== undefined) headers["Content-Type"] = "application/json";
     const token = auth ? localStorage.getItem("token") : null;
     if (token) headers.Authorization = `Bearer ${token}`;

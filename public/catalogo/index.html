@@ -10,13 +10,30 @@
   body { font-family: Calibri, Arial, sans-serif; max-width: 480px; margin: 0 auto; padding: 16px 16px 120px; color: #1F3864; }
   h1 { font-size: 18px; margin-bottom: 0; }
   #mesaInfo { font-size: 13px; color: #666; margin-top: 4px; }
-  .historial { margin-top: 16px; border: 1px solid #ccc; border-radius: 6px; padding: 10px 12px; background: #fafafa; }
-  .historial-titulo { font-weight: bold; font-size: 14px; margin-bottom: 6px; }
-  .historial-pedido { font-size: 13px; margin-bottom: 8px; }
-  .historial-pedido:last-child { margin-bottom: 0; }
-  .historial-pedido .hora { color: #666; font-size: 11px; margin-bottom: 2px; }
-  .historial-pedido div { display: flex; justify-content: space-between; }
-  #historialTotal { font-weight: bold; font-size: 13px; margin-top: 8px; border-top: 1px dashed #ccc; padding-top: 6px; }
+  .caja { margin-top: 16px; border: 1px solid #ccc; border-radius: 6px; padding: 10px 12px; background: #fafafa; }
+  .caja-titulo { font-weight: bold; font-size: 14px; margin-bottom: 6px; }
+  .aviso { margin-top: 16px; padding: 10px 12px; border-radius: 6px; font-size: 14px; border-left: 4px solid; }
+  .aviso.info { background: #FFF6DB; color: #7A5A00; border-color: #C99A00; }
+  .aviso.error { background: #FBE4E4; color: #8B0000; border-color: #8B0000; }
+  .pedido { font-size: 13px; margin-bottom: 10px; }
+  .pedido:last-child { margin-bottom: 0; }
+  .pedido .cabecera { display: flex; justify-content: space-between; color: #666; font-size: 12px; margin-bottom: 2px; }
+  .fila { display: flex; justify-content: space-between; gap: 8px; }
+  .etiqueta { font-size: 11px; font-weight: bold; padding: 1px 6px; border-radius: 10px; }
+  .etiqueta.pendiente { background: #FFF1CC; color: #7A5A00; }
+  .etiqueta.entregado { background: #E3F5E9; color: #1E7A42; }
+  .total { font-weight: bold; font-size: 13px; margin-top: 8px; border-top: 1px dashed #ccc; padding-top: 6px; }
+  .factura { font-size: 13px; }
+  .factura .centro { text-align: center; }
+  .factura .negocio { font-weight: bold; font-size: 15px; }
+  .factura .tenue { color: #666; font-size: 12px; }
+  .factura hr { border: 0; border-top: 1px dashed #bbb; margin: 8px 0; }
+  .factura .grande { font-weight: bold; font-size: 16px; }
+  .acciones { display: flex; gap: 8px; margin-top: 12px; }
+  .acciones button { flex: 1; padding: 12px; border: none; cursor: pointer; font-size: 15px; border-radius: 4px; }
+  .primario { background: #1F3864; color: white; }
+  .secundario { background: white; color: #1F3864; border: 1px solid #1F3864 !important; }
+  .acciones button:disabled { opacity: .6; cursor: wait; }
   .categoria { margin-top: 20px; font-size: 15px; font-weight: bold; border-bottom: 1px solid #ccc; padding-bottom: 4px; }
   .producto { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #eee; gap: 8px; }
   .producto .info { flex: 1; }
@@ -39,14 +56,13 @@
   <h1>Menú</h1>
   <p id="mesaInfo">Cargando...</p>
 
-  <div id="historial" class="oculto">
-    <div class="historial-titulo">Tu pedido hasta ahora</div>
-    <div id="historialLista"></div>
-    <p id="historialTotal"></p>
-  </div>
+  <!-- Cuenta de esta mesa: solo en el celular que ya pidió (token de sesión). -->
+  <div id="cuenta" class="oculto" aria-live="polite"></div>
 
-  <div id="listado"></div>
-  <p id="estado"></p>
+  <div id="catalogo">
+    <div id="listado"></div>
+    <p id="estado"></p>
+  </div>
 
   <div id="carrito" class="oculto">
     <div id="carritoLista"></div>
@@ -56,12 +72,35 @@
 
 <script>
   const carrito = {}; // id_producto -> { producto, cantidad }
+  const token = new URLSearchParams(window.location.search).get("token");
 
-  function obtenerToken() {
-    return new URLSearchParams(window.location.search).get("token");
+  // ---------- Token de sesión de este celular (por mesa) ----------
+  // Lo entrega el servidor en el primer pedido. Solo va en el encabezado
+  // X-Sesion-Token, nunca en la URL. Se borra con 410, "Listo" o al vencer.
+  const CLAVE_SESION = `licoreria.sesion.${token}`;
+  function leerSesion() {
+    try { return localStorage.getItem(CLAVE_SESION); } catch { return null; }
   }
-  const token = obtenerToken();
+  function guardarSesion(valor) {
+    try { localStorage.setItem(CLAVE_SESION, valor); } catch { /* sin almacenamiento: dura esta pestaña */ }
+    sesionEnMemoria = valor;
+  }
+  function borrarSesion() {
+    try { localStorage.removeItem(CLAVE_SESION); } catch { /* nada que borrar */ }
+    sesionEnMemoria = null;
+  }
+  let sesionEnMemoria = leerSesion();
 
+  const pesos = (n) => `$${Number(n).toLocaleString("es-CO")}`;
+  const horaLocal = (utc) => new Intl.DateTimeFormat("es-CO", { timeZone: "America/Bogota", hour: "numeric", minute: "2-digit" })
+    .format(new Date(utc.replace(" ", "T") + "Z"));
+  const fechaLocal = (utc) => new Intl.DateTimeFormat("es-CO", { timeZone: "America/Bogota", dateStyle: "short", timeStyle: "short" })
+    .format(new Date(utc.replace(" ", "T") + "Z"));
+  function escapar(texto) {
+    return String(texto ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  }
+
+  // ---------- Carrito y pedido ----------
   function agregarAlCarrito(producto, cantidadInput) {
     const cantidad = Number(cantidadInput.value);
     if (!Number.isInteger(cantidad) || cantidad < 1) {
@@ -76,7 +115,7 @@
   function renderCarrito() {
     const items = Object.values(carrito);
     const box = document.getElementById("carrito");
-    if (items.length === 0) {
+    if (items.length === 0 || cuentaCerrada) {
       box.classList.add("oculto");
       return;
     }
@@ -89,80 +128,264 @@
       const subtotal = producto.precio * cantidad;
       total += subtotal;
       const fila = document.createElement("div");
-      fila.innerHTML = `<span>${cantidad} x ${producto.nombre}</span><span>$${subtotal.toLocaleString("es-CO")}</span>`;
+      fila.innerHTML = `<span>${cantidad} x ${escapar(producto.nombre)}</span><span>${pesos(subtotal)}</span>`;
       lista.appendChild(fila);
     }
-    document.getElementById("totalCarrito").textContent = `Total: $${total.toLocaleString("es-CO")}`;
+    document.getElementById("totalCarrito").textContent = `Total: ${pesos(total)}`;
+  }
+
+  function vaciarCarrito() {
+    Object.keys(carrito).forEach((k) => delete carrito[k]);
+    renderCarrito();
   }
 
   async function confirmarPedido() {
-    const items = Object.values(carrito).map(({ producto, cantidad }) => ({
-      id_producto: producto.id_producto,
-      cantidad,
-    }));
+    const items = Object.values(carrito).map(({ producto, cantidad }) => ({ id_producto: producto.id_producto, cantidad }));
     if (items.length === 0) return;
 
     const btn = document.getElementById("confirmarBtn");
     btn.disabled = true;
 
     // Público: sin el token del panel aunque el navegador tenga una sesión abierta.
+    let pedido;
     try {
-      await Api.pedir(`/api/catalogo/${token}/pedidos`, { method: "POST", body: { items }, auth: false });
+      pedido = await Api.pedir(`/api/catalogo/${token}/pedidos`, {
+        method: "POST",
+        body: { items },
+        auth: false,
+        headers: sesionEnMemoria ? { "X-Sesion-Token": sesionEnMemoria } : {},
+      });
     } catch (err) {
       Api.error(err);
       btn.disabled = false;
       return;
     }
 
-    document.getElementById("carrito").classList.add("oculto");
+    // Primer pedido de este celular en esta ocupación de la mesa (o la
+    // anterior ya terminó): el servidor entrega un token nuevo.
+    if (pedido.token_sesion) {
+      guardarSesion(pedido.token_sesion);
+      etag = null;
+    }
+
     document.getElementById("estado").textContent = "¡Pedido enviado! Ya lo están preparando. Puedes seguir agregando productos para una nueva ronda.";
-    Object.keys(carrito).forEach((k) => delete carrito[k]);
+    vaciarCarrito();
     // El botón queda deshabilitado desde antes del fetch; si no se reactiva
     // aquí, la próxima vez que el carrito vuelva a tener productos el botón
-    // reaparece pero sigue bloqueado, y el cliente no puede confirmar una
-    // segunda ronda sin recargar la página.
+    // reaparece pero sigue bloqueado.
     btn.disabled = false;
 
-    cargarHistorial();
+    consultarAhora();
   }
 
-  async function cargarHistorial() {
-    if (!token) return;
+  // ---------- Estado de la cuenta (polling) ----------
+  // Cada 5 s con la pestaña visible; tras 6 consultas seguidas sin cambios
+  // (304), cada 15 s; vuelve a 5 s al detectar un cambio. Pausa con la
+  // pestaña oculta y consulta de inmediato al volver. Se detiene al terminar
+  // (410, "Listo" o vencida). La revisión viaja como ETag / If-None-Match.
+  const RAPIDO = 5000;
+  const LENTO = 15000;
+  let etag = null;
+  let intervalo = RAPIDO;
+  let sinCambios = 0;
+  let temporizador = null;
+  let consultando = false;
+  let cuentaCerrada = false;
+  let venceEnMs = null;
 
-    // El historial es informativo: si falla, simplemente no se muestra.
-    let pedidos;
+  function programar() {
+    clearTimeout(temporizador);
+    temporizador = null;
+    if (!sesionEnMemoria || document.hidden) return;
+    temporizador = setTimeout(consultar, intervalo);
+  }
+
+  function consultarAhora() {
+    clearTimeout(temporizador);
+    consultar();
+  }
+
+  async function consultar() {
+    if (!sesionEnMemoria || consultando) return;
+    if (venceEnMs !== null && Date.now() > venceEnMs) return terminar("Tu cuenta ya se cerró. ¡Gracias por tu visita!");
+    consultando = true;
+    const headers = { "X-Sesion-Token": sesionEnMemoria };
+    if (etag) headers["If-None-Match"] = etag;
+    let res;
     try {
-      pedidos = await Api.pedir(`/api/catalogo/${token}/pedidos`, { auth: false });
+      res = await fetch("/api/catalogo/sesion/estado", { headers, cache: "no-store" });
     } catch {
-      return;
+      consultando = false;
+      return programar(); // sin conexión: se reintenta en el siguiente ciclo
     }
+    consultando = false;
 
-    const caja = document.getElementById("historial");
-    const lista = document.getElementById("historialLista");
-    lista.innerHTML = "";
-
-    if (pedidos.length === 0) {
-      caja.classList.add("oculto");
-      return;
+    if (res.status === 304) {
+      sinCambios += 1;
+      if (sinCambios >= 6) intervalo = LENTO;
+      return programar();
     }
-    caja.classList.remove("oculto");
+    if (res.status === 410) return terminar("Tu cuenta ya se cerró. ¡Gracias por tu visita!");
+    if (res.status === 401) return terminar(null); // token desconocido: se descarta en silencio
+    if (!res.ok) return programar();
 
-    let total = 0;
-    for (const pedido of pedidos) {
-      const div = document.createElement("div");
-      div.className = "historial-pedido";
-      const lineas = pedido.items
-        .map((it) => {
-          total += it.cantidad * it.precio_unitario;
-          return `<div><span>${it.cantidad} x ${it.producto_nombre}</span><span>$${(it.cantidad * it.precio_unitario).toLocaleString("es-CO")}</span></div>`;
-        })
-        .join("");
-      div.innerHTML = `<div class="hora">${pedido.fecha_hora}</div>${lineas}`;
-      lista.appendChild(div);
-    }
-    document.getElementById("historialTotal").textContent = `Total acumulado: $${total.toLocaleString("es-CO")}`;
+    let datos;
+    try { datos = await res.json(); } catch { return programar(); }
+    etag = res.headers.get("ETag");
+    sinCambios = 0;
+    intervalo = RAPIDO;
+    renderCuenta(datos);
+    programar();
   }
 
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) {
+      clearTimeout(temporizador);
+      temporizador = null;
+    } else if (sesionEnMemoria) {
+      consultarAhora();
+    }
+  });
+
+  // Estado terminal: se borra todo lo local y queda el catálogo limpio.
+  function terminar(mensaje) {
+    clearTimeout(temporizador);
+    temporizador = null;
+    borrarSesion();
+    etag = null;
+    venceEnMs = null;
+    intervalo = RAPIDO;
+    sinCambios = 0;
+    cuentaCerrada = false;
+    const cuenta = document.getElementById("cuenta");
+    cuenta.innerHTML = "";
+    cuenta.classList.add("oculto");
+    document.getElementById("catalogo").classList.remove("oculto");
+    vaciarCarrito();
+    document.getElementById("estado").textContent = mensaje || "";
+  }
+
+  function renderPedidos(datos) {
+    const filas = datos.pedidos.map((p) => {
+      const lineas = p.items.map((it) =>
+        `<div class="fila"><span>${it.cantidad} x ${escapar(it.producto)}</span><span>${pesos(it.cantidad * it.precio_unitario)}</span></div>`
+      ).join("");
+      const etiqueta = p.estado === "entregado"
+        ? `<span class="etiqueta entregado">Entregado ✓</span>`
+        : `<span class="etiqueta pendiente">En preparación</span>`;
+      return `<div class="pedido"><div class="cabecera"><span>Pedido ${p.numero} · ${horaLocal(p.fecha_hora)}</span>${etiqueta}</div>${lineas}</div>`;
+    }).join("");
+    return `<div class="caja"><div class="caja-titulo">Tu cuenta hasta ahora</div>${filas || "<div>Sin pedidos.</div>"}
+      <div class="total fila"><span>Total acumulado</span><span>${pesos(datos.total_pedidos)}</span></div></div>`;
+  }
+
+  const FORMAS_PAGO = { efectivo: "Efectivo", tarjeta_debito: "Tarjeta débito", tarjeta_credito: "Tarjeta crédito", transferencia: "Transferencia" };
+  const porcentaje = (bps) => `${(bps / 100).toLocaleString("es-CO")} %`;
+
+  function renderFactura(f, venceEn) {
+    const items = f.items.map((i) =>
+      `<div class="fila"><span>${i.cantidad} x ${escapar(i.descripcion)}</span><span>${pesos(i.total_linea)}</span></div>`
+    ).join("");
+    const impuestos = [
+      f.total_iva > 0 ? `<div class="fila"><span>IVA</span><span>${pesos(f.total_iva)}</span></div>` : "",
+      f.total_inc > 0 ? `<div class="fila"><span>Impuesto al consumo (INC)</span><span>${pesos(f.total_inc)}</span></div>` : "",
+    ].join("");
+    const cliente = f.cliente.documento
+      ? `${escapar(f.cliente.nombre)} · ${escapar(f.cliente.documento)}`
+      : escapar(f.cliente.nombre);
+    const telefono = f.emisor.telefono ? ` · Tel. ${escapar(f.emisor.telefono)}` : "";
+    return `
+      <div class="caja factura">
+        <div class="centro">
+          <div class="negocio">${escapar(f.emisor.razon_social)}</div>
+          <div class="tenue">NIT ${escapar(f.emisor.nit)} · ${escapar(f.emisor.regimen)}</div>
+          <div class="tenue">${escapar(f.emisor.direccion)}, ${escapar(f.emisor.municipio)}${telefono}</div>
+          <hr>
+          <div><strong>${escapar(f.titulo_documento)} ${escapar(f.numero)}</strong></div>
+          <div class="tenue">${fechaLocal(f.fecha_expedicion)}</div>
+        </div>
+        <hr>
+        <div class="tenue">Cliente: ${cliente}</div>
+        <hr>
+        ${items}
+        <hr>
+        <div class="fila"><span>Subtotal</span><span>${pesos(f.subtotal)}</span></div>
+        ${impuestos}
+        <div class="fila grande"><span>Total</span><span>${pesos(f.total)}</span></div>
+        <div class="tenue">Forma de pago: ${escapar(FORMAS_PAGO[f.forma_pago] || f.forma_pago)}</div>
+        <hr>
+        <div class="tenue centro">${escapar(f.leyenda_pie)}</div>
+      </div>
+      <p class="tenue" style="font-size:12px;color:#666">Disponible en este celular hasta las ${horaLocal(venceEn)}</p>
+      <div class="acciones">
+        <button class="secundario" id="pdfBtn" onclick="descargarPdf(this)">Descargar PDF</button>
+        <button class="primario" onclick="listo(this)">Listo</button>
+      </div>`;
+  }
+
+  function renderCuenta(datos) {
+    const cuenta = document.getElementById("cuenta");
+    cuenta.classList.remove("oculto");
+    venceEnMs = datos.vence_en ? Date.parse(datos.vence_en.replace(" ", "T") + "Z") : null;
+    cuentaCerrada = datos.estado === "cerrada";
+
+    let html = "";
+    if (datos.estado === "activa") {
+      if (datos.reabierta) {
+        html += `<div class="aviso info">La cuenta fue reabierta. Cuando la cierren de nuevo verás aquí la factura corregida.</div>`;
+      }
+      html += renderPedidos(datos);
+    } else if (datos.factura) {
+      html += `<div class="aviso info">Tu cuenta se cerró. Esta es tu factura.</div>` + renderFactura(datos.factura, datos.vence_en);
+    } else {
+      html += `<div class="aviso error">La factura de esta cuenta fue anulada. Si tienes dudas, consulta en caja.</div>
+        <div class="acciones"><button class="primario" onclick="listo(this)">Listo</button></div>`;
+    }
+    cuenta.innerHTML = html;
+
+    // Con la cuenta cerrada no se sigue pidiendo sobre ella: primero "Listo".
+    document.getElementById("catalogo").classList.toggle("oculto", cuentaCerrada);
+    renderCarrito();
+  }
+
+  async function descargarPdf(boton) {
+    boton.disabled = true;
+    try {
+      const res = await fetch("/api/catalogo/sesion/factura.pdf", { headers: { "X-Sesion-Token": sesionEnMemoria }, cache: "no-store" });
+      if (res.status === 410 || res.status === 401) return terminar("Tu cuenta ya se cerró. ¡Gracias por tu visita!");
+      if (!res.ok) {
+        consultarAhora(); // p. ej. la factura se anuló: se refresca la vista
+        return Api.error("La factura no está disponible en este momento.");
+      }
+      const url = URL.createObjectURL(await res.blob());
+      const nombre = (res.headers.get("Content-Disposition") || "").match(/filename=([^;]+)/);
+      const enlace = document.createElement("a");
+      enlace.href = url;
+      enlace.download = nombre ? nombre[1] : "factura.pdf";
+      document.body.appendChild(enlace);
+      enlace.click();
+      enlace.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch {
+      Api.error("No se pudo descargar la factura. Revisa tu conexión e inténtalo de nuevo.");
+    } finally {
+      boton.disabled = false;
+    }
+  }
+
+  async function listo(boton) {
+    boton.disabled = true;
+    try {
+      await fetch("/api/catalogo/sesion/listo", { method: "POST", headers: { "X-Sesion-Token": sesionEnMemoria }, cache: "no-store" });
+    } catch {
+      boton.disabled = false;
+      return Api.error("No se pudo conectar con el servidor. Revisa tu conexión e inténtalo de nuevo.");
+    }
+    // 200, 410 o 401: en todos los casos este celular ya no tiene nada que ver.
+    terminar("¡Gracias por tu visita!");
+  }
+
+  // ---------- Catálogo ----------
   async function cargarCatalogo() {
     if (!token) {
       document.getElementById("estado").textContent = "QR inválido: falta el token de la mesa.";
@@ -198,10 +421,10 @@
         fila.className = "producto";
         fila.innerHTML = `
           <span class="info">
-            <span class="nombre">${p.nombre}</span>
-            <span class="precio">$${p.precio.toLocaleString("es-CO")} / ${p.unidad_medida}</span>
+            <span class="nombre">${escapar(p.nombre)}</span>
+            <span class="precio">${pesos(p.precio)} / ${escapar(p.unidad_medida)}</span>
           </span>
-          <input type="number" min="1" value="1">
+          <input type="number" min="1" value="1" aria-label="Cantidad">
           <button>Agregar</button>
         `;
         const input = fila.querySelector("input");
@@ -216,7 +439,7 @@
   }
 
   cargarCatalogo();
-  cargarHistorial();
+  if (sesionEnMemoria) consultarAhora();
 </script>
 </body>
 </html>
