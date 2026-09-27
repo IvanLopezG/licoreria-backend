@@ -2,7 +2,7 @@ const productoService = require("../services/productoService");
 
 async function crear(req, res) {
   try {
-    const nuevo = await productoService.crearProducto(req.body);
+    const nuevo = await productoService.crearProducto(req.body, req.usuario.rol);
 
     // El middleware de auditoría escribe el registro al ver este campo.
     req.auditoria = { accion: "crear", entidad: "productos", id_entidad: nuevo.id_producto };
@@ -15,7 +15,7 @@ async function crear(req, res) {
 
 async function editar(req, res) {
   try {
-    const actualizado = await productoService.editarProducto(Number(req.params.id), req.body);
+    const actualizado = await productoService.editarProducto(Number(req.params.id), req.body, req.usuario.rol);
 
     req.auditoria = { accion: "editar", entidad: "productos", id_entidad: actualizado.id_producto };
 

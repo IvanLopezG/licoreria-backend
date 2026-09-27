@@ -116,6 +116,7 @@
           </label>
         </div>
         <p class="ayuda">En mesa se cobra solo el impuesto al consumo; para llevar, solo el IVA. 0 = no aplica.</p>
+        <p id="ayudaImpuestos" class="ayuda oculto">Solo el administrador puede modificar los impuestos.</p>
       </section>
 
       <section class="seccion">
@@ -340,9 +341,33 @@
     }
   }
 
+  // Mismo mecanismo que el resto del panel (negocio.html, factura.js): el rol
+  // guardado al iniciar sesión.
+  function esAdmin() {
+    try {
+      return JSON.parse(localStorage.getItem("usuario") || "null")?.rol === "administrador";
+    } catch {
+      return false;
+    }
+  }
+
+  // Los impuestos solo los cambia el administrador (el backend responde 403 si
+  // otro rol los modifica). Para los demás quedan de solo lectura: se siguen
+  // enviando con su valor actual (o el de por defecto al crear), que el
+  // backend acepta.
+  function bloquearImpuestosSiNoEsAdmin() {
+    if (esAdmin()) return;
+    for (const id of ["iva_porcentaje", "inc_porcentaje", "es_bebida_alcoholica"]) {
+      el(id).disabled = true;
+      el(id).title = "Solo el administrador puede modificar los impuestos";
+    }
+    el("ayudaImpuestos").classList.remove("oculto");
+  }
+
   if (!token()) {
     document.body.innerHTML = "<p>Debes iniciar sesión primero en <a href='login.html'>login.html</a>.</p>";
   } else {
+    bloquearImpuestosSiNoEsAdmin();
     cargarCategorias().then(cargarProductos);
   }
 </script>

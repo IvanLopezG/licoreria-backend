@@ -130,7 +130,7 @@ esta tabla** (y la de `LicoreriaPanel/CLAUDE.md`).
 | Cerrar cuenta de mesa (genera factura) | Sí | Sí | No |
 | Venta de mostrador (genera factura, `POST /api/ventas`) | Sí | Sí | No |
 | Productos: listar, ver, crear, editar | Sí | Sí | No |
-| Productos: tasas IVA/INC y "bebida alcohólica" (van en el mismo `PUT /api/productos/:id`) | Sí | Sí | No |
+| Productos: tasas IVA/INC y "bebida alcohólica" | Sí | No (1) | No |
 | Categorías: listar y crear | Sí | Sí | No |
 | Proveedores: listar, ver, crear, editar, asociar y quitar producto | Sí | Sí | No |
 | Inventario: entradas y salidas | Sí | Sí | No |
@@ -148,6 +148,14 @@ esta tabla** (y la de `LicoreriaPanel/CLAUDE.md`).
 | Factura electrónica: descargar XML UBL (con CUFE) | Sí | Sí | No |
 | Factura electrónica: transmitir a la DIAN (hoy 501) | Sí | No | No |
 | Catálogo público y autopedido por QR | sin login | sin login | sin login |
+
+(1) Los impuestos van en el mismo `POST`/`PUT /api/productos` que admite al cajero, así que la regla
+está en `productoService.verificarPermisoImpuestos` (servidor, antes de guardar): el cajero puede editar
+un producto si `tasa_iva_bps`, `tasa_inc_bps` y `es_bebida_alcoholica` no vienen o son iguales a los
+guardados, y **solo puede crear productos con los impuestos por defecto** (IVA 19 %, INC 0 %, no
+alcohólica); cualquier otro valor → 403 "Solo el administrador puede modificar los impuestos de un
+producto." sin guardar nada. En el panel esos campos quedan deshabilitados para el cajero. Pruebas:
+`test/impuestosProducto.test.js` (2026-09-26).
 
 La resolución de numeración (prefijo, rango, resolución, vigencia, clave técnica) **no tiene endpoint**:
 solo se cambia por SQL en Supabase.

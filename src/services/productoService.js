@@ -42,11 +42,31 @@ function validarImpuestos(body, actuales) {
   }
   const alcoholica = body.es_bebida_alcoholica;
   resultado.es_bebida_alcoholica =
-    alcoholica === undefined ? actuales.es_bebida_alcoholica : alcoholica === true || alcoholica === 1 || alcoholica === "true" ? 1 : 0;
+    alcoholica === undefined ? actuales.es_bebida_alcoholica : valorImpuesto("es_bebida_alcoholica", alcoholica);
   return resultado;
 }
 
 const IMPUESTOS_POR_DEFECTO = { tasa_iva_bps: 1900, tasa_inc_bps: 0, es_bebida_alcoholica: 0 };
+const CAMPOS_IMPUESTOS = Object.keys(IMPUESTOS_POR_DEFECTO);
+
+// Valor normalizado de un campo de impuestos, igual que lo guarda validarImpuestos.
+function valorImpuesto(campo, valor) {
+  if (campo === "es_bebida_alcoholica") return valor === true || valor === 1 || valor === "true" ? 1 : 0;
+  return Number(valor);
+}
+
+// Los impuestos del producto (tasas y bebida alcohólica) cambian el cálculo de
+// las facturas: solo el administrador puede modificarlos. Los demás roles
+// pueden enviarlos (el formulario manda todos los campos) siempre que sean
+// iguales a la referencia: los valores guardados al editar, o los valores por
+// defecto al crear. Se verifica antes de guardar nada.
+function verificarPermisoImpuestos(rol, body, referencia) {
+  if (rol === "administrador") return;
+  const cambia = CAMPOS_IMPUESTOS.some(
+    (campo) => body[campo] !== undefined && valorImpuesto(campo, body[campo]) !== referencia[campo]
+  );
+  if (cambia) throw errorValidacion("Solo el administrador puede modificar los impuestos de un producto.", 403);
+}
 
 const EXTRAS_POR_DEFECTO = {
   costo: null, codigo_barras: null, marca: null, volumen_ml: null, grado_alcohol: null, descripcion: null, activo: 1,
@@ -111,8 +131,10 @@ async function validarExtras(body, actuales, { id_producto = null, es_bebida_alc
   return extras;
 }
 
-async function crearProducto(body) {
+// rol: el del usuario autenticado (req.usuario.rol); decide si puede fijar impuestos.
+async function crearProducto(body, rol) {
   const { nombre, id_categoria, unidad_medida, precio, stock_actual, umbral_alerta } = body;
+  verificarPermisoImpuestos(rol, body, IMPUESTOS_POR_DEFECTO);
   await validarCamposBase({ nombre, id_categoria, unidad_medida, precio });
   const impuestos = validarImpuestos(body, IMPUESTOS_POR_DEFECTO);
   const extras = await validarExtras(body, EXTRAS_POR_DEFECTO, { es_bebida_alcoholica: impuestos.es_bebida_alcoholica });
@@ -141,7 +163,7 @@ async function crearProducto(body) {
 
 // El stock solo cambia vía entradas/salidas (US-06/US-07), nunca por edición
 // directa, para no perder la trazabilidad en movimientos_inventario.
-async function editarProducto(id_producto, body) {
+async function editarProducto(id_producto, body, rol) {
   const { nombre, id_categoria, unidad_medida, precio, umbral_alerta } = body;
   const existente = await productoModel.buscarPorId(id_producto);
   if (!existente) {
@@ -149,6 +171,7 @@ async function editarProducto(id_producto, body) {
     err.status = 404;
     throw err;
   }
+  verificarPermisoImpuestos(rol, body, existente);
 
   await validarCamposBase({ nombre, id_categoria, unidad_medida, precio });
   const impuestos = validarImpuestos(body, existente);
