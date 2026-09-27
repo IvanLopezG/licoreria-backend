@@ -1,5 +1,6 @@
 const db = require("../db/db");
 const resolucionModel = require("../models/resolucionModel");
+const { hoyColombia } = require("../utils/fechaColombia");
 
 // Resolución de numeración de facturas (solo administrador).
 //
@@ -38,8 +39,8 @@ function entero(valor) {
 }
 
 // Fecha de hoy con el mismo criterio que usa la emisión de facturas
-// (facturaModel.tomarSiguienteNumero): la fecha UTC.
-const hoy = () => new Date().toISOString().slice(0, 10);
+// (facturaModel.tomarSiguienteNumero): la fecha de Colombia.
+const hoy = () => hoyColombia();
 const diasEntre = (desde, hasta) => Math.round((Date.parse(hasta) - Date.parse(desde)) / 86400000);
 
 // Valida el cuerpo. "base" da los valores de los campos que no llegan (edición

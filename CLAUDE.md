@@ -126,11 +126,14 @@ activa. `src/services/resolucionService.js`, endpoints en `emisor.routes.js`:
 - Panel (`negocio.html`, página solo para el administrador): resumen, avisos amarillo/rojo, formulario con
   confirmación "Esta acción queda registrada en la bitácora", clave técnica como contraseña ("Configurada")
   e historial de resoluciones. Pruebas: `test/resolucion.test.js`.
-- **Al facturar con la resolución vencida o agotada (comportamiento previo, sin cambios):** se bloquea.
-  `facturaModel.tomarSiguienteNumero` lanza error, la transacción revierte venta, stock y factura, y la API
-  responde **500** con "La resolución de numeración de facturas está vencida." o "Se agotó el rango de
-  numeración de facturas.". La vigencia se compara con la fecha **UTC**: el último día de vigencia deja de
-  facturar desde las 7:00 p. m. hora de Colombia.
+- **Al facturar con la resolución vencida o agotada:** se bloquea. `facturaModel.tomarSiguienteNumero`
+  lanza error, la transacción revierte venta, stock y factura (en cierre de mesa, la mesa sigue ocupada), y
+  la API responde **409** con "La resolución de numeración de facturas está vencida." o "Se agotó el rango
+  de numeración de facturas.".
+- **Vigencia en hora de Colombia:** toda comparación con `vigencia_hasta` (al facturar, al registrar una
+  resolución, `dias_para_vencer` y avisos del panel) usa `utils/fechaColombia.js` (`hoyColombia()`, UTC-5
+  fijo, sin librerías): el último día de vigencia factura hasta las 11:59 p. m. hora de Colombia.
+  Pruebas: `test/vigenciaResolucion.test.js`.
 
 ## Pendientes futuros (no urgentes)
 - La app Android ya refleja todo lo de este backend: campos nuevos de productos y proveedores,

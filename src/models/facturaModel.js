@@ -3,6 +3,7 @@ const emisorModel = require("./emisorModel");
 const facturaElectronicaModel = require("./facturaElectronicaModel");
 const movimientoInventarioModel = require("./movimientoInventarioModel");
 const { calcularLinea, totalizar } = require("../utils/impuestos");
+const { hoyColombia } = require("../utils/fechaColombia");
 
 // Las líneas de la venta, consolidadas por producto y precio: al cerrar una
 // mesa, el mismo producto pudo pedirse en varios pedidos y en la factura
@@ -51,11 +52,14 @@ async function tomarSiguienteNumero(cx) {
   if (!secuencia) throw errorFacturacion("No hay una secuencia de facturación activa.");
 
   const siguiente = Math.max(secuencia.numero_actual + 1, secuencia.rango_desde);
+  // Rango agotado o resolución vencida: 409 (conflicto con el estado de la
+  // resolución, no falla del servidor). La transacción revierte venta y stock.
   if (secuencia.rango_hasta !== null && siguiente > secuencia.rango_hasta) {
-    throw errorFacturacion("Se agotó el rango de numeración de facturas.");
+    throw errorFacturacion("Se agotó el rango de numeración de facturas.", 409);
   }
-  if (secuencia.vigencia_hasta && new Date().toISOString().slice(0, 10) > secuencia.vigencia_hasta) {
-    throw errorFacturacion("La resolución de numeración de facturas está vencida.");
+  // El último día de vigencia se puede facturar hasta las 11:59 p. m. de Colombia.
+  if (secuencia.vigencia_hasta && hoyColombia() > secuencia.vigencia_hasta) {
+    throw errorFacturacion("La resolución de numeración de facturas está vencida.", 409);
   }
 
   const cambio = await cx.ejecutar(
