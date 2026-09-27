@@ -26,6 +26,13 @@ app.set("trust proxy", 1);
 
 app.use(cors());
 app.use(express.json());
+// Sin cuerpo JSON, Express 5 deja req.body en undefined: se normaliza a {} para
+// que la validación de cada servicio responda su 400 en español en vez de un
+// TypeError (que el manejador central convertiría en 500).
+app.use((req, res, next) => {
+  if (req.body === undefined) req.body = {};
+  next();
+});
 app.use(auditoria); // se activa solo cuando un controlador fija req.auditoria
 
 app.use("/api/auth", authRoutes);
