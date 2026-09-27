@@ -1,4 +1,4 @@
-require("dotenv").config();
+require("dotenv").config({ quiet: true }); // quiet: sin aviso en stdout (los logs son JSON)
 const bcrypt = require("bcryptjs");
 const db = require("./db/db");
 const usuarioModel = require("./models/usuarioModel");

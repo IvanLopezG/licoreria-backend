@@ -1,9 +1,10 @@
-require("dotenv").config();
+require("dotenv").config({ quiet: true }); // quiet: sin aviso en stdout (los logs son JSON)
 const path = require("path");
 const express = require("express");
 const cors = require("cors");
 
 const auditoria = require("./middlewares/auditoria");
+const registroPeticiones = require("./middlewares/registroPeticiones");
 const { manejoErrores, rutaNoEncontrada } = require("./middlewares/manejoErrores");
 const authRoutes = require("./routes/auth.routes");
 const usuariosRoutes = require("./routes/usuarios.routes");
@@ -23,6 +24,8 @@ const app = express();
 // Render atiende detrás de un proxy: req.ip es la IP real del cliente (la usa
 // el limitador de intentos del catálogo público).
 app.set("trust proxy", 1);
+// Log de cada petición (Pino): método, ruta, código y tiempo. Ver utils/logger.js.
+app.use(registroPeticiones);
 
 app.use(cors());
 app.use(express.json());

@@ -1,8 +1,8 @@
 const app = require("./app");
+const { logger } = require("./utils/logger");
 
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
-  console.log(`Servidor escuchando en http://localhost:${PORT}`);
-  console.log(`Panel de prueba: http://localhost:${PORT}/panel/login.html`);
+  logger.info({ puerto: Number(PORT), panel: `http://localhost:${PORT}/panel/login.html` }, "servidor escuchando");
 });

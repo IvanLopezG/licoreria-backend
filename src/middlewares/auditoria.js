@@ -1,4 +1,5 @@
 const logAuditoriaModel = require("../models/logAuditoriaModel");
+const registro = require("../utils/logger");
 
 // El controlador solo necesita fijar req.auditoria = { accion, entidad, id_entidad, detalle? }
 // (detalle: texto opcional, p. ej. qué campos cambiaron; nunca valores secretos)
@@ -20,7 +21,9 @@ function auditoria(req, res, next) {
           id_entidad: req.auditoria.id_entidad,
           detalle: req.auditoria.detalle ?? null,
         })
-        .catch((err) => console.error("No se pudo registrar la auditoría:", err.message))
+        .catch((err) =>
+          registro.logger.error({ mensaje: registro.limpiarTexto(err.message), entidad: req.auditoria.entidad }, "no se pudo registrar la auditoría")
+        )
         .finally(() => originalJson(body));
       return res;
     }

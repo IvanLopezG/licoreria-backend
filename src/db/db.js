@@ -1,7 +1,8 @@
-require("dotenv").config();
+require("dotenv").config({ quiet: true }); // quiet: sin aviso en stdout (los logs son JSON)
 const path = require("path");
 const fs = require("fs");
 const { Pool, types } = require("pg");
+const registro = require("../utils/logger");
 
 const SCHEMA_PATH = path.join(__dirname, "schema.sql");
 
@@ -31,7 +32,7 @@ const pool = new Pool({
 // Postgres y de Supabase (ISO) sale como "2026-09-24 03:53:39".
 
 pool.on("error", (err) => {
-  console.error("Error en una conexión inactiva de Postgres:", err.message);
+  registro.logger.error({ mensaje: registro.limpiarTexto(err.message), codigo: err.code }, "error en una conexión inactiva de Postgres");
 });
 
 // SQLite guardaba NaN como NULL (p. ej. GET /api/mesas/abc → "no encontrada");
