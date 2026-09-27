@@ -123,6 +123,9 @@ esquema (`schema.sql`) definido desde Sprint 1.
 | POST | `/api/facturas/:id/anular` | administrador | Anula la factura y revierte su venta. Body: `{ motivo, reabrir_pedidos? }`. Ver *Anulación*. Una factura electrónica no se anula (409). |
 | GET | `/api/emisor` | administrador, cajero | Datos del negocio que salen en la factura. |
 | PUT | `/api/emisor` | administrador | Edita esos datos (parcial: los campos que no se envían se conservan). El `dv` lo calcula el servidor a partir del `nit` (algoritmo DIAN, módulo 11); un `dv` distinto responde 400. `titulo_documento`: "Comprobante de venta" o "FACTURA DE VENTA" (esta última solo con resolución DIAN). |
+| GET | `/api/emisor/resolucion` | administrador | Resolución de numeración activa e históricas: rango, consecutivo, números que quedan, vigencia y avisos. Nunca devuelve la clave técnica (solo `clave_tecnica_configurada`). |
+| PUT | `/api/emisor/resolucion` | administrador | Edita la resolución activa solo si aún no emitió facturas (si no, 409). Clave técnica vacía = se conserva. |
+| POST | `/api/emisor/resolucion` | administrador | Registra una resolución nueva (queda activa; la anterior pasa a histórica). El rango debe empezar después del último número emitido con ese prefijo. |
 
 ## Facturación (comprobante interno de venta)
 

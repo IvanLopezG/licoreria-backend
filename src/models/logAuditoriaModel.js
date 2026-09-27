@@ -1,10 +1,10 @@
 const db = require("../db/db");
 
-function registrar({ id_usuario, accion, entidad, id_entidad }) {
+function registrar({ id_usuario, accion, entidad, id_entidad, detalle = null }) {
   return db.ejecutar(
-    `INSERT INTO log_auditoria (id_usuario, accion, entidad, id_entidad)
-     VALUES ($1, $2, $3, $4)`,
-    [id_usuario, accion, entidad, id_entidad]
+    `INSERT INTO log_auditoria (id_usuario, accion, entidad, id_entidad, detalle)
+     VALUES ($1, $2, $3, $4, $5)`,
+    [id_usuario, accion, entidad, id_entidad, detalle]
   );
 }
 

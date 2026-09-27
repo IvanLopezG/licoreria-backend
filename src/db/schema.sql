@@ -307,3 +307,18 @@ ALTER TABLE proveedores ADD COLUMN IF NOT EXISTS dias_credito integer CHECK (dia
 ALTER TABLE proveedores ADD COLUMN IF NOT EXISTS notas text;
 ALTER TABLE proveedores ADD COLUMN IF NOT EXISTS activo integer NOT NULL DEFAULT 1
   CHECK (activo IN (0,1));
+
+-- ---------------------------------------------------------------------------
+-- Resolución de numeración editable desde el panel (solo administrador)
+-- ---------------------------------------------------------------------------
+-- Cada fila de secuencias_factura es una resolución; solo una activa. Las
+-- facturas NO copian número/fecha/rango de la resolución (el PDF los lee con
+-- JOIN), por eso una resolución que ya emitió facturas no se edita: se
+-- registra una nueva y la anterior queda como histórica, intacta.
+ALTER TABLE secuencias_factura ADD COLUMN IF NOT EXISTS vigencia_desde text;
+ALTER TABLE secuencias_factura ADD COLUMN IF NOT EXISTS fecha_registro timestamp(0)
+  DEFAULT date_trunc('second', now() AT TIME ZONE 'utc');
+
+-- Qué campos cambió una acción (p. ej. la resolución). Nunca guarda valores
+-- secretos como la clave técnica: solo el nombre del campo.
+ALTER TABLE log_auditoria ADD COLUMN IF NOT EXISTS detalle text;

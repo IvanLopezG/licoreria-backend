@@ -18,6 +18,14 @@
   .subtitulo-form { font-size: 16px; margin: 24px 0 0; padding-top: 12px; border-top: 1px solid #ddd; }
   .fila-form label.check { display: flex; align-items: center; gap: 8px; }
   .fila-form label.check input { width: auto; margin: 0; }
+  #seccionResolucion { max-width: 720px; margin-top: 32px; }
+  #seccionResolucion h3.subtitulo-form { font-size: 14px; }
+  .aviso-res { border-radius: 6px; padding: 10px 12px; margin: 12px 0 0; font-size: 13px; border-left: 4px solid; }
+  .aviso-res.amarilla { background: #FDF0CE; color: #7A5600; border-color: #C99A00; }
+  .aviso-res.roja { background: #FBE4E4; color: var(--rojo); border-color: var(--rojo); font-weight: bold; }
+  .resumen-resolucion { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px 16px; margin-top: 12px; }
+  .resumen-resolucion .dato { font-size: 13px; }
+  .resumen-resolucion .dato span { display: block; font-size: 11px; color: var(--gris-texto); text-transform: uppercase; letter-spacing: .03em; }
 </style>
 </head>
 <body>
@@ -170,6 +178,69 @@
         <p id="okNegocio" class="guardado oculto">Datos guardados.</p>
         <button type="submit" class="btn btn-primario" id="btnGuardar">Guardar</button>
       </form>
+
+      <!-- Resolución de numeración (solo administrador; los datos los entrega la DIAN). -->
+      <section id="seccionResolucion" class="seccion">
+        <h2>Resolución de numeración</h2>
+        <p class="ayuda">
+          Prefijo, rango y vigencia autorizados por la DIAN. Cada factura toma el siguiente número de la
+          resolución activa. Una resolución que ya emitió facturas no se modifica: se registra una nueva y
+          la anterior queda como histórica.
+        </p>
+        <div id="avisosResolucion"></div>
+        <div id="resumenResolucion" class="resumen-resolucion"></div>
+
+        <h3 class="subtitulo-form" id="tituloFormResolucion">Registrar resolución nueva</h3>
+        <p id="notaFormResolucion" class="ayuda"></p>
+        <form id="formResolucion" onsubmit="return false;" novalidate>
+          <div class="fila-form">
+            <label>Prefijo (opcional)
+              <input id="res_prefijo" maxlength="4" placeholder="FV" autocomplete="off">
+            </label>
+            <label>Número de resolución
+              <input id="res_resolucion_numero" inputmode="numeric" placeholder="18764000000000" autocomplete="off">
+            </label>
+            <label>Fecha de la resolución
+              <input id="res_resolucion_fecha" type="date">
+            </label>
+          </div>
+          <div class="fila-form">
+            <label>Rango desde
+              <input id="res_rango_desde" type="number" min="1" step="1">
+            </label>
+            <label>Rango hasta
+              <input id="res_rango_hasta" type="number" min="1" step="1">
+            </label>
+          </div>
+          <div class="fila-form">
+            <label>Vigencia desde
+              <input id="res_vigencia_desde" type="date">
+            </label>
+            <label>Vigencia hasta
+              <input id="res_vigencia_hasta" type="date">
+            </label>
+          </div>
+          <label>Clave técnica
+            <input id="res_clave_tecnica" type="password" autocomplete="new-password" spellcheck="false">
+          </label>
+          <p id="ayudaClave" class="ayuda">La entrega la DIAN con la resolución. Solo se guarda si la escribes; nunca se muestra.</p>
+          <p id="errorResolucion" class="aviso-rojo oculto"></p>
+          <div class="acciones-form">
+            <button type="button" class="btn" id="btnGuardarResolucion" onclick="guardarResolucion('editar')">Guardar cambios</button>
+            <button type="button" class="btn" id="btnNuevaResolucion" onclick="guardarResolucion('nueva')">Registrar como resolución nueva</button>
+          </div>
+        </form>
+
+        <div id="bloqueHistoricas" class="oculto">
+          <h3 class="subtitulo-form">Resoluciones anteriores</h3>
+          <div class="tabla-desplazable">
+            <table>
+              <thead><tr><th>Prefijo</th><th>Resolución</th><th>Rango</th><th>Vigencia</th><th>Facturas</th></tr></thead>
+              <tbody id="filasHistoricas"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
     </div>
   </main>
 
@@ -283,6 +354,116 @@
     return false;
   }
 
+  // ---------- Resolución de numeración ----------
+
+  const CAMPOS_RES = ["prefijo", "resolucion_numero", "resolucion_fecha", "rango_desde", "rango_hasta", "vigencia_desde", "vigencia_hasta"];
+  let resolucionActiva = null;
+
+  const escapar = (t) => String(t ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const numero = (n) => (n === null || n === undefined ? "—" : Number(n).toLocaleString("es-CO"));
+  const conPrefijo = (r, n) => (n === null || n === undefined ? "—" : `${r.prefijo || ""}${n}`);
+
+  function mostrarErrorResolucion(error) {
+    const caja = el("errorResolucion");
+    caja.textContent = error ? (typeof error === "string" ? error : Api.mensajeDe(error)) : "";
+    caja.classList.toggle("oculto", !error);
+  }
+
+  async function cargarResolucion() {
+    try {
+      pintarResolucion(await Api.pedir("/api/emisor/resolucion"));
+    } catch (err) {
+      mostrarErrorResolucion(err);
+    }
+  }
+
+  function pintarResolucion({ activa, historicas }) {
+    resolucionActiva = activa;
+    // Avisos: rojo si venció o se agotó; amarillo si queda < 10 % del rango, faltan < 30 días o falta la clave.
+    el("avisosResolucion").innerHTML = activa.alertas
+      .map((a) => `<p class="aviso-res ${a.nivel === "roja" ? "roja" : "amarilla"}">${escapar(a.mensaje)}</p>`)
+      .join("");
+
+    const dato = (etiqueta, valor) => `<div class="dato"><span>${etiqueta}</span>${valor}</div>`;
+    const quedan = activa.numeros_restantes === null ? "Sin límite" : `${numero(activa.numeros_restantes)} de ${numero(activa.total_rango)}`;
+    el("resumenResolucion").innerHTML = activa.resolucion_numero
+      ? [
+          dato("Resolución", escapar(activa.resolucion_numero)),
+          dato("Fecha", escapar(activa.resolucion_fecha)),
+          dato("Prefijo", escapar(activa.prefijo || "(sin prefijo)")),
+          dato("Rango", `${escapar(conPrefijo(activa, activa.rango_desde))} a ${escapar(conPrefijo(activa, activa.rango_hasta))}`),
+          dato("Último emitido", escapar(conPrefijo(activa, activa.consecutivo_actual))),
+          dato("Números que quedan", quedan),
+          dato("Vigencia", `${escapar(activa.vigencia_desde || "—")} a ${escapar(activa.vigencia_hasta || "—")}`),
+          dato("Clave técnica", activa.clave_tecnica_configurada ? "Configurada" : "No configurada"),
+          dato("Facturas emitidas", numero(activa.facturas_emitidas)),
+        ].join("")
+      : [
+          dato("Numeración", "Interna (sin resolución DIAN)"),
+          dato("Último emitido", escapar(conPrefijo(activa, activa.consecutivo_actual))),
+          dato("Facturas emitidas", numero(activa.facturas_emitidas)),
+        ].join("");
+
+    // Formulario: se edita la activa solo si aún no emitió facturas; si no, se registra una nueva.
+    const editable = activa.editable;
+    el("tituloFormResolucion").textContent = editable ? "Editar la resolución activa" : "Registrar resolución nueva";
+    el("notaFormResolucion").textContent = editable
+      ? "Esta resolución aún no emitió facturas: puedes corregirla o registrar otra en su lugar."
+      : `La resolución activa ya emitió ${activa.facturas_emitidas} factura(s): sus datos no se modifican. ` +
+        `Registra la nueva; el rango debe empezar después del último número emitido con ese prefijo.`;
+    el("btnGuardarResolucion").classList.toggle("oculto", !editable);
+    for (const campo of CAMPOS_RES) {
+      el(`res_${campo}`).value = editable ? activa[campo] ?? "" : "";
+    }
+    if (!editable) {
+      // Sugerencia: mismo prefijo y el siguiente número libre.
+      el("res_prefijo").value = activa.prefijo ?? "";
+      el("res_rango_desde").value = activa.siguiente_numero;
+    }
+    el("res_clave_tecnica").value = "";
+    el("res_clave_tecnica").placeholder = editable && activa.clave_tecnica_configurada ? "Configurada" : "";
+    el("ayudaClave").textContent = editable && activa.clave_tecnica_configurada
+      ? "Configurada. Escríbela solo si quieres reemplazarla; vacía se conserva la actual."
+      : "La entrega la DIAN con cada resolución. Solo se guarda si la escribes; nunca se muestra.";
+
+    el("bloqueHistoricas").classList.toggle("oculto", historicas.length === 0);
+    el("filasHistoricas").innerHTML = historicas
+      .map((h) => `<tr>
+          <td>${escapar(h.prefijo || "—")}</td>
+          <td>${escapar(h.resolucion_numero || "Interna")}</td>
+          <td>${escapar(conPrefijo(h, h.rango_desde))} a ${escapar(h.rango_hasta === null ? "—" : conPrefijo(h, h.rango_hasta))}</td>
+          <td>${escapar(h.vigencia_desde || "—")} a ${escapar(h.vigencia_hasta || "—")}</td>
+          <td>${numero(h.facturas_emitidas)}</td>
+        </tr>`)
+      .join("");
+  }
+
+  async function guardarResolucion(modo) {
+    mostrarErrorResolucion(null);
+    const cuerpo = {};
+    for (const campo of CAMPOS_RES) cuerpo[campo] = el(`res_${campo}`).value.trim();
+    // La clave técnica solo viaja si se escribió (vacía = se conserva la guardada al editar).
+    const clave = el("res_clave_tecnica").value.trim();
+    if (clave) cuerpo.clave_tecnica = clave;
+
+    const accion = modo === "editar"
+      ? "Se modificará la resolución activa."
+      : "Se registrará una resolución nueva y la activa quedará como histórica.";
+    if (!confirm(`${accion}\n\nEsta acción queda registrada en la bitácora. ¿Continuar?`)) return;
+
+    const botones = [el("btnGuardarResolucion"), el("btnNuevaResolucion")];
+    botones.forEach((b) => (b.disabled = true));
+    try {
+      const datos = await Api.pedir("/api/emisor/resolucion", { method: modo === "editar" ? "PUT" : "POST", body: cuerpo });
+      pintarResolucion(datos);
+      Api.exito(modo === "editar" ? "Resolución actualizada." : "Resolución nueva registrada y activa.");
+    } catch (err) {
+      mostrarErrorResolucion(err);
+    } finally {
+      botones.forEach((b) => (b.disabled = false));
+    }
+  }
+
   if (!token()) {
     document.body.innerHTML = "<p>Debes iniciar sesión primero en <a href='login.html'>login.html</a>.</p>";
   } else if (!esAdmin()) {
@@ -290,6 +471,7 @@
       '<p class="error-permiso">Solo el administrador puede editar los datos del negocio.</p>';
   } else {
     cargar();
+    cargarResolucion();
   }
 </script>
 </body>

@@ -104,6 +104,34 @@ validar con contador. Ver sección *Facturación* del `README.md`.
   (precio − costo) / precio en el listado; los selectores de venta de mostrador y de entradas
   de inventario ocultan productos y proveedores inactivos.
 
+**Resolución de numeración (panel web, solo administrador): COMPLETA.** Cada fila de
+`secuencias_factura` es una resolución (se agregaron `vigencia_desde` y `fecha_registro`); solo una
+activa. `src/services/resolucionService.js`, endpoints en `emisor.routes.js`:
+- `GET /api/emisor/resolucion` → `{activa, historicas}` con prefijo, número y fecha de resolución, rango,
+  consecutivo actual (último emitido), siguiente número, números que quedan, vigencia, días para vencer,
+  facturas emitidas, `editable` y `alertas` (roja: vencida o agotada; amarilla: < 10 % del rango,
+  < 30 días de vigencia, sin clave técnica o sin resolución DIAN). **La clave técnica nunca se devuelve**:
+  solo `clave_tecnica_configurada`.
+- `PUT` edita la activa **solo si aún no emitió facturas** (409 si ya emitió): las facturas NO copian
+  número, fecha ni rango de la resolución (solo `id_secuencia` y `numero_completo`; el PDF los lee con
+  JOIN), así que editarla cambiaría el historial. `POST` registra una nueva, que queda activa, y la
+  anterior pasa a histórica intacta.
+- Reglas: prefijo de 1 a 4 letras o números (opcional), número de resolución solo dígitos, fechas
+  válidas, rango desde ≤ hasta, vigencia hasta > desde y no vencida; el rango debe empezar después del
+  último número emitido con el mismo prefijo en cualquier resolución (409: no se reusa ni retrocede).
+  La clave técnica solo se guarda si se escribe; vacía al editar conserva la guardada (una resolución
+  nueva no hereda la clave de la anterior: la DIAN entrega una por resolución).
+- Bitácora: `log_auditoria.detalle` (columna nueva, opcional en `req.auditoria`) guarda qué campos
+  cambiaron, nunca valores (la clave técnica solo como nombre de campo).
+- Panel (`negocio.html`, página solo para el administrador): resumen, avisos amarillo/rojo, formulario con
+  confirmación "Esta acción queda registrada en la bitácora", clave técnica como contraseña ("Configurada")
+  e historial de resoluciones. Pruebas: `test/resolucion.test.js`.
+- **Al facturar con la resolución vencida o agotada (comportamiento previo, sin cambios):** se bloquea.
+  `facturaModel.tomarSiguienteNumero` lanza error, la transacción revierte venta, stock y factura, y la API
+  responde **500** con "La resolución de numeración de facturas está vencida." o "Se agotó el rango de
+  numeración de facturas.". La vigencia se compara con la fecha **UTC**: el último día de vigencia deja de
+  facturar desde las 7:00 p. m. hora de Colombia.
+
 ## Pendientes futuros (no urgentes)
 - La app Android ya refleja todo lo de este backend: campos nuevos de productos y proveedores,
   impuestos deshabilitados para el cajero y `cliente.correo` al cobrar (app `82941d4`, `c887b11`,
@@ -140,7 +168,8 @@ esta tabla** (y la de `LicoreriaPanel/CLAUDE.md`).
 | Editar datos del emisor: negocio, NIT (`PUT /api/emisor`) | Sí | No | No |
 | Cambiar título del documento (`PUT /api/emisor`) | Sí | No | No |
 | Configurar factura electrónica y responsabilidad IVA/INC del emisor (`PUT /api/emisor`) | Sí | No | No |
-| Resolución de numeración (`secuencias_factura`) | — | — | — |
+| Ver resolución de numeración (`GET /api/emisor/resolucion`) | Sí | No | No |
+| Editar resolución de numeración (`PUT`/`POST /api/emisor/resolucion`) | Sí | No | No |
 | Listado de facturas / ver una factura | Sí | Sí | No |
 | Ver e imprimir PDF de factura | Sí | Sí | No |
 | Anular factura (revierte stock; reabre pedidos y mesa) | Sí | No | No |
@@ -156,8 +185,8 @@ alcohólica); cualquier otro valor → 403 "Solo el administrador puede modifica
 producto." sin guardar nada. En el panel esos campos quedan deshabilitados para el cajero. Pruebas:
 `test/impuestosProducto.test.js` (2026-09-26).
 
-La resolución de numeración (prefijo, rango, resolución, vigencia, clave técnica) **no tiene endpoint**:
-solo se cambia por SQL en Supabase.
+La resolución de numeración se gestiona desde el panel (Datos del negocio → Resolución de numeración) con
+`/api/emisor/resolucion`; ver **Estado actual**. Verificado con curl el 2026-09-26 en local: cajero y mesero → 403.
 
 ---
 

@@ -1,6 +1,7 @@
 const logAuditoriaModel = require("../models/logAuditoriaModel");
 
-// El controlador solo necesita fijar req.auditoria = { accion, entidad, id_entidad }
+// El controlador solo necesita fijar req.auditoria = { accion, entidad, id_entidad, detalle? }
+// (detalle: texto opcional, p. ej. qué campos cambiaron; nunca valores secretos)
 // antes de responder; este middleware se encarga de escribir el registro,
 // para que ningún servicio tenga que acordarse de hacerlo manualmente.
 // La respuesta se envía cuando el registro ya quedó escrito (como con SQLite,
@@ -17,6 +18,7 @@ function auditoria(req, res, next) {
           accion: req.auditoria.accion,
           entidad: req.auditoria.entidad,
           id_entidad: req.auditoria.id_entidad,
+          detalle: req.auditoria.detalle ?? null,
         })
         .catch((err) => console.error("No se pudo registrar la auditoría:", err.message))
         .finally(() => originalJson(body));
