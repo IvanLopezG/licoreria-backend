@@ -244,6 +244,10 @@ cuenta, y el siguiente cliente de la misma mesa ve el catálogo limpio.
   script, flujo en Chrome móvil (polling, pausa, 5→15 s, factura, PDF, Listo, reabierta, vencida), migración
   desde el esquema de `9a46ae9` con datos (dos veces y con reversión), y `escenario-api.js` antes/después:
   solo cambian `token_sesion` en los 3 pedidos y el historial por QR sin token (`[]`); el resto, idéntico.
+  Verificación adicional del 2026-09-27 (casos 10 y 11 del script, 109/109 contra PGlite local): varios celulares
+  en la misma mesa ven la cuenta completa, factura y PDF con sus propios tokens, y uno sin pedido no ve nada; el
+  token de una sesión cerrada nunca ve la sesión nueva de la misma mesa (ni cambia su ETag), vence a 410 mientras
+  la sesión nueva sigue normal, y si ese celular vuelve a pedir recibe un token nuevo.
 
 ## Pendientes futuros (no urgentes)
 - La app Android ya refleja todo lo de este backend: campos nuevos de productos y proveedores,
