@@ -4,6 +4,7 @@ const express = require("express");
 const cors = require("cors");
 
 const auditoria = require("./middlewares/auditoria");
+const { manejoErrores, rutaNoEncontrada } = require("./middlewares/manejoErrores");
 const authRoutes = require("./routes/auth.routes");
 const usuariosRoutes = require("./routes/usuarios.routes");
 const auditoriaRoutes = require("./routes/auditoria.routes");
@@ -50,6 +51,8 @@ app.get("/", (req, res) => res.redirect("/panel/login.html"));
 
 app.get("/api/salud", (req, res) => res.json({ estado: "ok" }));
 
-app.use((req, res) => res.status(404).json({ error: "Ruta no encontrada." }));
+app.use(rutaNoEncontrada);
+// Manejador central de errores: siempre el último (ver middlewares/manejoErrores.js).
+app.use(manejoErrores);
 
 module.exports = app;
