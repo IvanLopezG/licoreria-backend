@@ -141,19 +141,53 @@ secundario, deshabilitado y con `title` explicativo si no hay filas):
 - **Formato para Excel en Colombia (ambos archivos, mismo criterio):** el CSV de siempre usaba coma, que Excel
   con configuración regional de Colombia (separador de lista `;`, coma decimal) abre todo en una sola columna.
   Ahora: BOM UTF-8, separador `;`, CRLF y comillas para valores con `;`, `,`, comillas o saltos de línea.
-  En el servidor es **opcional**: `&excel=1` (`utils/csv.js`, `OPCIONES_EXCEL`); **sin él el CSV es el de
-  siempre byte a byte** (coma, `\n`, sin BOM; el de ventas no cambió). En productos, además: precios con coma
-  decimal (`45000,5`; con punto Excel los toma como miles) y el código de barras numérico como `="0770…"`
-  (si no, Excel lo muestra como `7,702E+12` y quita los ceros a la izquierda).
-- **Pendiente posible:** el botón "Exportar CSV" de Ventas sigue usando el CSV con coma (no lo pide con
-  `&excel=1`); en Excel con configuración de Colombia se abre en una sola columna. Para igualarlo basta con agregar
-  `excel=1` en `ventaController` (mismo patrón que movimientos) y en `ventas.html`.
+  En el servidor es **opcional**: `&excel=1`; **sin él el CSV es el de siempre byte a byte** (coma, `\n`, sin
+  BOM). En productos, además: precios con coma decimal (`45000,5`; con punto Excel los toma como miles) y el
+  código de barras numérico como `="0770…"` (si no, Excel lo muestra como `7,702E+12` y quita los ceros a la
+  izquierda). Ventas usa el mismo formato desde el 2026-10-09 (ver *CSV de Ventas para Excel*, abajo).
 - **Verificado** contra Postgres local desechable (PGlite) y Chrome headless (1366 y 390 px): exportación con y
   sin filtros, orden, botón deshabilitado sin filas, sin desborde en celular, cajero 200 / mesero 403 / sin token
   401. **Abiertos en Excel 16** (COM con `Local=true`, igual que doble clic; configuración regional con `;` y coma
   decimal): columnas separadas, tildes y ñ correctas, comillas/`;`/saltos de línea dentro de su celda, precios
   como número, SKU `0770200400300` como texto, `fecha_hora` como fecha. `escenario-api.js` antes/después: 136
   respuestas, solo cambia el `token_sesion` aleatorio. `npm test` 54/54 (`test/csv.test.js` nuevo).
+
+**CSV de Ventas para Excel y formato común (panel web y API): COMPLETO** (2026-10-09).
+- **Una sola definición del formato Excel:** `public/panel/csv.js` (objeto `Csv`: `generar`, `escapar`, `numero`,
+  `codigo`, `nombreConFecha`, `descargar`) se carga en el panel con `<script>` y en el servidor con `require`
+  (al final hace `module.exports = Csv` si existe `module`). `src/utils/csv.js` lo usa en el modo Excel:
+  `aCSV(filas, columnas, { excel })`, donde cada columna puede declarar `excel: "numero"` (coma decimal) o
+  `excel: "codigo"` (solo dígitos → `="…"`, texto), y `enviarCSV(res, filas, columnas, { archivo, excel })` pone los
+  encabezados de siempre (lo usan `ventaController` y `movimientoInventarioController`). El modo por defecto
+  (coma) sigue escrito aparte en `utils/csv.js` y no cambió. Para un CSV nuevo: columnas con `excel` donde haga
+  falta, `enviarCSV` y en el panel `?formato=csv&excel=1` + `Csv.descargar(blob, Csv.nombreConFecha("…"))`.
+- **`GET /api/ventas?formato=csv&excel=1`** (opcional): BOM, `;`, CRLF, escape de `;`/`,`/comillas/saltos de línea,
+  `total` con coma decimal y `factura` como texto si es solo dígitos (sin prefijo la numeración sale `1001`, `0001`…).
+  Mismos filtros (`desde`, `hasta`, `tipo`, `incluir_anuladas`) y encabezados HTTP. Sin `excel=1` (u otro valor)
+  el CSV de siempre; JSON sin cambios.
+- **Panel (`ventas.html`):** "Exportar CSV" pide `excel=1` con los filtros del último "Filtrar" (lo visible, igual
+  que en Inventario), descarga `ventas-AAAA-MM-DD.csv` por fetch + Blob y queda deshabilitado sin ventas. Mismos
+  permisos (administrador y cajero) y mismo aspecto.
+- **Verificado** (Postgres local desechable, PGlite): `npm test` 59/59 (`test/ventasCsv.test.js`: CSV de siempre
+  exacto, modo Excel exacto, otro valor de `excel` = CSV de siempre, mismos filtros que el JSON, JSON intacto;
+  `test/csv.test.js` igual que antes). `aCSV` viejo vs nuevo: idéntico en ambos modos (196 combinaciones).
+  `escenario-api.js` antes/después: 136 respuestas iguales salvo el `token_sesion` aleatorio; los CSV de ventas y
+  movimientos con las mismas líneas, encabezados, sin BOM ni `\r` (el orden de filas del mismo segundo varía entre
+  corridas también con el código anterior: `ORDER BY fecha_hora DESC, id` con resolución de segundos). Chrome
+  headless: filtros, deshabilitado, token en encabezado. **Excel 16** (configuración con `;` y coma decimal):
+  8 columnas, tildes y ñ, `Begoña Peñaranda, caja; turno "noche"` en una celda, total numérico (`7601,5`, se
+  puede sumar), factura como texto y `fecha_hora` como fecha.
+- **Pendientes de exportación (no se modificaron):**
+  - **Fechas en UTC** en los tres CSV (ventas, movimientos y productos no tiene fechas) y en las tablas del panel:
+    `fecha_hora` sale como se guarda (UTC, 5 horas adelante de Colombia); una venta de las 8:00 p. m. aparece
+    a la 1:00 a. m. del día siguiente. El CSV coincide con lo que muestra el panel; corregirlo es convertir a hora
+    de Colombia en ambos (p. ej. con `utils/fechaColombia.js`) y revisar los filtros `desde`/`hasta`, que también
+    comparan en UTC.
+  - **CSV sin `excel=1`** (coma) sigue disponible en la API para quien lo use fuera del panel; en Excel con
+    configuración de Colombia se abre en una sola columna. Ningún botón del panel lo usa ya.
+  - No hay otros CSV ni exportaciones con este problema: el resto de descargas del panel son el PDF y el XML de
+    la factura. La bitácora de auditoría y el reporte de movimientos por usuario (US-18, `?id_usuario=`) no
+    tienen botón de exportar.
 
 **Manejo de errores central y logging con Pino: COMPLETO.** Ver la sección *Manejo de errores* más abajo.
 
