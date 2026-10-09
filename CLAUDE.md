@@ -106,6 +106,29 @@ validar con contador. Ver sección *Facturación* del `README.md`.
   (precio − costo) / precio en el listado; los selectores de venta de mostrador y de entradas
   de inventario ocultan productos y proveedores inactivos.
 
+**Tabla de productos en la pestaña Inventario (panel web): COMPLETA** (2026-10-09). Solo frontend
+(`public/panel/inventario.html`, `panel.css`); **la API no cambió**:
+- Arriba de la página, "Productos en inventario": una fila por producto (activos e inactivos, estos con
+  la insignia INACTIVO) con nombre + SKU, categoría, marca, unidad + ml, stock, umbral, estado, precio y
+  costo. Datos de `GET /api/productos` (la misma petición que llena los selectores; permisos de siempre:
+  administrador y cajero, el mesero ve "No tienes permiso…"). Se recarga tras cada entrada o salida.
+- Buscador por nombre (sin tildes ni mayúsculas, mientras se escribe), filtro por categoría (las que tienen
+  productos), orden al tocar cada encabezado (`aria-sort`; los vacíos, como marca o costo, siempre al final),
+  "Cargando productos…", "No hay productos registrados." y "Ningún producto coincide…".
+- **Estado de stock con el umbral que ya existía** (`umbral_alerta` por producto, `alerta_stock_bajo` =
+  `stock_actual <= umbral_alerta`, calculado en `productoService`): **Agotado** si stock 0, **Stock bajo** si
+  `alerta_stock_bajo`, si no **Disponible**. No se inventó ningún umbral.
+- **No existía descarga de Excel** en la pestaña Inventario (ni en el backend ni en la app Android); lo único
+  exportable es el CSV de `GET /api/inventario/movimientos?formato=csv` y de ventas (US-19), y este último es
+  el único con botón en el panel. No se agregó ningún botón de exportar.
+- Celular: `inventario.html` es la **única** página del panel con `<meta name="viewport">`. La media query
+  `max-width: 720px` de `panel.css` (menú lateral arriba y desplazable, márgenes menores) solo la activan las
+  páginas con viewport; las demás se siguen viendo a 980 px como antes. Para adaptar otra página: agregarle
+  el meta y envolver sus tablas en `.tabla-desplazable`.
+- Verificado contra Postgres local desechable (PGlite, `PG_POOL_MAX=1`) con Chrome headless a 1366 px y
+  390 px: búsqueda, filtro, orden, estados, refresco tras salida, escape de HTML en nombres, sin desborde
+  horizontal en 390 px. `npm test` 52/52.
+
 **Manejo de errores central y logging con Pino: COMPLETO.** Ver la sección *Manejo de errores* más abajo.
 
 **Sesiones de mesa en el catálogo QR (factura y estado de pedidos en el celular): COMPLETA.** Ver la
