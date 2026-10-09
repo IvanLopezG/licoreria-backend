@@ -329,6 +329,9 @@ th[aria-sort] .orden { color: var(--azul-oscuro); }
 .stock-en-alerta { color: var(--rojo); font-weight: bold; }
 .celda-aviso { text-align: center; color: var(--gris-texto); padding: 24px 12px; }
 .tarjetas-inventario { margin-top: 24px; }
+/* Exportar: opción secundaria, a la derecha de los filtros. */
+.barra-filtros .btn-exportar { margin: 0 0 0 auto; }
+.btn-exportar:disabled { opacity: .45; cursor: not-allowed; background: transparent; }
 
 .btn-chico { margin-top: 0; padding: 1px 7px; font-size: 12px; line-height: 1.4; margin-left: 4px; }
 

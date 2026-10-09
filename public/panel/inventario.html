@@ -7,6 +7,7 @@
 <link rel="stylesheet" href="panel.css">
 <script src="menu.js" defer></script>
 <script src="api.js"></script>
+<script src="csv.js"></script>
 </head>
 <body>
   <aside class="sidebar">
@@ -62,6 +63,8 @@
               <option value="">Todas las categorías</option>
             </select>
           </label>
+          <button type="button" class="btn btn-exportar" id="invExportar" onclick="exportarProductosCSV()" disabled
+                  title="No hay productos para exportar">Exportar CSV</button>
         </div>
         <p id="invResumen" class="ayuda"></p>
 
@@ -197,6 +200,7 @@
   // Usa la misma respuesta de GET /api/productos que llena los selectores; el
   // filtro, la búsqueda y el orden se hacen en el navegador.
   let inventario = [];
+  let inventarioVisible = [];
   let orden = { columna: "nombre", ascendente: true };
 
   // Búsqueda sin distinguir tildes ni mayúsculas (igual que en Productos).
@@ -266,6 +270,10 @@
     const visibles = inventario
       .filter((p) => (!texto || normalizar(p.nombre).includes(texto)) && (!categoria || p.categoria_nombre === categoria))
       .sort(comparar);
+    inventarioVisible = visibles;
+    const exportar = document.getElementById("invExportar");
+    exportar.disabled = visibles.length === 0;
+    exportar.title = visibles.length === 0 ? "No hay productos para exportar" : "Descarga los productos que se ven en la tabla";
 
     const agotados = inventario.filter((p) => p.stock_actual <= 0).length;
     const bajos = inventario.filter((p) => p.stock_actual > 0 && p.alerta_stock_bajo).length;
@@ -290,6 +298,31 @@
         <td>${dinero(p.costo)}</td>
       </tr>`;
     }).join("");
+  }
+
+  // Exporta exactamente lo que se ve: búsqueda, categoría y orden activos.
+  // Se genera aquí con los datos ya cargados (sin petición nueva).
+  const COLUMNAS_CSV_PRODUCTOS = [
+    { titulo: "Producto", valor: (p) => p.nombre },
+    { titulo: "Código de barras / SKU", valor: (p) => Csv.codigo(p.codigo_barras) },
+    { titulo: "Categoría", valor: (p) => p.categoria_nombre },
+    { titulo: "Marca", valor: (p) => p.marca },
+    { titulo: "Unidad", valor: (p) => p.unidad_medida },
+    { titulo: "Volumen (ml)", valor: (p) => p.volumen_ml },
+    { titulo: "Stock", valor: (p) => p.stock_actual },
+    { titulo: "Umbral", valor: (p) => p.umbral_alerta },
+    { titulo: "Estado", valor: (p) => estadoStock(p).texto },
+    { titulo: "Precio", valor: (p) => Csv.numero(p.precio) },
+    { titulo: "Costo", valor: (p) => Csv.numero(p.costo) },
+    { titulo: "Activo", valor: (p) => (p.activo === 0 ? "No" : "Sí") },
+  ];
+
+  function exportarProductosCSV() {
+    if (inventarioVisible.length === 0) {
+      Api.error("No hay productos para exportar con la búsqueda y la categoría actuales.");
+      return;
+    }
+    Csv.descargar(Csv.generar(inventarioVisible, COLUMNAS_CSV_PRODUCTOS), Csv.nombreConFecha("inventario-productos"));
   }
 
   async function cargarProductos() {
