@@ -50,7 +50,43 @@
     <h1>Inventario</h1>
 
     <div id="contenido">
-      <div class="tarjetas">
+      <div class="seccion">
+        <h2>Productos en inventario</h2>
+        <div class="barra-filtros barra-inventario">
+          <label class="buscador">Buscar
+            <input id="invBuscar" type="search" placeholder="Nombre del producto" oninput="pintarInventario()">
+          </label>
+          <label class="filtro-categoria">Categoría
+            <select id="invCategoria" onchange="pintarInventario()">
+              <option value="">Todas las categorías</option>
+            </select>
+          </label>
+        </div>
+        <p id="invResumen" class="ayuda"></p>
+
+        <div class="tabla-desplazable">
+          <table class="tabla-inventario">
+            <thead>
+              <tr>
+                <th aria-sort="ascending"><button type="button" class="orden" data-columna="nombre">Producto</button></th>
+                <th><button type="button" class="orden" data-columna="categoria">Categoría</button></th>
+                <th><button type="button" class="orden" data-columna="marca">Marca</button></th>
+                <th><button type="button" class="orden" data-columna="unidad">Unidad</button></th>
+                <th><button type="button" class="orden" data-columna="stock">Stock</button></th>
+                <th><button type="button" class="orden" data-columna="umbral">Umbral</button></th>
+                <th><button type="button" class="orden" data-columna="estado">Estado</button></th>
+                <th><button type="button" class="orden" data-columna="precio">Precio</button></th>
+                <th><button type="button" class="orden" data-columna="costo">Costo</button></th>
+              </tr>
+            </thead>
+            <tbody id="invFilas">
+              <tr><td colspan="9" class="celda-aviso">Cargando productos…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="tarjetas tarjetas-inventario">
         <div class="tarjeta">
           <div class="numero" id="cardEntradas">0</div>
           <div class="etiqueta">Unidades ingresadas (filtro actual)</div>
@@ -154,18 +190,131 @@
     else Api.error(err);
   }
 
+  // ---------- Tabla de productos en inventario ----------
+  // Usa la misma respuesta de GET /api/productos que llena los selectores; el
+  // filtro, la búsqueda y el orden se hacen en el navegador.
+  let inventario = [];
+  let orden = { columna: "nombre", ascendente: true };
+
+  // Búsqueda sin distinguir tildes ni mayúsculas (igual que en Productos).
+  const normalizar = (t) => String(t ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+
+  // Umbral del sistema (RF-08): alerta_stock_bajo = stock_actual <= umbral_alerta,
+  // calculado por el backend. "Agotado" es el caso stock 0 de esa misma alerta.
+  function estadoStock(p) {
+    if (p.stock_actual <= 0) return { rango: 0, texto: "Agotado", clase: "badge-agotado" };
+    if (p.alerta_stock_bajo) return { rango: 1, texto: "Stock bajo", clase: "badge-alerta" };
+    return { rango: 2, texto: "Disponible", clase: "badge-entrada" };
+  }
+
+  const valorOrden = {
+    nombre: (p) => normalizar(p.nombre),
+    categoria: (p) => normalizar(p.categoria_nombre),
+    marca: (p) => normalizar(p.marca),
+    unidad: (p) => normalizar(p.unidad_medida),
+    stock: (p) => Number(p.stock_actual),
+    umbral: (p) => Number(p.umbral_alerta),
+    estado: (p) => estadoStock(p).rango,
+    precio: (p) => Number(p.precio),
+    costo: (p) => (p.costo === null || p.costo === undefined ? null : Number(p.costo)),
+  };
+
+  // Los vacíos (sin marca, sin costo) siempre van al final, en ambos sentidos.
+  function comparar(a, b) {
+    const va = valorOrden[orden.columna](a);
+    const vb = valorOrden[orden.columna](b);
+    const vacioA = va === null || va === "";
+    const vacioB = vb === null || vb === "";
+    if (vacioA || vacioB) return vacioA === vacioB ? 0 : vacioA ? 1 : -1;
+    const r = typeof va === "number" ? va - vb : va.localeCompare(vb, "es");
+    return orden.ascendente ? r : -r;
+  }
+
+  function ordenarPor(columna) {
+    orden = orden.columna === columna
+      ? { columna, ascendente: !orden.ascendente }
+      : { columna, ascendente: true };
+    for (const boton of document.querySelectorAll(".tabla-inventario .orden")) {
+      const th = boton.parentElement;
+      if (boton.dataset.columna === orden.columna) th.setAttribute("aria-sort", orden.ascendente ? "ascending" : "descending");
+      else th.removeAttribute("aria-sort");
+    }
+    pintarInventario();
+  }
+
+  const dinero = (v) => (v === null || v === undefined ? "—" : `$${Number(v).toFixed(2)}`);
+
+  function avisoTabla(texto) {
+    document.getElementById("invFilas").innerHTML = `<tr><td colspan="9" class="celda-aviso">${texto}</td></tr>`;
+  }
+
+  function pintarCategorias() {
+    const select = document.getElementById("invCategoria");
+    const elegida = select.value;
+    const nombres = [...new Set(inventario.map((p) => p.categoria_nombre))].sort((a, b) => a.localeCompare(b, "es"));
+    select.innerHTML = '<option value="">Todas las categorías</option>' +
+      nombres.map((n) => `<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join("");
+    if (nombres.includes(elegida)) select.value = elegida;
+  }
+
+  function pintarInventario() {
+    const texto = normalizar(document.getElementById("invBuscar").value.trim());
+    const categoria = document.getElementById("invCategoria").value;
+    const visibles = inventario
+      .filter((p) => (!texto || normalizar(p.nombre).includes(texto)) && (!categoria || p.categoria_nombre === categoria))
+      .sort(comparar);
+
+    const agotados = inventario.filter((p) => p.stock_actual <= 0).length;
+    const bajos = inventario.filter((p) => p.stock_actual > 0 && p.alerta_stock_bajo).length;
+    document.getElementById("invResumen").textContent = inventario.length === 0 ? "" :
+      `${visibles.length} de ${inventario.length} productos · ${bajos} con stock bajo · ${agotados} agotados`;
+
+    if (inventario.length === 0) return avisoTabla("No hay productos registrados. Créalos en la pestaña Productos.");
+    if (visibles.length === 0) return avisoTabla("Ningún producto coincide con la búsqueda o la categoría.");
+
+    document.getElementById("invFilas").innerHTML = visibles.map((p) => {
+      const estado = estadoStock(p);
+      return `<tr${p.activo === 0 ? ' class="fila-inactiva"' : ""}>
+        <td>${escapeHtml(p.nombre)}${p.activo === 0 ? '<span class="badge badge-inactivo">INACTIVO</span>' : ""}
+          ${p.codigo_barras ? `<div class="dato-secundario">${escapeHtml(p.codigo_barras)}</div>` : ""}</td>
+        <td>${escapeHtml(p.categoria_nombre)}</td>
+        <td>${p.marca ? escapeHtml(p.marca) : "—"}</td>
+        <td>${escapeHtml(p.unidad_medida)}${p.volumen_ml ? ` · ${p.volumen_ml} ml` : ""}</td>
+        <td class="${estado.rango < 2 ? "stock-en-alerta" : ""}">${p.stock_actual}</td>
+        <td>${p.umbral_alerta}</td>
+        <td><span class="badge badge-estado ${estado.clase}">${estado.texto}</span></td>
+        <td>${dinero(p.precio)}</td>
+        <td>${dinero(p.costo)}</td>
+      </tr>`;
+    }).join("");
+  }
+
   async function cargarProductos() {
     let productos;
     try {
       productos = await Api.pedir("/api/productos");
     } catch (err) {
       manejarError(err);
+      if (!sinPermiso) avisoTabla("No se pudieron cargar los productos.");
       return;
     }
+    inventario = productos;
+    pintarCategorias();
+    pintarInventario();
+
+    // Tras una entrada o salida se recargan los productos: se conserva el
+    // producto elegido en el filtro del historial.
+    const filtro = document.getElementById("filtroProducto");
+    const filtroElegido = filtro.value;
     const opciones = productos.map((p) => `<option value="${p.id_producto}">${escapeHtml(p.nombre)}</option>`).join("");
     document.getElementById("entradaProducto").innerHTML = opciones;
     document.getElementById("salidaProducto").innerHTML = opciones;
-    document.getElementById("filtroProducto").innerHTML = `<option value="">Todos los productos</option>${opciones}`;
+    filtro.innerHTML = `<option value="">Todos los productos</option>${opciones}`;
+    filtro.value = filtroElegido;
+  }
+
+  for (const boton of document.querySelectorAll(".tabla-inventario .orden")) {
+    boton.addEventListener("click", () => ordenarPor(boton.dataset.columna));
   }
 
   async function cargarProveedores() {
@@ -195,6 +344,7 @@
       Api.exito(`Entrada registrada: ${mov.cantidad} de ${mov.producto_nombre}.`);
       document.getElementById("formEntrada").reset();
       cargarHistorial();
+      cargarProductos();
     } catch (err) {
       manejarError(err);
     }
@@ -212,6 +362,7 @@
       Api.exito(`Salida registrada: ${mov.cantidad} de ${mov.producto_nombre}.`);
       document.getElementById("formSalida").reset();
       cargarHistorial();
+      cargarProductos();
     } catch (err) {
       manejarError(err);
     }

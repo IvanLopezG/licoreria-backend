@@ -300,4 +300,35 @@ label.casilla input { width: auto; margin: 0; }
 .fila-inactiva td { color: var(--gris-texto); }
 .margen-negativo { color: var(--rojo); font-weight: bold; }
 
+/* ---------- Tabla de productos en Inventario ---------- */
+
+.barra-inventario { margin-top: 12px; }
+.barra-inventario .filtro-categoria { flex: 0 1 220px; margin-top: 0; }
+.tabla-inventario { margin-top: 12px; }
+.tabla-inventario th { white-space: nowrap; }
+.tabla-inventario td { white-space: nowrap; }
+.tabla-inventario td:first-child { white-space: normal; min-width: 160px; }
+/* Encabezado ordenable: botón con el aspecto del texto del encabezado. */
+.orden {
+  border: 0;
+  padding: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-transform: inherit;
+  letter-spacing: inherit;
+  cursor: pointer;
+}
+.orden:hover { color: var(--azul-oscuro); }
+.orden::after { content: " ↕"; opacity: .35; }
+th[aria-sort="ascending"] .orden::after { content: " ▲"; opacity: 1; }
+th[aria-sort="descending"] .orden::after { content: " ▼"; opacity: 1; }
+th[aria-sort] .orden { color: var(--azul-oscuro); }
+.badge-estado { margin-left: 0; }
+.badge-agotado { background: var(--rojo); color: #fff; }
+.stock-en-alerta { color: var(--rojo); font-weight: bold; }
+.celda-aviso { text-align: center; color: var(--gris-texto); padding: 24px 12px; }
+.tarjetas-inventario { margin-top: 24px; }
+
 .btn-chico { margin-top: 0; padding: 1px 7px; font-size: 12px; line-height: 1.4; margin-left: 4px; }
+
