@@ -118,9 +118,8 @@ validar con contador. Ver sección *Facturación* del `README.md`.
 - **Estado de stock con el umbral que ya existía** (`umbral_alerta` por producto, `alerta_stock_bajo` =
   `stock_actual <= umbral_alerta`, calculado en `productoService`): **Agotado** si stock 0, **Stock bajo** si
   `alerta_stock_bajo`, si no **Disponible**. No se inventó ningún umbral.
-- **No existía descarga de Excel** en la pestaña Inventario (ni en el backend ni en la app Android); lo único
-  exportable es el CSV de `GET /api/inventario/movimientos?formato=csv` y de ventas (US-19), y este último es
-  el único con botón en el panel. No se agregó ningún botón de exportar.
+- **No existía descarga de Excel** en la pestaña Inventario (ni en el backend ni en la app Android). Los
+  botones de exportar se agregaron después (ver *Exportar CSV en Inventario*, abajo).
 - Celular: `inventario.html` es la **única** página del panel con `<meta name="viewport">`. La media query
   `max-width: 720px` de `panel.css` (menú lateral arriba y desplazable, márgenes menores) solo la activan las
   páginas con viewport; las demás se siguen viendo a 980 px como antes. Para adaptar otra página: agregarle
@@ -128,6 +127,33 @@ validar con contador. Ver sección *Facturación* del `README.md`.
 - Verificado contra Postgres local desechable (PGlite, `PG_POOL_MAX=1`) con Chrome headless a 1366 px y
   390 px: búsqueda, filtro, orden, estados, refresco tras salida, escape de HTML en nombres, sin desborde
   horizontal en 390 px. `npm test` 52/52.
+
+**Exportar CSV en Inventario (panel web): COMPLETO** (2026-10-09). Dos botones "Exportar CSV" (`.btn`
+secundario, deshabilitado y con `title` explicativo si no hay filas):
+- **Productos:** se genera en el navegador (`public/panel/csv.js`, objeto `Csv`) con los datos ya cargados, sin
+  petición: exactamente lo visible (búsqueda, categoría y orden). Columnas: Producto, Código de barras / SKU,
+  Categoría, Marca, Unidad, Volumen (ml), Stock, Umbral, Estado, Precio, Costo, Activo (Sí/No). Archivo
+  `inventario-productos-AAAA-MM-DD.csv` (fecha local del navegador).
+- **Movimientos:** `GET /api/inventario/movimientos?formato=csv&excel=1` con los filtros del último "Filtrar"
+  (lo que se ve en la tabla, no lo escrito sin aplicar). El token va en `Authorization` (no hay cookie), así
+  que se descarga con `Api.pedir(..., { respuesta: "blob" })` y se guarda como Blob. Archivo
+  `inventario-movimientos-AAAA-MM-DD.csv`. Permisos de siempre: administrador y cajero (mesero 403).
+- **Formato para Excel en Colombia (ambos archivos, mismo criterio):** el CSV de siempre usaba coma, que Excel
+  con configuración regional de Colombia (separador de lista `;`, coma decimal) abre todo en una sola columna.
+  Ahora: BOM UTF-8, separador `;`, CRLF y comillas para valores con `;`, `,`, comillas o saltos de línea.
+  En el servidor es **opcional**: `&excel=1` (`utils/csv.js`, `OPCIONES_EXCEL`); **sin él el CSV es el de
+  siempre byte a byte** (coma, `\n`, sin BOM; el de ventas no cambió). En productos, además: precios con coma
+  decimal (`45000,5`; con punto Excel los toma como miles) y el código de barras numérico como `="0770…"`
+  (si no, Excel lo muestra como `7,702E+12` y quita los ceros a la izquierda).
+- **Pendiente posible:** el botón "Exportar CSV" de Ventas sigue usando el CSV con coma (no lo pide con
+  `&excel=1`); en Excel con configuración de Colombia se abre en una sola columna. Para igualarlo basta con agregar
+  `excel=1` en `ventaController` (mismo patrón que movimientos) y en `ventas.html`.
+- **Verificado** contra Postgres local desechable (PGlite) y Chrome headless (1366 y 390 px): exportación con y
+  sin filtros, orden, botón deshabilitado sin filas, sin desborde en celular, cajero 200 / mesero 403 / sin token
+  401. **Abiertos en Excel 16** (COM con `Local=true`, igual que doble clic; configuración regional con `;` y coma
+  decimal): columnas separadas, tildes y ñ correctas, comillas/`;`/saltos de línea dentro de su celda, precios
+  como número, SKU `0770200400300` como texto, `fecha_hora` como fecha. `escenario-api.js` antes/después: 136
+  respuestas, solo cambia el `token_sesion` aleatorio. `npm test` 54/54 (`test/csv.test.js` nuevo).
 
 **Manejo de errores central y logging con Pino: COMPLETO.** Ver la sección *Manejo de errores* más abajo.
 

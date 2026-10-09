@@ -114,7 +114,7 @@ esquema (`schema.sql`) definido desde Sprint 1.
 | PUT | `/api/pedidos/:id/entregado` | administrador, mesero, cajero | Marca un pedido como entregado. |
 | POST | `/api/ventas` | administrador, cajero | RF-15. Venta rápida sin mesa (`items: [{ id_producto, cantidad }]`); descuenta stock (RF-16) y emite la factura en la misma transacción. Acepta los mismos campos opcionales de facturación. |
 | GET | `/api/ventas` | administrador, cajero | RF-17. Reporte de ventas, filtrable por `?desde=`, `?hasta=`, `?tipo=` (mesa/mostrador); `?formato=csv` lo descarga como CSV (RF-19). Excluye las ventas anuladas salvo `?incluir_anuladas=true`; cada venta trae `estado`, `id_factura` y `numero_factura`. |
-| GET | `/api/inventario/movimientos` | administrador, cajero | RF-09/RF-18. Historial filtrable por `?id_producto=`, `?desde=`, `?hasta=` y `?id_usuario=` (responsable); `?formato=csv` lo descarga como CSV (RF-19). |
+| GET | `/api/inventario/movimientos` | administrador, cajero | RF-09/RF-18. Historial filtrable por `?id_producto=`, `?desde=`, `?hasta=` y `?id_usuario=` (responsable); `?formato=csv` lo descarga como CSV (RF-19); con `&excel=1` (opcional, lo usa el panel) sale con BOM UTF-8, separador `;` y CRLF para Excel en configuración regional de Colombia. |
 | GET | `/api/facturas` | administrador, cajero | Lista facturas, filtrable por `?desde=` y `?hasta=`. |
 | GET | `/api/facturas/:id` | administrador, cajero | Factura con sus `items`. |
 | GET | `/api/facturas/:id/pdf` | administrador, cajero | PDF imprimible (tirilla de 80 mm). |
