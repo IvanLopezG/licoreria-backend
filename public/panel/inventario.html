@@ -156,7 +156,11 @@
               <input id="filtroHasta" type="date">
             </label>
           </div>
-          <button type="submit" class="btn">Filtrar</button>
+          <div class="acciones-form">
+            <button type="submit" class="btn">Filtrar</button>
+            <button type="button" class="btn btn-exportar" id="histExportar" onclick="exportarMovimientosCSV()" disabled
+                    title="No hay movimientos para exportar">Exportar CSV</button>
+          </div>
         </form>
 
         <div class="tabla-desplazable">
@@ -409,6 +413,25 @@
     cargarHistorial();
   }
 
+  let filtroHistorial = new URLSearchParams();
+
+  // El token del panel va en el encabezado Authorization (Api.pedir); un enlace
+  // normal no lo enviaría, por eso se descarga con fetch y se guarda como Blob.
+  // &excel=1: BOM, ";" y CRLF, igual que el CSV de productos.
+  async function exportarMovimientosCSV() {
+    const params = new URLSearchParams(filtroHistorial);
+    params.set("formato", "csv");
+    params.set("excel", "1");
+    let blob;
+    try {
+      blob = await Api.pedir(`/api/inventario/movimientos?${params}`, { respuesta: "blob" });
+    } catch (err) {
+      manejarError(err);
+      return;
+    }
+    Csv.descargar(blob, Csv.nombreConFecha("inventario-movimientos"));
+  }
+
   async function cargarHistorial() {
     if (sinPermiso) return;
     const params = new URLSearchParams();
@@ -426,6 +449,12 @@
       manejarError(err);
       return;
     }
+
+    // El CSV usa los filtros de lo que se está viendo (los del último "Filtrar").
+    filtroHistorial = params;
+    const exportar = document.getElementById("histExportar");
+    exportar.disabled = movimientos.length === 0;
+    exportar.title = movimientos.length === 0 ? "No hay movimientos para exportar" : "Descarga los movimientos del filtro actual";
 
     let entradas = 0;
     let salidas = 0;
