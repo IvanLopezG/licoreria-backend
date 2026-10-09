@@ -1,5 +1,5 @@
 const ventaService = require("../services/ventaService");
-const { aCSV } = require("../utils/csv");
+const { enviarCSV } = require("../utils/csv");
 
 const COLUMNAS_CSV = [
   { titulo: "id_venta", campo: "id_venta" },
@@ -28,9 +28,7 @@ async function listar(req, res) {
   const ventas = await ventaService.listarVentas({ desde, hasta, tipo, incluir_anuladas });
 
   if (formato === "csv") {
-    res.setHeader("Content-Type", "text/csv; charset=utf-8");
-    res.setHeader("Content-Disposition", "attachment; filename=reporte_ventas.csv");
-    return res.send(aCSV(ventas, COLUMNAS_CSV));
+    return enviarCSV(res, ventas, COLUMNAS_CSV, { archivo: "reporte_ventas.csv" });
   }
 
   return res.json(ventas);

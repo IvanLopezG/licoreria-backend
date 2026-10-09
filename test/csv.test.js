@@ -2,7 +2,7 @@
 // escapa separadores, comillas y saltos de línea dentro de los valores.
 const test = require("node:test");
 const assert = require("node:assert");
-const { aCSV, OPCIONES_EXCEL } = require("../src/utils/csv");
+const { aCSV } = require("../src/utils/csv");
 
 const columnas = [
   { titulo: "producto", campo: "nombre" },
@@ -22,7 +22,7 @@ test("sin opciones: coma, \\n y sin BOM (formato de siempre)", () => {
 });
 
 test("modo Excel: BOM, punto y coma, CRLF y comillas donde hace falta", () => {
-  const csv = aCSV(filas, columnas, OPCIONES_EXCEL);
+  const csv = aCSV(filas, columnas, { excel: true });
   assert.ok(csv.startsWith("﻿"));
   assert.strictEqual(
     csv.slice(1),

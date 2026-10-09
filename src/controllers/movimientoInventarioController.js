@@ -1,5 +1,5 @@
 const movimientoService = require("../services/movimientoInventarioService");
-const { aCSV, OPCIONES_EXCEL } = require("../utils/csv");
+const { enviarCSV } = require("../utils/csv");
 
 const COLUMNAS_CSV = [
   { titulo: "id_movimiento", campo: "id_movimiento" },
@@ -36,9 +36,7 @@ async function historial(req, res) {
   const movimientos = await movimientoService.historial({ id_producto, desde, hasta, id_usuario });
 
   if (formato === "csv") {
-    res.setHeader("Content-Type", "text/csv; charset=utf-8");
-    res.setHeader("Content-Disposition", "attachment; filename=reporte_movimientos.csv");
-    return res.send(aCSV(movimientos, COLUMNAS_CSV, excel === "1" ? OPCIONES_EXCEL : undefined));
+    return enviarCSV(res, movimientos, COLUMNAS_CSV, { archivo: "reporte_movimientos.csv", excel: excel === "1" });
   }
 
   return res.json(movimientos);
