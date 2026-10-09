@@ -2,6 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Licorería — Inventario</title>
 <link rel="stylesheet" href="panel.css">
 <script src="menu.js" defer></script>
@@ -155,12 +156,14 @@
           <button type="submit" class="btn">Filtrar</button>
         </form>
 
-        <table>
-          <thead>
-            <tr><th>Fecha</th><th>Producto</th><th>Tipo</th><th>Motivo</th><th>Cantidad</th><th>Usuario</th></tr>
-          </thead>
-          <tbody id="filas"></tbody>
-        </table>
+        <div class="tabla-desplazable">
+          <table>
+            <thead>
+              <tr><th>Fecha</th><th>Producto</th><th>Tipo</th><th>Motivo</th><th>Cantidad</th><th>Usuario</th></tr>
+            </thead>
+            <tbody id="filas"></tbody>
+          </table>
+        </div>
       </div>
     </div>
   </main>
