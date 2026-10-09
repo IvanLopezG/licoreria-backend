@@ -6,6 +6,7 @@
 <link rel="stylesheet" href="panel.css">
 <script src="menu.js" defer></script>
 <script src="api.js"></script>
+<script src="csv.js"></script>
 <style>
   .fila-venta .btn { margin-top: 0; padding: 4px 10px; }
   #totalVenta { font-size: 18px; }
@@ -115,7 +116,8 @@
             <input type="checkbox" id="filtroAnuladas" style="width:auto; margin:0;"> Mostrar anuladas (no suman al total)
           </label>
           <button type="submit" class="btn">Filtrar</button>
-          <button type="button" class="btn" onclick="exportarCSV()">Exportar CSV</button>
+          <button type="button" class="btn btn-exportar" id="ventasExportar" onclick="exportarCSV()" disabled
+                  title="No hay ventas para exportar">Exportar CSV</button>
         </form>
 
         <table>
@@ -272,13 +274,20 @@
 
   async function cargarVentas() {
     if (sinPermiso) return;
+    const params = parametrosFiltro();
     let ventas;
     try {
-      ventas = await Api.pedir(`/api/ventas?${parametrosFiltro()}`);
+      ventas = await Api.pedir(`/api/ventas?${params}`);
     } catch (err) {
       manejarError(err);
       return;
     }
+
+    // El CSV usa los filtros de lo que se está viendo (los del último "Filtrar").
+    filtroVentas = params;
+    const exportar = document.getElementById("ventasExportar");
+    exportar.disabled = ventas.length === 0;
+    exportar.title = ventas.length === 0 ? "No hay ventas para exportar" : "Descarga las ventas del filtro actual";
 
     // Las anuladas solo llegan si se marcó "Mostrar anuladas"; nunca suman.
     const activas = ventas.filter((v) => v.estado !== "anulada");
@@ -319,9 +328,15 @@
     document.getElementById("cardCantidadVentas").textContent = activas.length;
   }
 
+  let filtroVentas = new URLSearchParams();
+
+  // El token del panel va en el encabezado Authorization (Api.pedir); un enlace
+  // normal no lo enviaría, por eso se descarga con fetch y se guarda como Blob.
+  // &excel=1: el mismo formato para Excel en Colombia que los CSV de Inventario.
   async function exportarCSV() {
-    const params = parametrosFiltro();
+    const params = new URLSearchParams(filtroVentas);
     params.set("formato", "csv");
+    params.set("excel", "1");
     let blob;
     try {
       blob = await Api.pedir(`/api/ventas?${params}`, { respuesta: "blob" });
@@ -329,14 +344,7 @@
       manejarError(err);
       return;
     }
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "reporte_ventas.csv";
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
+    Csv.descargar(blob, Csv.nombreConFecha("ventas"));
   }
 
   if (!token()) {
