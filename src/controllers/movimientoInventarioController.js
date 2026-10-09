@@ -1,5 +1,5 @@
 const movimientoService = require("../services/movimientoInventarioService");
-const { aCSV } = require("../utils/csv");
+const { aCSV, OPCIONES_EXCEL } = require("../utils/csv");
 
 const COLUMNAS_CSV = [
   { titulo: "id_movimiento", campo: "id_movimiento" },
@@ -29,14 +29,16 @@ async function salida(req, res) {
 }
 
 // US-19 (opcional): ?formato=csv reutiliza el mismo filtro que el JSON normal.
+// &excel=1 (opcional, lo usa el panel): BOM, ";" y CRLF para Excel en Colombia;
+// sin él, el CSV de siempre.
 async function historial(req, res) {
-  const { id_producto, desde, hasta, id_usuario, formato } = req.query;
+  const { id_producto, desde, hasta, id_usuario, formato, excel } = req.query;
   const movimientos = await movimientoService.historial({ id_producto, desde, hasta, id_usuario });
 
   if (formato === "csv") {
     res.setHeader("Content-Type", "text/csv; charset=utf-8");
     res.setHeader("Content-Disposition", "attachment; filename=reporte_movimientos.csv");
-    return res.send(aCSV(movimientos, COLUMNAS_CSV));
+    return res.send(aCSV(movimientos, COLUMNAS_CSV, excel === "1" ? OPCIONES_EXCEL : undefined));
   }
 
   return res.json(movimientos);
