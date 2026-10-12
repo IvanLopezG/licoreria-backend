@@ -497,6 +497,22 @@ en SQL, en paralelo) + `utils/periodoReporte.js` (rango del periodo, función pu
   contra PGlite local: 11/11 en el archivo y `npm test` 62 + 1 saltada sin base. Las respuestas de los endpoints
   existentes no cambiaron (solo se agregó la ruta); la app Android no lo usa.
 
+## Alertas de stock (`GET /api/alertas-stock`)
+### Inspección (Paso 0, 2026-10-11, sobre `b505043`)
+- **productos:** `stock_actual` y `umbral_alerta` son `integer NOT NULL DEFAULT 0` (el "stock mínimo"); `activo` 0/1
+  (migración aditiva). `alerta_stock_bajo` no es columna: lo calcula `productoService` (`stock_actual <= umbral_alerta`).
+  `categorias.nombre` por `id_categoria`.
+- **ventas / venta_detalle:** `ventas.fecha_hora` es `timestamp(0)` en UTC, `estado` activa/anulada (las anuladas no se
+  borran). `venta_detalle.cantidad` es entero; es la única fuente de unidades vendidas (mesa y mostrador).
+- **Patrón de `/api/reportes` que se reutiliza:** `routes` (`router.use(auth, requireRole("administrador", "cajero"))`)
+  → `controller` (lee `req.query`) → `service` (valida y lanza `ErrorValidacion` → 400 `{error}`) → `model` (SQL con
+  `db.uno`/`db.todos`). Día de Colombia D = `[D 05:00, D+1 05:00)` UTC comparando la columna tal cual; "hoy" con
+  `hoyColombia()`. Errores async de Express 5 llegan solos a `manejoErrores`. `db.js` convierte `INT8` y `NUMERIC` a
+  `Number`.
+- **Pruebas:** `node --test`; la integración solo corre con `PRUEBA_DATABASE_URL` hacia localhost y sobre una base
+  recién creada (si tiene productos, se salta); usuarios de cada rol creados en la prueba; peticiones con `fetch` a
+  `app.listen(0)`.
+
 ## Pendientes futuros (no urgentes)
 - La app Android ya refleja todo lo de este backend: campos nuevos de productos y proveedores,
   impuestos deshabilitados para el cajero y `cliente.correo` al cobrar (app `82941d4`, `c887b11`,
