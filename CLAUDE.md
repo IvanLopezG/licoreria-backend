@@ -210,6 +210,9 @@ Sin cambios de esquema ni dependencias nuevas. Pantalla "Asistente" en la app An
 **Panel web: Reportes, Alertas de stock y Asistente: COMPLETO** (2026-10-11). Ver la sección *Panel web: Reportes,
 Alertas de stock y Asistente* más abajo. Solo frontend (`public/panel/`); la API no cambió.
 
+**Menú del panel web por rol: COMPLETO** (2026-10-12). Cada rol ve solo las páginas que su API le permite (mesero: Mesas y
+Pedidos, como la app Android). Ver la sección *Menú del panel web por rol* más abajo. Solo frontend; la API no cambió.
+
 **Manejo de errores central y logging con Pino: COMPLETO.** Ver la sección *Manejo de errores* más abajo.
 
 **Sesiones de mesa en el catálogo QR (factura y estado de pedidos en el celular): COMPLETA.** Ver la
@@ -692,7 +695,8 @@ y `gestion.js` (funciones puras, objeto global `Gestion` + `module.exports`). Ca
 - **Menú:** las 7 páginas que ya existían y las 3 nuevas tienen en la barra lateral "Alertas de stock" (después de
   Inventario), "Reportes" y "Asistente" (después de Ventas): mismo orden que la app Android. Llevan la clase nueva
   **`.solo-gestion`**, que `menu.js` quita si el rol no es administrador ni cajero (como `.solo-admin`). Las demás
-  entradas no cambiaron (el mesero sigue viéndolas como antes).
+  entradas no cambiaron (el mesero sigue viéndolas como antes; desde el 2026-10-12 ya no: ver *Menú del panel web por
+  rol*).
 - **Contador de alertas** (`menu.js`, `MenuPanel.actualizarContadorAlertas(n)`): número de productos con estado conocido
   (`agotado`, `bajo_minimo`, `por_agotarse`; "99+" si pasa de 99; nada si es 0) en `span.nav-contador` junto a "Alertas
   de stock". Se consulta **una vez al entrar al panel** (primera página con sesión de la pestaña) y se guarda en
@@ -759,6 +763,54 @@ vacío con movimientos, grupos y aviso sin ventas, contador, un nombre de produc
 sin ejecutarse, preguntas rápidas, 500 caracteres, Enter, 429 + Reintentar sin duplicar, "Escribiendo…" y aviso a los
 10 s, 400 sin Reintentar, timeout, chat vacío al volver, 403 del mesero en las tres) y capturas a 1366 y 390 px.
 PGlite y Chrome cerrados al terminar.
+
+## Menú del panel web por rol
+### Inspección (Paso 0, 2026-10-12, sobre `c912c4f`)
+- **Permisos reales** (`requireRole` en `src/routes/*.routes.js`) del endpoint con que carga cada página: Mesas
+  `GET /api/mesas` y Pedidos `GET /api/pedidos` → los tres roles; Productos `GET /api/productos`, Proveedores
+  `GET /api/proveedores`, Inventario `GET /api/inventario/movimientos` (y productos/proveedores para los selectores),
+  Alertas `GET /api/alertas-stock`, Ventas `GET /api/ventas`, Reportes `GET /api/reportes`, Asistente `/api/chatbot`
+  → administrador y cajero; Datos del negocio `GET /api/emisor/resolucion` → solo administrador (el cajero puede leer
+  `GET /api/emisor`, pero la página es de edición y ya lo bloquea por rol).
+- **`menu.js` antes:** solo `.solo-admin` (Datos del negocio) y `.solo-gestion` (Alertas, Reportes, Asistente). El
+  mesero veía Productos, Proveedores, Inventario y Ventas y recibía 403. El README los marcaba "Visible en el menú, la
+  API responde 403".
+- **App Android** (`LicoreriaPanel/CLAUDE.md`): `seccionesPara(rol)`; el mesero solo ve Pedidos y Mesas; Reportes,
+  Alertas y Asistente solo administrador y cajero; Datos del negocio solo administrador.
+- **Login:** con sesión o tras ingresar va a `pedidos.html` (`INICIO_PANEL`), que los tres roles pueden usar: no hizo
+  falta cambiarlo.
+- **Aviso al abrir por URL:** Proveedores, Inventario y Ventas reemplazan la sección por "No tienes permiso para ver esta
+  sección."; Alertas, Reportes y Asistente tienen su mensaje de 403; Datos del negocio "Solo el administrador puede
+  editar…". **Productos no**: solo un aviso pasajero (toast de 7 s) y el formulario vacío.
+
+**Entradas que ve cada rol** (además de "Cerrar sesión"; mismo orden en las 10 páginas):
+
+| Rol | Entradas del menú |
+|---|---|
+| Administrador | Mesas, Pedidos entrantes, Productos, Proveedores, Inventario, Alertas de stock, Ventas, Reportes, Asistente, Datos del negocio |
+| Cajero | Las mismas menos Datos del negocio |
+| Mesero | Mesas, Pedidos entrantes |
+| Rol desconocido o sin usuario guardado | Ninguna (solo "Login" sin token / "Cerrar sesión" con token) |
+
+### Implementación (COMPLETA, 2026-10-12)
+- `menu.js`: `ROLES_POR_PAGINA` (página → roles, igual que `requireRole`) y la función pura `puedeVerPagina(rol, href)`;
+  quita todo `a.nav-item` que el rol no puede usar (las páginas fuera de la tabla, como Login, no dependen del rol).
+  Las clases `.solo-admin` y `.solo-gestion` se conservan en el HTML y se siguen quitando como antes (coinciden con la
+  tabla). La API y sus respuestas no cambiaron; **página nueva = agregarla a `ROLES_POR_PAGINA` y a la prueba**.
+- `productos.html`: con un 403 reemplaza el contenido por "No tienes permiso para ver esta sección." (mismo patrón que
+  Proveedores/Inventario/Ventas). Único cambio de una pantalla y solo en el caso 403; los demás errores siguen como aviso.
+- **Decisiones (la más conservadora):** rol desconocido → no ve ninguna página restringida (antes veía casi todas);
+  Datos del negocio sigue solo para administrador aunque el cajero pueda leer `GET /api/emisor`; el aviso de Productos
+  se agregó porque el pedido exige un aviso claro al abrir una página oculta por URL y el toast no lo era.
+- **Pruebas** (`test/panelWeb.test.js`): `simularMenu` ahora arma los enlaces con el menú **real** de cada página.
+  (1) menú de las 10 páginas para administrador, cajero, mesero, rol desconocido y sin sesión, y `puedeVerPagina` =
+  tabla esperada; (2) toda página oculta para algún rol tiene su aviso de permiso; (3) para cada rol y página se pide el
+  endpoint principal con un JWT de ese rol a la app real: visible → nunca 401/403 (500 sin base, 200 con base), oculta →
+  siempre 403. Así un cambio de permisos en la API sin tocar el menú hace fallar `npm test`.
+- **Verificado el 2026-10-12:** `npm test` 95 + 4 saltadas sin base; `panelWeb.test.js` 11/11 contra PGlite en memoria;
+  Chrome headless (script desechable fuera del repo, backend local + PGlite): menú por rol en Pedidos, Mesas y Productos,
+  el mesero ve el aviso en las 8 páginas ocultas abiertas por URL, el cajero ve el formulario de Productos, y el login
+  con sesión de mesero lleva a Pedidos sin aviso (29/29). PGlite y Chrome cerrados al terminar.
 
 ## Pendientes futuros (no urgentes)
 - La app Android ya refleja todo lo de este backend: campos nuevos de productos y proveedores,

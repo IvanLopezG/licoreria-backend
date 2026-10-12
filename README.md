@@ -53,22 +53,28 @@ Catálogo de cliente (Sprint 3), vía QR: **http://localhost:3000/catalogo/index
 
 ### Pantallas del panel web por rol
 
-El menú lateral oculta lo que el rol no puede usar (es solo presentación: la API
-igual responde 403). Si alguien abre la página directamente, ve "No tienes
-permiso…" en vez de los datos.
+El menú lateral muestra a cada rol solo las páginas cuyo endpoint principal le
+responde (igual que la app Android: el mesero ve solo Mesas y Pedidos). Es solo
+presentación: la API igual responde 403. Si alguien abre una página oculta
+escribiendo la URL, ve "No tienes permiso…" en vez de los datos. Tras el login,
+todos los roles van a Pedidos, que los tres pueden usar.
 
 | Pantalla (`/panel/…`) | Administrador | Cajero | Mesero |
 |---|---|---|---|
 | Mesas (`mesas.html`) | Sí | Sí | Sí (sin crear mesas ni ver QR) |
 | Pedidos entrantes (`pedidos.html`) | Sí | Sí | Sí (sin cancelar ni cobrar) |
-| Productos (`productos.html`) | Sí | Sí (impuestos de solo lectura) | Visible en el menú, la API responde 403 |
-| Proveedores (`proveedores.html`) | Sí | Sí | Visible en el menú, la API responde 403 |
-| Inventario (`inventario.html`) | Sí | Sí | Visible en el menú, la API responde 403 |
+| Productos (`productos.html`) | Sí | Sí (impuestos de solo lectura) | No (oculta; 403) |
+| Proveedores (`proveedores.html`) | Sí | Sí | No (oculta; 403) |
+| Inventario (`inventario.html`) | Sí | Sí | No (oculta; 403) |
 | **Alertas de stock** (`alertas.html`, con contador en el menú) | Sí | Sí | No (oculta; 403) |
-| Ventas (`ventas.html`) | Sí (anula facturas) | Sí (sin anular) | Visible en el menú, la API responde 403 |
+| Ventas (`ventas.html`) | Sí (anula facturas) | Sí (sin anular) | No (oculta; 403) |
 | **Reportes** (`reportes.html`) | Sí | Sí | No (oculta; 403) |
 | **Asistente** (`asistente.html`) | Sí | Sí | No (oculta; 403) |
 | Datos del negocio (`negocio.html`) | Sí | No (oculta) | No (oculta) |
+
+La tabla está en `public/panel/menu.js` (`ROLES_POR_PAGINA`); `test/panelWeb.test.js`
+la compara con el `requireRole` real de cada endpoint, así que un cambio de
+permisos en la API sin cambiar el menú hace fallar `npm test`.
 
 Reportes, Alertas de stock y Asistente usan `GET /api/reportes`,
 `GET /api/alertas-stock` y `/api/chatbot`. Solo están en el panel interno: el
