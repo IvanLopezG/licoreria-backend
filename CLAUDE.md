@@ -108,7 +108,12 @@ validar con contador. Ver sección *Facturación* del `README.md`.
 
 **Tabla de productos en la pestaña Inventario (panel web): COMPLETA** (2026-10-09). Solo frontend
 (`public/panel/inventario.html`, `panel.css`); **la API no cambió**:
-- Arriba de la página, "Productos en inventario": una fila por producto (activos e inactivos, estos con
+- **Orden de la página** (desde el 2026-10-11): tarjetas de resumen → Registrar entrada / Registrar salida (lado a
+  lado) → "Productos en inventario" → Historial de movimientos. Solo se movió el bloque en el HTML; el contenido, los
+  estilos y el comportamiento de la tabla no cambiaron (se quitó `.tarjetas-inventario`, que solo separaba las tarjetas
+  de la tabla cuando esta iba arriba). Verificado contra PGlite local con Chrome headless a 1366 y 390 px (sin desborde,
+  tablas desplazables, búsqueda, filtro, orden, ambos "Exportar CSV" y refresco tras entrada y salida); `npm test` 59/59.
+- "Productos en inventario": una fila por producto (activos e inactivos, estos con
   la insignia INACTIVO) con nombre + SKU, categoría, marca, unidad + ml, stock, umbral, estado, precio y
   costo. Datos de `GET /api/productos` (la misma petición que llena los selectores; permisos de siempre:
   administrador y cajero, el mesero ve "No tienes permiso…"). Se recarga tras cada entrada o salida.
