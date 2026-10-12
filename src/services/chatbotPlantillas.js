@@ -91,7 +91,7 @@ const MAXIMO_LISTA = 15;
 function reabastecer(alertas) {
   if (alertas.productos.length === 0) return "Todo el stock está en orden: no hay nada que reabastecer por ahora.";
   const lineas = alertas.productos.slice(0, MAXIMO_LISTA).map((p) => {
-    const accion = p.cantidad_sugerida > 0 ? `pedir ${numero(p.cantidad_sugerida)}` : "revisar el stock mínimo";
+    const accion = p.cantidad_sugerida > 0 ? `pedir ${numero(p.cantidad_sugerida)}` : "sin cantidad sugerida (pocas ventas recientes)";
     return `• ${p.nombre} (${ESTADOS[p.estado] || p.estado}, stock ${numero(p.stock_actual)}): ${accion}`;
   });
   const resto = alertas.productos.length - MAXIMO_LISTA;

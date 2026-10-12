@@ -215,7 +215,7 @@ function validar(cuerpo) {
     throw new ErrorValidacion("Envía un mensaje o una pregunta rápida (pregunta_id), no ambos.");
   }
   if (tienePregunta) {
-    if (typeof c.pregunta_id !== "string" || !RESPUESTAS_RAPIDAS[c.pregunta_id]) {
+    if (typeof c.pregunta_id !== "string" || !Object.hasOwn(RESPUESTAS_RAPIDAS, c.pregunta_id)) {
       throw new ErrorValidacion("pregunta_id no es una pregunta rápida válida.");
     }
     return { pregunta_id: c.pregunta_id };
