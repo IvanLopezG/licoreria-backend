@@ -20,6 +20,7 @@ const ventasRoutes = require("./routes/ventas.routes");
 const facturasRoutes = require("./routes/facturas.routes");
 const emisorRoutes = require("./routes/emisor.routes");
 const reportesRoutes = require("./routes/reportes.routes");
+const alertasStockRoutes = require("./routes/alertasStock.routes");
 
 const app = express();
 // Render atiende detrás de un proxy: req.ip es la IP real del cliente (la usa
@@ -53,6 +54,7 @@ app.use("/api/ventas", ventasRoutes);
 app.use("/api/facturas", facturasRoutes);
 app.use("/api/emisor", emisorRoutes);
 app.use("/api/reportes", reportesRoutes);
+app.use("/api/alertas-stock", alertasStockRoutes);
 
 app.use("/panel", express.static(path.join(__dirname, "..", "public", "panel")));
 app.use("/catalogo", express.static(path.join(__dirname, "..", "public", "catalogo")));
