@@ -1,6 +1,7 @@
 const bcrypt = require("bcryptjs");
 const usuarioModel = require("../models/usuarioModel");
 const { ErrorConflicto, ErrorValidacion } = require("../utils/errores");
+const { validarContrasena } = require("../utils/contrasena");
 
 const ROLES_VALIDOS = ["administrador", "mesero", "cajero"];
 const SALT_ROUNDS = 10;
@@ -13,6 +14,8 @@ async function crearUsuario({ nombre, usuario_login, password, rol }) {
   if (!ROLES_VALIDOS.includes(rol)) {
     throw new ErrorValidacion(`Rol inválido. Debe ser uno de: ${ROLES_VALIDOS.join(", ")}.`);
   }
+
+  validarContrasena(password);
 
   if (await usuarioModel.buscarPorLogin(usuario_login)) {
     throw new ErrorConflicto("Ya existe un usuario con ese usuario_login.");
