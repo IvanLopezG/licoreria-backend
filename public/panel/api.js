@@ -16,38 +16,59 @@ const Api = (() => {
 
   // opciones: { method, body (objeto, se envía como JSON), auth (por defecto
   // true: agrega el token del panel), respuesta: "json" | "blob" | "texto",
-  // headers (encabezados extra, p. ej. X-Sesion-Token del catálogo) }.
-  async function pedir(ruta, { method = "GET", body, auth = true, respuesta = "json", headers: extra = {} } = {}) {
+  // headers (encabezados extra, p. ej. X-Sesion-Token del catálogo),
+  // timeoutMs (opcional, solo lo usa el Asistente; sin él no hay límite, como
+  // siempre) }. Si vence el timeout: ApiError con status 0 y tiempoAgotado.
+  async function pedir(ruta, { method = "GET", body, auth = true, respuesta = "json", headers: extra = {}, timeoutMs } = {}) {
     const headers = { ...extra };
     if (body !== undefined) headers["Content-Type"] = "application/json";
     const token = auth ? localStorage.getItem("token") : null;
     if (token) headers.Authorization = `Bearer ${token}`;
 
-    let res;
-    try {
-      res = await fetch(ruta, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
-    } catch {
-      throw new ApiError(SIN_CONEXION, 0);
-    }
-
-    if (!res.ok) {
-      let mensaje = null;
-      try {
-        mensaje = (await res.json()).error;
-      } catch {
-        // Respuesta sin JSON (p. ej. la página de error del proxy de Render).
+    const control = timeoutMs ? new AbortController() : null;
+    const temporizador = control ? setTimeout(() => control.abort(), timeoutMs) : null;
+    const fallo = (mensaje, status) => {
+      if (control && control.signal.aborted) {
+        const err = new ApiError(TIEMPO_AGOTADO, 0);
+        err.tiempoAgotado = true;
+        return err;
       }
-      throw new ApiError(mensaje || mensajePorEstado(res.status), res.status);
-    }
+      return new ApiError(mensaje, status);
+    };
 
-    if (respuesta === "blob") return res.blob();
-    if (respuesta === "texto") return res.text();
     try {
-      return await res.json();
-    } catch {
-      throw new ApiError("El servidor devolvió una respuesta inesperada. Inténtalo de nuevo.", res.status);
+      let res;
+      try {
+        const opciones = { method, headers, body: body === undefined ? undefined : JSON.stringify(body) };
+        if (control) opciones.signal = control.signal;
+        res = await fetch(ruta, opciones);
+      } catch {
+        throw fallo(SIN_CONEXION, 0);
+      }
+
+      if (!res.ok) {
+        let mensaje = null;
+        try {
+          mensaje = (await res.json()).error;
+        } catch {
+          // Respuesta sin JSON (p. ej. la página de error del proxy de Render).
+        }
+        throw new ApiError(mensaje || mensajePorEstado(res.status), res.status);
+      }
+
+      if (respuesta === "blob") return await res.blob();
+      if (respuesta === "texto") return await res.text();
+      try {
+        return await res.json();
+      } catch {
+        throw fallo("El servidor devolvió una respuesta inesperada. Inténtalo de nuevo.", res.status);
+      }
+    } finally {
+      if (temporizador) clearTimeout(temporizador);
     }
   }
+
+  const TIEMPO_AGOTADO = "El servidor tardó demasiado en responder. Inténtalo de nuevo en un momento.";
 
   function mensajePorEstado(status) {
     if (status === 401) return "Tu sesión expiró. Vuelve a iniciar sesión.";

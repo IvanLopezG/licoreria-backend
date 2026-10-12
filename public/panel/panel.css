@@ -364,3 +364,123 @@ th[aria-sort] .orden { color: var(--azul-oscuro); }
   .barra-inventario .filtro-categoria { flex: 1 1 100%; max-width: none; }
   .tarjeta { min-width: 120px; }
 }
+
+/* ---------- Reportes, Alertas de stock y Asistente ----------
+   Solo clases nuevas: no cambian el aspecto de las demás páginas. */
+
+/* Contador de productos en alerta junto a "Alertas de stock". */
+.nav-contador {
+  margin-left: auto;
+  min-width: 20px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: #fff;
+  color: var(--rojo);
+  font-size: 11px;
+  font-weight: bold;
+  text-align: center;
+  line-height: 16px;
+}
+
+/* Selector de opciones (Día / Semana / Mes / Año). */
+.chips { display: flex; gap: 8px; flex-wrap: wrap; }
+.chip {
+  border: 1px solid var(--gris-borde);
+  background: #fff;
+  color: var(--azul-oscuro);
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-family: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.chip:hover { background: rgba(31, 56, 100, 0.06); }
+.chip[aria-pressed="true"] { background: var(--azul-oscuro); border-color: var(--azul-oscuro); color: #fff; }
+.chip:disabled { opacity: .45; cursor: not-allowed; }
+
+.navegador-periodo { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 14px; }
+.navegador-periodo .rango { flex: 1 1 220px; text-align: center; font-size: 17px; font-weight: bold; }
+.navegador-periodo .btn { margin-top: 0; }
+.navegador-periodo .btn:disabled { opacity: .45; cursor: not-allowed; background: transparent; }
+.fecha-referencia { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; margin-top: 4px; }
+.fecha-referencia label { flex: 0 1 200px; }
+.fecha-referencia .btn { margin-top: 0; }
+
+/* Estados de una sección: cargando, error con Reintentar, vacío. */
+.estado-carga { margin-top: 20px; color: var(--gris-texto); font-size: 14px; }
+.caja-error {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 20px;
+  padding: 12px;
+  background: #FBE4E4;
+  color: var(--rojo);
+  border-left: 4px solid var(--rojo);
+  border-radius: 4px;
+}
+.caja-error span { flex: 1 1 240px; }
+.caja-error .btn { margin-top: 0; }
+.estado-vacio { margin-top: 20px; padding: 16px; text-align: center; color: var(--gris-texto); background: var(--gris-fondo); border-radius: 6px; }
+
+/* Gráfica de barras (SVG propio). */
+.grafica { width: 100%; height: 180px; display: block; margin-top: 12px; }
+.grafica .barra { fill: var(--azul-medio); }
+.grafica .eje { stroke: var(--gris-borde); stroke-width: 1; }
+.grafica-etiquetas { display: flex; font-size: 11px; color: var(--gris-texto); margin-top: 4px; }
+.grafica-etiquetas span { flex: 1; text-align: center; overflow: hidden; white-space: nowrap; }
+.grafica-etiquetas.extremos { justify-content: space-between; }
+.grafica-etiquetas.extremos span { flex: 0 0 auto; }
+.celda-numero { text-align: right; white-space: nowrap; }
+thead th.celda-numero { text-align: right; }
+
+/* Alertas de stock. */
+.grupo-alertas h2 { display: flex; align-items: center; gap: 8px; }
+.grupo-alertas h2 .badge { margin-left: 0; }
+.nota-sin-ventas { font-size: 12px; color: var(--gris-texto); margin-top: 3px; white-space: normal; }
+
+/* Asistente: burbujas de chat. */
+.chat {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 260px;
+  max-height: 60vh;
+  overflow-y: auto;
+  padding: 16px;
+  margin-top: 16px;
+  background: var(--gris-fondo);
+  border-radius: 8px;
+}
+.chat-vacio { margin: auto; color: var(--gris-texto); font-size: 14px; text-align: center; }
+.burbuja-fila { display: flex; flex-direction: column; max-width: 80%; }
+.burbuja-fila.usuario { align-self: flex-end; align-items: flex-end; }
+.burbuja-fila.asistente { align-self: flex-start; align-items: flex-start; }
+.burbuja {
+  padding: 10px 14px;
+  border-radius: 14px;
+  font-size: 14px;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.burbuja-fila.usuario .burbuja { background: var(--azul-oscuro); color: #fff; border-bottom-right-radius: 4px; }
+.burbuja-fila.asistente .burbuja { background: #fff; color: var(--azul-oscuro); border: 1px solid var(--gris-borde); border-bottom-left-radius: 4px; }
+.burbuja-origen { font-size: 11px; color: var(--gris-texto); margin-top: 3px; }
+.escribiendo { align-self: flex-start; font-size: 13px; color: var(--gris-texto); }
+.escribiendo .lento { display: block; margin-top: 4px; }
+.chat .caja-error { margin-top: 0; }
+.preguntas-rapidas { margin-top: 12px; }
+.chip-pregunta { text-align: left; }
+.formulario-chat { display: flex; gap: 12px; align-items: flex-end; margin-top: 12px; }
+.formulario-chat .campo { flex: 1; }
+.formulario-chat textarea { margin-top: 0; min-height: 44px; }
+.formulario-chat .btn { margin-top: 0; }
+.formulario-chat .btn:disabled { opacity: .45; cursor: not-allowed; }
+.contador-caracteres { font-size: 11px; color: var(--gris-texto); text-align: right; margin-top: 2px; }
+
+@media (max-width: 720px) {
+  .burbuja-fila { max-width: 92%; }
+  .navegador-periodo .rango { order: -1; flex-basis: 100%; }
+}
