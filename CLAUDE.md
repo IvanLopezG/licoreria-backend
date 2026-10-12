@@ -194,6 +194,9 @@ secundario, deshabilitado y con `title` explicativo si no hay filas):
     la factura. La bitácora de auditoría y el reporte de movimientos por usuario (US-18, `?id_usuario=`) no
     tienen botón de exportar.
 
+**Reportes por periodo (`GET /api/reportes`, API): COMPLETO** (2026-10-11). Ver la sección *Reportes por periodo*
+más abajo. Sin cambios de esquema; aún sin pantalla en el panel ni en la app Android.
+
 **Manejo de errores central y logging con Pino: COMPLETO.** Ver la sección *Manejo de errores* más abajo.
 
 **Sesiones de mesa en el catálogo QR (factura y estado de pedidos en el celular): COMPLETA.** Ver la
@@ -460,6 +463,40 @@ una falla real salga como 400/401 con el mensaje de pg. Con clases tipadas el se
   umbral_alerta`, calculado en `productoService`), además de `activo`.
 - **Conclusión:** no falta fecha ni detalle por producto; **no se agregó ninguna columna ni migración**.
 
+### Implementación (COMPLETA, 2026-10-11)
+`routes/reportes.routes.js` → `reporteController` → `reporteService` → `reporteModel` (5 consultas de agregación
+en SQL, en paralelo) + `utils/periodoReporte.js` (rango del periodo, función pura). Solo lectura, sin bitácora.
+- **`GET /api/reportes?periodo=dia|semana|mes|anio[&fecha=AAAA-MM-DD]`**, administrador y cajero (mesero 403, sin
+  token 401). `periodo` falta o no es uno de esos cuatro (en minúscula, `anio` sin ñ) → 400 "periodo es obligatorio.
+  Debe ser uno de: dia, semana, mes, anio."; `fecha` que no es una fecha real `AAAA-MM-DD` (p. ej. 2026-02-30) → 400
+  "fecha debe ser una fecha válida con formato AAAA-MM-DD.".
+- **Respuesta:** `{periodo, fecha_referencia, rango:{desde, hasta, zona_horaria:"America/Bogota"}, total_vendido,
+  numero_ventas, ticket_promedio, top_productos:[{id_producto, nombre, unidades, total}] (10),
+  productos_menos_vendidos:[igual] (5), movimientos_inventario:{entradas, salidas, ajustes} (cada uno
+  {movimientos, unidades}), ventas_por_dia:[{fecha, total, numero_ventas}]}`. Dinero redondeado a 2 decimales.
+- **Decisiones ante ambigüedad (la opción más conservadora):**
+  - **Zona horaria:** `desde`/`hasta` son días de Colombia, inclusivos. Como `fecha_hora` está en UTC, el día D se
+    filtra de D 05:00 a D+1 05:00 UTC con desfase fijo UTC-5 (Colombia no tiene horario de verano; el mismo criterio
+    de `utils/fechaColombia.js`), sin depender de la zona de la sesión de Postgres. Así una venta de las 11 p. m.
+    del 31 de diciembre cuenta en ese año. Los demás reportes (`/api/ventas`, movimientos) **siguen en UTC**; no se
+    tocaron (ver pendiente de fechas en UTC arriba).
+  - **Semana:** de lunes a domingo (ISO), la que contiene la fecha.
+  - **Ventas anuladas:** no cuentan en nada (igual que `GET /api/ventas`).
+  - **Más/menos vendidos:** por unidades (empate: más/menos dinero, luego nombre); `total` = Σ cantidad ×
+    `precio_unitario` de `venta_detalle`. Los menos vendidos incluyen productos **activos** con 0 unidades en el
+    periodo (lo útil para un negocio: lo que no rota); un inactivo solo aparece si se vendió en el periodo.
+  - **Movimientos:** el Kardex solo tiene `entrada`/`salida`. `ajustes` = salidas con motivo `ajuste`; `salidas` = las
+    demás salidas (ventas), sin contar el ajuste dos veces; `entradas` = todas las entradas (`compra` y la
+    devolución de stock por `anulacion`). Se cuenta el Kardex tal cual, incluidas las salidas de ventas que luego se
+    anularon (su `anulacion` aparece como entrada).
+  - **Serie:** `ventas_por_dia` trae todos los días del rango, también los que no tuvieron ventas (365/366 en el año).
+- **Pruebas:** `test/reportes.test.js`. Rangos y validación corren siempre en `npm test`. La integración (cada periodo
+  con datos de prueba: límites de medianoche en Colombia, anulada, inactivos, empates, periodo vacío, fecha por
+  defecto, 400/401/403) corre solo con `PRUEBA_DATABASE_URL=<postgres local> npm test` sobre una base **recién creada**
+  (si ya tiene productos o no es localhost, se salta: nunca borra nada ni toca Supabase). Verificado el 2026-10-11
+  contra PGlite local: 11/11 en el archivo y `npm test` 62 + 1 saltada sin base. Las respuestas de los endpoints
+  existentes no cambiaron (solo se agregó la ruta); la app Android no lo usa.
+
 ## Pendientes futuros (no urgentes)
 - La app Android ya refleja todo lo de este backend: campos nuevos de productos y proveedores,
   impuestos deshabilitados para el cajero y `cliente.correo` al cobrar (app `82941d4`, `c887b11`,
@@ -490,6 +527,7 @@ esta tabla** (y la de `LicoreriaPanel/CLAUDE.md`).
 | Proveedores: listar, ver, crear, editar, asociar y quitar producto | Sí | Sí | No |
 | Inventario: entradas y salidas | Sí | Sí | No |
 | Reportes: ventas y movimientos de inventario (JSON y CSV) | Sí | Sí | No |
+| Reporte por periodo (`GET /api/reportes`) | Sí | Sí | No |
 | Bitácora de auditoría (`GET /api/auditoria`) | Sí | No | No |
 | Usuarios: listar y crear | Sí | No | No |
 | Ver datos del emisor (`GET /api/emisor`) | Sí | Sí | No |
