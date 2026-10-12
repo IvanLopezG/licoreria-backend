@@ -7,8 +7,13 @@ const { ErrorDemasiadosIntentos } = require("../utils/errores");
 //
 // soloFallos: solo cuentan las respuestas 401/404 (token de mesa o de sesión
 // inválido), así el uso normal nunca se bloquea y adivinar tokens sí.
-function limiteIntentos({ ventanaMs, maximo, soloFallos = false }) {
-  const contadores = new Map(); // ip -> { n, reinicio }
+//
+// clave: de quién se cuenta (por defecto la IP); el chatbot cuenta por usuario.
+// mensaje: texto del 429.
+const MENSAJE = "Demasiados intentos. Espera unos minutos e inténtalo de nuevo.";
+
+function limiteIntentos({ ventanaMs, maximo, soloFallos = false, clave = (req) => req.ip || "desconocida", mensaje = MENSAJE }) {
+  const contadores = new Map(); // clave -> { n, reinicio }
 
   function purgar(ahora) {
     if (contadores.size < 5000) return;
@@ -24,13 +29,13 @@ function limiteIntentos({ ventanaMs, maximo, soloFallos = false }) {
   return (req, res, next) => {
     const ahora = Date.now();
     purgar(ahora);
-    const ip = req.ip || "desconocida";
+    const ip = clave(req);
     const c = contadores.get(ip);
     if (c && c.reinicio > ahora && c.n >= maximo) {
       // El manejador central pone Retry-After con reintentarEn.
       return next(
         new ErrorDemasiadosIntentos(
-          "Demasiados intentos. Espera unos minutos e inténtalo de nuevo.",
+          mensaje,
           Math.ceil((c.reinicio - ahora) / 1000)
         )
       );
