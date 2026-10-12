@@ -195,7 +195,11 @@ secundario, deshabilitado y con `title` explicativo si no hay filas):
     tienen botón de exportar.
 
 **Reportes por periodo (`GET /api/reportes`, API): COMPLETO** (2026-10-11). Ver la sección *Reportes por periodo*
-más abajo. Sin cambios de esquema; aún sin pantalla en el panel ni en la app Android.
+más abajo. Sin cambios de esquema. Pantalla "Reportes" en la app Android (app `e9e3de7`); aún sin página en el panel web.
+
+**Alertas de stock (`GET /api/alertas-stock`, API): COMPLETO** (2026-10-11). Ver la sección *Alertas de stock* más
+abajo. Sin cambios de esquema. Pantalla "Alertas de stock" con contador en el menú en la app Android (app `c014e48`,
+`115a2bf`); aún sin página en el panel web. Sin notificaciones push.
 
 **Manejo de errores central y logging con Pino: COMPLETO.** Ver la sección *Manejo de errores* más abajo.
 
@@ -495,7 +499,7 @@ en SQL, en paralelo) + `utils/periodoReporte.js` (rango del periodo, función pu
   defecto, 400/401/403) corre solo con `PRUEBA_DATABASE_URL=<postgres local> npm test` sobre una base **recién creada**
   (si ya tiene productos o no es localhost, se salta: nunca borra nada ni toca Supabase). Verificado el 2026-10-11
   contra PGlite local: 11/11 en el archivo y `npm test` 62 + 1 saltada sin base. Las respuestas de los endpoints
-  existentes no cambiaron (solo se agregó la ruta); la app Android no lo usa.
+  existentes no cambiaron (solo se agregó la ruta); la app Android lo usa en la pantalla "Reportes" (app `e9e3de7`).
 
 ## Alertas de stock (`GET /api/alertas-stock`)
 ### Inspección (Paso 0, 2026-10-11, sobre `b505043`)
@@ -513,10 +517,48 @@ en SQL, en paralelo) + `utils/periodoReporte.js` (rango del periodo, función pu
   recién creada (si tiene productos, se salta); usuarios de cada rol creados en la prueba; peticiones con `fetch` a
   `app.listen(0)`.
 
+### Implementación (COMPLETA, 2026-10-11)
+`routes/alertasStock.routes.js` → `alertaStockController` → `alertaStockService` (parámetros, ventana, resumen) →
+`alertaStockModel` (una consulta SQL). Solo lectura, sin bitácora. Las respuestas de los endpoints existentes no cambiaron.
+- **`GET /api/alertas-stock[?ventana_dias=30&cobertura_alerta_dias=5&dias_objetivo=14]`**, administrador y cajero
+  (mesero 403, sin token 401). Cada parámetro es un entero de 1 a 365; vacío o ausente → su valor por defecto; otro
+  valor → 400 "`<nombre>` debe ser un número entero entre 1 y 365.".
+- **Respuesta:** `{parametros:{ventana_dias, cobertura_alerta_dias, dias_objetivo, desde, hasta, zona_horaria:
+  "America/Bogota"}, resumen:{total, agotado, bajo_minimo, por_agotarse}, productos:[{id_producto, nombre,
+  categoria_nombre, unidad_medida, stock_actual, umbral_alerta, estado, unidades_vendidas, promedio_diario,
+  dias_cobertura, cantidad_sugerida}]}`. Solo productos **activos** con estado distinto de "ok", ordenados por urgencia
+  (agotado, bajo_minimo, por_agotarse) y luego por `unidades_vendidas` descendente (empate: nombre, id).
+- **Cálculo (en SQL, por producto):** `unidades_vendidas` = Σ `venta_detalle.cantidad` de ventas **activas** en la
+  ventana; `promedio_diario` = unidades / ventana_dias; `dias_cobertura` = stock / promedio (`null` sin ventas);
+  estado con prioridad `agotado` (stock ≤ 0) → `bajo_minimo` (stock ≤ umbral) → `por_agotarse` (cobertura <
+  cobertura_alerta_dias) → `ok`; `cantidad_sugerida` = max(0, ceil(promedio × dias_objetivo − stock)).
+- **Decisiones ante ambigüedad (la opción más conservadora):**
+  - **Ventana:** los `ventana_dias` días de calendario de Colombia que terminan **hoy, incluido** (`desde` = hoy −
+    (ventana − 1)), con el mismo filtro UTC-5 de `/api/reportes`. El día de hoy cuenta aunque esté en curso.
+  - **Sin redondeos en las decisiones:** la comparación de cobertura y la cantidad sugerida se hacen con enteros
+    (`stock × ventana < cobertura × unidades`; `ceil(unidades × objetivo / ventana − stock)`). `promedio_diario` (2
+    decimales) y `dias_cobertura` (1 decimal) se redondean solo para mostrarse. Cobertura exactamente igual al límite →
+    `ok` (la regla es "menor que").
+  - **Sin ventas:** `promedio_diario` 0, `dias_cobertura` null, nunca `por_agotarse`; si está agotado o bajo el
+    mínimo, sale con `cantidad_sugerida` 0 (la fórmula pedida no sugiere nada sin historial de ventas).
+  - **Parámetros enteros** (no se aceptan decimales) y tope de 365 días.
+  - **`resumen`** se cuenta en el servicio sobre las filas que devolvió la consulta (el cálculo por producto es SQL).
+  - Inactivos nunca aparecen (aunque estén agotados); las ventas anuladas no cuentan.
+- **Pruebas:** `test/alertasStock.test.js`. Parámetros, ventana (cruce de año, bisiesto) y resumen corren siempre (modelo
+  reemplazado). La integración (cada estado, producto sin ventas, ventas anuladas, inactivo, límite exacto de cobertura,
+  primer y último día de la ventana, parámetros, 400/401/403) corre con `PRUEBA_DATABASE_URL` sobre una base **recién
+  creada**. Como `test/reportes.test.js` también exige base vacía, en un mismo `npm test` con una sola base el segundo se
+  salta: cada archivo de integración se corre con su propia base. Verificado el 2026-10-11 contra PGlite local en memoria
+  (`pglite-server`, instalado en una carpeta temporal fuera del repo; nunca Supabase): 6/6 en `alertasStock.test.js`,
+  11/11 en `reportes.test.js` con otra base nueva, y `npm test` 64 + 2 saltadas sin base.
+
 ## Pendientes futuros (no urgentes)
 - La app Android ya refleja todo lo de este backend: campos nuevos de productos y proveedores,
   impuestos deshabilitados para el cajero y `cliente.correo` al cobrar (app `82941d4`, `c887b11`,
-  `e861c27`). No quedan pendientes de Android.
+  `e861c27`), y `GET /api/reportes` y `GET /api/alertas-stock` tienen pantalla en la app.
+- Reportes por periodo y alertas de stock aún no tienen página en el panel web (solo API y app Android).
+- Desplegar en Render: `/api/reportes` y `/api/alertas-stock` solo existen en producción cuando Render tenga
+  desplegado este `main`; la app muestra "No se encontró el recurso solicitado." mientras tanto.
 - Siguen vigentes los ya descritos en **Estado actual**: tarifas de IVA/INC por validar con el
   contador, transmisión a la DIAN vía proveedor tecnológico (hoy 501) y nota crédito (CUDE).
 
@@ -544,6 +586,7 @@ esta tabla** (y la de `LicoreriaPanel/CLAUDE.md`).
 | Inventario: entradas y salidas | Sí | Sí | No |
 | Reportes: ventas y movimientos de inventario (JSON y CSV) | Sí | Sí | No |
 | Reporte por periodo (`GET /api/reportes`) | Sí | Sí | No |
+| Alertas de stock (`GET /api/alertas-stock`) | Sí | Sí | No |
 | Bitácora de auditoría (`GET /api/auditoria`) | Sí | No | No |
 | Usuarios: listar y crear | Sí | No | No |
 | Ver datos del emisor (`GET /api/emisor`) | Sí | Sí | No |
