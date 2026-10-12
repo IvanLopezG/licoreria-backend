@@ -2,6 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Licorería — Ventas</title>
 <link rel="stylesheet" href="panel.css">
 <script src="menu.js" defer></script>
@@ -98,12 +99,14 @@
         </div>
         <button type="button" class="btn" onclick="agregarLinea()">Agregar línea</button>
 
+        <div class="tabla-desplazable">
         <table>
           <thead>
             <tr><th>Producto</th><th>Cantidad</th><th>Precio unit.</th><th>Subtotal</th><th></th></tr>
           </thead>
           <tbody id="lineasVenta" class="fila-venta"></tbody>
         </table>
+        </div>
         <p>Total: <strong id="totalVenta">$0.00</strong></p>
         <div id="camposFacturaVenta"></div>
         <p id="errorVenta" class="oculto"></p>
@@ -136,12 +139,14 @@
                   title="No hay ventas para exportar">Exportar CSV</button>
         </form>
 
+        <div class="tabla-desplazable">
         <table>
           <thead>
             <tr><th>Fecha</th><th>Tipo</th><th>Mesa</th><th>Usuario</th><th>Total</th><th>Factura</th><th></th></tr>
           </thead>
           <tbody id="filas"></tbody>
         </table>
+        </div>
       </div>
     </div>
   </main>

@@ -334,37 +334,6 @@ th[aria-sort] .orden { color: var(--azul-oscuro); }
 
 .btn-chico { margin-top: 0; padding: 1px 7px; font-size: 12px; line-height: 1.4; margin-left: 4px; }
 
-/* ---------- Pantallas angostas ----------
-   Solo afecta a las páginas que declaran <meta name="viewport"> (hoy,
-   Inventario); las demás se siguen viendo a 980 px como antes. La barra
-   lateral pasa arriba y el menú se desplaza en horizontal. */
-
-@media (max-width: 720px) {
-  body { flex-direction: column; }
-  .sidebar {
-    width: 100%;
-    flex: 0 0 auto;
-    height: auto;
-    position: static;
-    padding: 10px 8px;
-  }
-  .sidebar-marca { padding: 4px 8px 8px; }
-  .sidebar-nav { flex-direction: row; overflow-x: auto; gap: 4px; }
-  .nav-item { white-space: nowrap; padding: 8px 10px; }
-  .nav-salir {
-    width: auto;
-    margin-top: 0;
-    border-top: 0;
-    border-left: 1px solid rgba(255, 255, 255, 0.12);
-    border-radius: 6px;
-    padding-top: 8px;
-  }
-  .contenido-principal { padding: 20px 16px 40px; }
-  .barra-filtros .buscador,
-  .barra-inventario .filtro-categoria { flex: 1 1 100%; max-width: none; }
-  .tarjeta { min-width: 120px; }
-}
-
 /* ---------- Reportes, Alertas de stock y Asistente ----------
    Solo clases nuevas: no cambian el aspecto de las demás páginas. */
 
@@ -481,7 +450,45 @@ thead th.celda-numero { text-align: right; }
 .formulario-chat .btn:disabled { opacity: .45; cursor: not-allowed; }
 .contador-caracteres { font-size: 11px; color: var(--gris-texto); text-align: right; margin-top: 2px; }
 
+/* ---------- Pantallas angostas ----------
+   ÚNICO breakpoint del panel (720 px): todas las reglas de celular van en
+   este bloque. Solo se activa si la página declara
+   <meta name="viewport" content="width=device-width, initial-scale=1">
+   (todas la declaran); sin ella el teléfono la dibuja a 980 px y la encoge.
+   La barra lateral pasa arriba y el menú se desplaza en horizontal; los
+   formularios quedan en una columna y las tablas anchas se desplazan dentro
+   de su .tabla-desplazable, nunca la página. */
+
 @media (max-width: 720px) {
+  .fila-form { flex-direction: column; gap: 0; }
+  .fila-form label { flex: none; min-width: 0; }
+  .fila-form label.casilla { align-self: flex-start; padding-bottom: 0; }
+  .seccion { padding: 14px 12px; }
+  thead th, tbody td { padding: 8px 6px; }
+  thead th.celda-numero { white-space: normal; }
   .burbuja-fila { max-width: 92%; }
   .navegador-periodo .rango { order: -1; flex-basis: 100%; }
+  body { flex-direction: column; }
+  .sidebar {
+    width: 100%;
+    flex: 0 0 auto;
+    height: auto;
+    position: static;
+    padding: 10px 8px;
+  }
+  .sidebar-marca { padding: 4px 8px 8px; }
+  .sidebar-nav { flex-direction: row; overflow-x: auto; gap: 4px; }
+  .nav-item { white-space: nowrap; padding: 8px 10px; }
+  .nav-salir {
+    width: auto;
+    margin-top: 0;
+    border-top: 0;
+    border-left: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 6px;
+    padding-top: 8px;
+  }
+  .contenido-principal { padding: 20px 16px 40px; }
+  .barra-filtros .buscador,
+  .barra-inventario .filtro-categoria { flex: 1 1 100%; max-width: none; }
+  .tarjeta { min-width: 120px; }
 }

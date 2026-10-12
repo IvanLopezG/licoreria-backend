@@ -2,6 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Licorería — Panel de Mesas</title>
 <link rel="stylesheet" href="panel.css">
 <script src="menu.js" defer></script>
@@ -81,10 +82,12 @@
       <button class="btn btn-primario" onclick="crearMesa()">Crear mesa</button>
     </div>
 
+    <div class="tabla-desplazable">
     <table>
       <thead><tr><th>Número</th><th>Estado</th><th>Acción</th></tr></thead>
       <tbody id="filas"></tbody>
     </table>
+    </div>
 
     <div id="qrBox" class="oculto">
       <p id="qrInfo"></p>

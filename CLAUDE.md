@@ -126,10 +126,8 @@ validar con contador. Ver sección *Facturación* del `README.md`.
   `alerta_stock_bajo`, si no **Disponible**. No se inventó ningún umbral.
 - **No existía descarga de Excel** en la pestaña Inventario (ni en el backend ni en la app Android). Los
   botones de exportar se agregaron después (ver *Exportar CSV en Inventario*, abajo).
-- Celular: `inventario.html` es la **única** página del panel con `<meta name="viewport">`. La media query
-  `max-width: 720px` de `panel.css` (menú lateral arriba y desplazable, márgenes menores) solo la activan las
-  páginas con viewport; las demás se siguen viendo a 980 px como antes. Para adaptar otra página: agregarle
-  el meta y envolver sus tablas en `.tabla-desplazable`.
+- Celular: `inventario.html` fue la primera página con `<meta name="viewport">`; desde el 2026-10-12 **todas** la
+  tienen (ver *Diseño en celular*, abajo).
 - Verificado contra Postgres local desechable (PGlite, `PG_POOL_MAX=1`) con Chrome headless a 1366 px y
   390 px: búsqueda, filtro, orden, estados, refresco tras salida, escape de HTML en nombres, sin desborde
   horizontal en 390 px. `npm test` 52/52.
@@ -751,7 +749,8 @@ reenvía el mismo cuerpo sin repetir la burbuja del usuario. La conversación vi
   hasta que se abre Alertas de stock.
 - **Hoy** = hoy en Colombia (UTC-5) con el reloj del navegador, igual que el backend.
 - Las tablas de cantidades muestran "—" en vez de "0" para la cantidad sugerida 0 (no hay nada que pedir).
-- Menú en celular: las páginas nuevas declaran viewport (como Inventario); las demás siguen a 980 px como antes.
+- Menú en celular: las páginas nuevas declaran viewport (como Inventario); las demás seguían a 980 px hasta el
+  2026-10-12 (ver *Diseño en celular*).
 
 **Pruebas** (sin navegador): `test/panelGestion.test.js` (9: hoy en Colombia, rangos idénticos a
 `utils/periodoReporte.js` para cada periodo y fecha, anterior/siguiente, rango legible, pesos y números, serie y
@@ -818,6 +817,29 @@ páginas con Usuarios, ver *Gestión de usuarios*):
   Chrome headless (script desechable fuera del repo, backend local + PGlite): menú por rol en Pedidos, Mesas y Productos,
   el mesero ve el aviso en las 8 páginas ocultas abiertas por URL, el cajero ve el formulario de Productos, y el login
   con sesión de mesero lleva a Pedidos sin aviso (29/29). PGlite y Chrome cerrados al terminar.
+
+## Diseño en celular (panel web, 2026-10-12)
+- **Bug:** en el teléfono (Brave Android, ~390 px) Productos se veía en modo escritorio encogido y Alertas cortaba la tabla.
+- **Causa raíz:** Productos, Proveedores, Ventas, Mesas, Pedidos y Datos del negocio **no tenían** `<meta name="viewport"
+  content="width=device-width, initial-scale=1">`. Sin ella el navegador móvil dibuja la página a 980 px y la escala, así
+  que la `@media (max-width: 720px)` nunca se activaba (era deliberado: "las demás se ven a 980 px como antes"). En Alertas
+  la tabla sí estaba en `.tabla-desplazable`, pero los encabezados numéricos (`.celda-numero`, `nowrap`) y el relleno de
+  12 px la hacían más ancha que la pantalla.
+- **Arreglo (solo frontend, la API no cambió):**
+  - Las 12 páginas del panel declaran viewport (6 agregadas). Una página nueva **debe** declararla.
+  - **Un solo breakpoint:** un único `@media (max-width: 720px)` **al final** de `panel.css` (se unieron los dos que
+    había; va al final para ganar la cascada a las reglas base). Toda regla de celular nueva va en ese bloque. El
+    `@media (max-width: 420px)` de `login.html` solo ajusta la tarjeta del login (no es de diseño de página) y `@media
+    print` de Mesas es de impresión; ambos se dejaron.
+  - En celular: `.fila-form` en una columna (las casillas a la izquierda), `.seccion` con menos relleno, celdas de tabla
+    con 8 px 6 px y encabezados numéricos que se parten en dos líneas.
+  - Tablas de Mesas y de Ventas (venta rápida y reporte) envueltas en `.tabla-desplazable` (Productos, Proveedores,
+    Inventario, Alertas, Datos del negocio y Usuarios ya lo estaban).
+- **Verificado** (Chrome headless, backend local + PGlite con datos de nombres largos; script desechable fuera del repo):
+  las 11 páginas con sesión a 360, 390, 768 y 1366 px. Sin scroll horizontal de la página en ningún caso, ninguna tabla
+  fuera de su contenedor, formularios en una columna a 360/390, y a 1366 px capturas idénticas a las de antes salvo las
+  horas de los datos de prueba (Ventas, Inventario, Usuarios). A 768 px (> 720) sigue el diseño de escritorio.
+  `npm test` 97 + 4 saltadas.
 
 ## Gestión de usuarios (`/api/usuarios`, panel `usuarios.html`)
 ### Inspección (Paso 0, 2026-10-12, sobre `54cdc27`)
