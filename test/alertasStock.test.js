@@ -130,9 +130,10 @@ test("integración: GET /api/alertas-stock con cada estado", { skip: !BASE_LOCAL
   // Ventana por defecto: 30 días de Colombia (hoy y los 29 anteriores), cobertura 5, objetivo 14.
   const P = {
     A: await producto("Aguardiente", 0, 5), // agotado, 30 vendidas → promedio 1
-    B: await producto("Brandy", 0, 0), // agotado sin ventas
+    B: await producto("Brandy", 0, 3), // agotado sin ventas → sugerida 3 × 2 − 0 = 6
+    B2: await producto("Coñac", 0, 0), // agotado sin ventas y sin mínimo → sugerida 0
     C: await producto("Cerveza", 3, 5), // bajo mínimo, 60 vendidas → promedio 2, cobertura 1,5
-    D: await producto("Dulce", 5, 5), // stock = mínimo: bajo mínimo, sin ventas
+    D: await producto("Dulce", 5, 5), // stock = mínimo: bajo mínimo, sin ventas → sugerida 5 × 2 − 5 = 5
     E: await producto("Exportación", 8, 2), // 60 vendidas (hoy) → cobertura 4: por agotarse
     F: await producto("Fino", 10, 2), // 60 vendidas → cobertura 5 exacta: ok (no es < 5)
     G: await producto("Ginebra", 50, 5), // sin ventas y sobre el mínimo: ok
@@ -178,9 +179,10 @@ test("integración: GET /api/alertas-stock con cada estado", { skip: !BASE_LOCAL
     assert.strictEqual(status, 200);
     assert.deepStrictEqual(filas(body.productos), [
       ["Aguardiente", "agotado", 30, 0, 14],
-      ["Brandy", "agotado", 0, null, 0],
+      ["Brandy", "agotado", 0, null, 6],
+      ["Coñac", "agotado", 0, null, 0],
       ["Cerveza", "bajo_minimo", 60, 1.5, 25],
-      ["Dulce", "bajo_minimo", 0, null, 0],
+      ["Dulce", "bajo_minimo", 0, null, 5],
       ["Exportación", "por_agotarse", 60, 4, 20],
       ["Kirsch", "por_agotarse", 30, 4, 10],
       ["Licor de café", "por_agotarse", 20, 4.5, 7], // ceil(20 × 14 / 30 − 3) = ceil(6,33)
@@ -192,7 +194,7 @@ test("integración: GET /api/alertas-stock con cada estado", { skip: !BASE_LOCAL
       promedio_diario: 2, dias_cobertura: 1.5, cantidad_sugerida: 25,
     });
     assert.strictEqual(body.productos.find((p) => p.nombre === "Licor de café").promedio_diario, 0.67);
-    assert.deepStrictEqual(body.resumen, { total: 7, agotado: 2, bajo_minimo: 2, por_agotarse: 3 });
+    assert.deepStrictEqual(body.resumen, { total: 8, agotado: 3, bajo_minimo: 2, por_agotarse: 3 });
     const hoy = hoyColombia();
     assert.deepStrictEqual(body.parametros, {
       ventana_dias: 30, cobertura_alerta_dias: 5, dias_objetivo: 14,
@@ -213,13 +215,14 @@ test("integración: GET /api/alertas-stock con cada estado", { skip: !BASE_LOCAL
 
     const dia = await pedir("?ventana_dias=1");
     assert.deepStrictEqual(filas(dia.body.productos), [
-      ["Aguardiente", "agotado", 0, null, 0],
-      ["Brandy", "agotado", 0, null, 0],
-      ["Cerveza", "bajo_minimo", 0, null, 0],
-      ["Dulce", "bajo_minimo", 0, null, 0],
+      ["Aguardiente", "agotado", 0, null, 10], // sin ventas en la ventana: 5 × 2 − 0
+      ["Brandy", "agotado", 0, null, 6],
+      ["Coñac", "agotado", 0, null, 0],
+      ["Cerveza", "bajo_minimo", 0, null, 7], // 5 × 2 − 3
+      ["Dulce", "bajo_minimo", 0, null, 5],
       ["Exportación", "por_agotarse", 60, 0.1, 832], // 60 × 14 − 8
     ]);
-    assert.deepStrictEqual(dia.body.resumen, { total: 5, agotado: 2, bajo_minimo: 2, por_agotarse: 1 });
+    assert.deepStrictEqual(dia.body.resumen, { total: 6, agotado: 3, bajo_minimo: 2, por_agotarse: 1 });
   });
 
   await t.test("validación (400) y roles (administrador y cajero sí; mesero 403; sin token 401)", async () => {

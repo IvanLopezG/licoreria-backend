@@ -12,6 +12,9 @@ const db = require("../db/db");
 //   dias_cobertura < cobertura  ⇔  stock * ventana < cobertura * unidades
 //   promedio * objetivo - stock  =  (unidades * objetivo) / ventana - stock
 // promedio_diario y dias_cobertura se redondean solo para mostrarlos.
+//
+// Sin ventas en la ventana no hay promedio: un producto agotado o bajo el
+// mínimo sugiere reponer hasta el doble del mínimo, max(0, umbral * 2 - stock).
 const ALERTAS = `
   WITH vendidos AS (
     SELECT vd.id_producto, SUM(vd.cantidad) AS unidades
@@ -47,7 +50,11 @@ const ALERTAS = `
          ROUND(unidades_vendidas::numeric / $3::integer, 2) AS promedio_diario,
          CASE WHEN unidades_vendidas > 0
               THEN ROUND(stock_actual::numeric * $3::integer / unidades_vendidas, 1) END AS dias_cobertura,
-         GREATEST(0, CEIL(unidades_vendidas::numeric * $5::integer / $3::integer - stock_actual))::integer AS cantidad_sugerida
+         CASE
+           WHEN unidades_vendidas = 0 AND estado IN ('agotado', 'bajo_minimo')
+             THEN GREATEST(0, umbral_alerta * 2 - stock_actual)
+           ELSE GREATEST(0, CEIL(unidades_vendidas::numeric * $5::integer / $3::integer - stock_actual))::integer
+         END AS cantidad_sugerida
   FROM con_estado
   WHERE estado <> 'ok'
   ORDER BY CASE estado WHEN 'agotado' THEN 1 WHEN 'bajo_minimo' THEN 2 ELSE 3 END,

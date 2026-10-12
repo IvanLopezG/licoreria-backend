@@ -531,7 +531,9 @@ en SQL, en paralelo) + `utils/periodoReporte.js` (rango del periodo, función pu
 - **Cálculo (en SQL, por producto):** `unidades_vendidas` = Σ `venta_detalle.cantidad` de ventas **activas** en la
   ventana; `promedio_diario` = unidades / ventana_dias; `dias_cobertura` = stock / promedio (`null` sin ventas);
   estado con prioridad `agotado` (stock ≤ 0) → `bajo_minimo` (stock ≤ umbral) → `por_agotarse` (cobertura <
-  cobertura_alerta_dias) → `ok`; `cantidad_sugerida` = max(0, ceil(promedio × dias_objetivo − stock)).
+  cobertura_alerta_dias) → `ok`; `cantidad_sugerida` = max(0, ceil(promedio × dias_objetivo − stock)), salvo
+  **agotado o bajo_minimo sin ventas en la ventana: max(0, umbral_alerta × 2 − stock_actual)** (desde 2026-10-11, a pedido
+  del usuario; antes daba 0). Mismo campo y mismo tipo (entero): la app Android no necesita cambios para leerlo.
 - **Decisiones ante ambigüedad (la opción más conservadora):**
   - **Ventana:** los `ventana_dias` días de calendario de Colombia que terminan **hoy, incluido** (`desde` = hoy −
     (ventana − 1)), con el mismo filtro UTC-5 de `/api/reportes`. El día de hoy cuenta aunque esté en curso.
@@ -540,7 +542,8 @@ en SQL, en paralelo) + `utils/periodoReporte.js` (rango del periodo, función pu
     decimales) y `dias_cobertura` (1 decimal) se redondean solo para mostrarse. Cobertura exactamente igual al límite →
     `ok` (la regla es "menor que").
   - **Sin ventas:** `promedio_diario` 0, `dias_cobertura` null, nunca `por_agotarse`; si está agotado o bajo el
-    mínimo, sale con `cantidad_sugerida` 0 (la fórmula pedida no sugiere nada sin historial de ventas).
+    mínimo, la cantidad sugerida repone hasta el doble del mínimo (`umbral × 2 − stock`, nunca negativa; con mínimo 0
+    da 0). Ejemplos: stock 0 y mínimo 3 → 6; stock 5 y mínimo 5 → 5; stock 3 y mínimo 5 → 7.
   - **Parámetros enteros** (no se aceptan decimales) y tope de 365 días.
   - **`resumen`** se cuenta en el servicio sobre las filas que devolvió la consulta (el cálculo por producto es SQL).
   - Inactivos nunca aparecen (aunque estén agotados); las ventas anuladas no cuentan.
@@ -550,7 +553,22 @@ en SQL, en paralelo) + `utils/periodoReporte.js` (rango del periodo, función pu
   creada**. Como `test/reportes.test.js` también exige base vacía, en un mismo `npm test` con una sola base el segundo se
   salta: cada archivo de integración se corre con su propia base. Verificado el 2026-10-11 contra PGlite local en memoria
   (`pglite-server`, instalado en una carpeta temporal fuera del repo; nunca Supabase): 6/6 en `alertasStock.test.js`,
-  11/11 en `reportes.test.js` con otra base nueva, y `npm test` 64 + 2 saltadas sin base.
+  11/11 en `reportes.test.js` con otra base nueva, y `npm test` 64 + 2 saltadas sin base. Con la regla del doble del
+  mínimo, de nuevo 6/6 sobre una base nueva (se agregó "Coñac": agotado sin ventas y mínimo 0 → 0).
+- **Ojo con `pglite-server` en Windows:** detener la tarea en segundo plano deja vivo el proceso `node` hijo con la base
+  en memoria (y su puerto). Antes de reutilizar un puerto, buscar y cerrar los `node.exe` cuyo comando contenga
+  `pglite-socket`; si no, la integración ve la base vieja con datos y se salta.
+
+### Verificación (2026-10-11)
+- **Despliegue (Render):** sin token, `GET /api/reportes?periodo=dia` → 401 y `GET /api/alertas-stock` → 401: ambas
+  rutas están desplegadas en producción.
+- **Permisos en producción con usuarios reales:** no se verificaron; las variables de credenciales no estaban en el
+  entorno. En local (pruebas de integración) administrador y cajero 200, mesero 403, sin token 401.
+- **Coherencia contra PGlite local** (script desechable fuera del repo; base en memoria eliminada al terminar): un
+  producto con stock 0 → `agotado`; stock 3 con mínimo 5 → `bajo_minimo`; stock 4 con 40 vendidas hoy → `por_agotarse`
+  (cobertura 3 días; una venta anulada de 100 unidades no contó); uno con stock 500 no aparece; resumen 1/1/1. El
+  `total_vendido` de `/api/reportes?periodo=dia` (425000, 3 ventas) coincidió con la suma de las ventas de prueba
+  activas. Se hizo antes de la regla del doble del mínimo (con ella, los dos sin ventas sugerirían 10 y 7).
 
 ## Pendientes futuros (no urgentes)
 - La app Android ya refleja todo lo de este backend: campos nuevos de productos y proveedores,
