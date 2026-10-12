@@ -420,6 +420,7 @@ th[aria-sort] .orden { color: var(--azul-oscuro); }
   border-left: 4px solid var(--rojo);
   border-radius: 4px;
 }
+.caja-error.oculto { display: none; } /* .caja-error declara display después de .oculto */
 .caja-error span { flex: 1 1 240px; }
 .caja-error .btn { margin-top: 0; }
 .estado-vacio { margin-top: 20px; padding: 16px; text-align: center; color: var(--gris-texto); background: var(--gris-fondo); border-radius: 6px; }
