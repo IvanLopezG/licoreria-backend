@@ -12,6 +12,7 @@ process.env.JWT_SECRET = "secreto-solo-para-pruebas";
 const test = require("node:test");
 const assert = require("node:assert");
 const jwt = require("jsonwebtoken");
+const { firmarToken } = require("./apoyo/usuariosSimulados");
 const db = require("../src/db/db");
 const productoModel = require("../src/models/productoModel");
 const emisorModel = require("../src/models/emisorModel");
@@ -80,7 +81,7 @@ resolucionModel.registrar = async (datos) => { secuencia = { ...secuencia, ...da
 
 const app = require("../src/app");
 
-const ADMIN = jwt.sign({ id_usuario: 1, usuario_login: "admin", rol: "administrador" }, process.env.JWT_SECRET);
+const ADMIN = firmarToken("administrador", { id_usuario: 1, usuario_login: "admin" });
 
 let base;
 let servidor;

@@ -31,6 +31,7 @@ const test = require("node:test");
 const assert = require("node:assert");
 const { Writable } = require("stream");
 const jwt = require("jsonwebtoken");
+const { firmarToken } = require("./apoyo/usuariosSimulados");
 
 // Red real hacia Google bloqueada antes de cargar la app (el fetch al servidor local de la prueba sí pasa).
 const fetchReal = globalThis.fetch;
@@ -63,7 +64,7 @@ const chatbotService = require("../src/services/chatbotService");
 const plantillas = require("../src/services/chatbotPlantillas");
 const { hoyColombia } = require("../src/utils/fechaColombia");
 
-const firmar = (rol, id) => jwt.sign({ id_usuario: id, usuario_login: `${rol}_${id}`, rol }, process.env.JWT_SECRET);
+const firmar = (rol, id) => firmarToken(rol, { id_usuario: id, usuario_login: `${rol}_${id}` });
 const JWT = { administrador: firmar("administrador", 1), cajero: firmar("cajero", 2), mesero: firmar("mesero", 3) };
 
 // Todo lo que el servidor respondió en este archivo, para buscar la clave al final.
@@ -522,7 +523,8 @@ test("integración: cada pregunta rápida con datos de prueba en la base local",
   await venta([[ron, 15, 10000]]); // 150000
   await venta([[aguardiente, 100, 45000]], "anulada");
 
-  const token = firmar("cajero", id_usuario);
+  // Usuario real de la base: pasa por la consulta real de auth.js.
+  const token = jwt.sign({ id_usuario, usuario_login: "cajero_chatbot", rol: "cajero" }, process.env.JWT_SECRET);
   const r = async (pregunta_id) => {
     const { status, body } = await preguntar({ pregunta_id }, token);
     assert.strictEqual(status, 200, pregunta_id);

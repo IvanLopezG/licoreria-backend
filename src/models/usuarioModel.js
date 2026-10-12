@@ -18,6 +18,11 @@ function buscarPorId(id_usuario) {
   return db.uno("SELECT * FROM usuarios WHERE id_usuario = $1", [id_usuario]);
 }
 
+// Lo mínimo que necesita el middleware de autenticación en cada petición.
+function buscarAcceso(id_usuario) {
+  return db.uno("SELECT id_usuario, rol, activo FROM usuarios WHERE id_usuario = $1", [id_usuario]);
+}
+
 function listar() {
   return db.todos("SELECT id_usuario, nombre, usuario_login, rol, activo, fecha_creacion FROM usuarios ORDER BY id_usuario");
 }
@@ -27,4 +32,4 @@ async function existeAdministrador() {
   return row.n > 0;
 }
 
-module.exports = { crear, buscarPorLogin, buscarPorId, listar, existeAdministrador };
+module.exports = { crear, buscarPorLogin, buscarPorId, buscarAcceso, listar, existeAdministrador };

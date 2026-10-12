@@ -11,6 +11,7 @@ process.env.JWT_SECRET = "secreto-solo-para-pruebas";
 const test = require("node:test");
 const assert = require("node:assert");
 const jwt = require("jsonwebtoken");
+const { firmarToken } = require("./apoyo/usuariosSimulados");
 const productoModel = require("../src/models/productoModel");
 const logAuditoriaModel = require("../src/models/logAuditoriaModel");
 
@@ -46,7 +47,7 @@ logAuditoriaModel.registrar = async () => {};
 
 const app = require("../src/app");
 
-const token = (rol) => jwt.sign({ id_usuario: 1, usuario_login: rol, rol }, process.env.JWT_SECRET);
+const token = (rol) => firmarToken(rol);
 const ADMIN = token("administrador");
 const CAJERO = token("cajero");
 const MENSAJE_403 = "Solo el administrador puede modificar los impuestos de un producto.";

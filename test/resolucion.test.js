@@ -10,6 +10,7 @@ process.env.JWT_SECRET = "secreto-solo-para-pruebas";
 const test = require("node:test");
 const assert = require("node:assert");
 const jwt = require("jsonwebtoken");
+const { firmarToken } = require("./apoyo/usuariosSimulados");
 const db = require("../src/db/db");
 const resolucionModel = require("../src/models/resolucionModel");
 const logAuditoriaModel = require("../src/models/logAuditoriaModel");
@@ -55,7 +56,7 @@ logAuditoriaModel.registrar = async (registro) => { bitacora.push(registro); };
 
 const app = require("../src/app");
 
-const token = (rol) => jwt.sign({ id_usuario: 1, usuario_login: rol, rol }, process.env.JWT_SECRET);
+const token = (rol) => firmarToken(rol);
 const ADMIN = token("administrador");
 
 let servidor;

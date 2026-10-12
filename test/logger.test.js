@@ -10,6 +10,7 @@ const assert = require("node:assert");
 const { Writable } = require("stream");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const { firmarToken } = require("./apoyo/usuariosSimulados");
 const db = require("../src/db/db");
 const registro = require("../src/utils/logger");
 const usuarioModel = require("../src/models/usuarioModel");
@@ -23,7 +24,7 @@ const PASSWORD = "ContrasenaSecreta-77";
 const CLAVE_TECNICA = "ClaveCorta9"; // corta a propósito: sin forma de token
 const TOKEN_SESION = "SesionSecreta_abcdefghijklmnopqrstuvwxyz0123456789";
 const TOKEN_QR = "qrsecreto0123456789abcdef";
-const JWT_ADMIN = jwt.sign({ id_usuario: 1, usuario_login: "admin", rol: "administrador" }, process.env.JWT_SECRET);
+const JWT_ADMIN = firmarToken("administrador", { id_usuario: 1, usuario_login: "admin" });
 const SECRETOS = [PASSWORD, CLAVE_TECNICA, TOKEN_SESION, TOKEN_QR, JWT_ADMIN, JWT_ADMIN.split(".")[2]];
 
 // ---------- Salida del logger capturada ----------

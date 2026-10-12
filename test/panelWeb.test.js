@@ -32,6 +32,7 @@ const fs = require("fs");
 const path = require("path");
 const vm = require("vm");
 const jwt = require("jsonwebtoken");
+const { firmarToken } = require("./apoyo/usuariosSimulados");
 const app = require("../src/app");
 
 const PANEL = path.join(__dirname, "..", "public", "panel");
@@ -274,7 +275,7 @@ test("menú por rol = permisos reales de la API: una entrada visible nunca recib
   try {
     const base = `http://127.0.0.1:${servidor.address().port}`;
     for (const rol of ["administrador", "cajero", "mesero"]) {
-      const token = jwt.sign({ id_usuario: 1, usuario_login: `${rol}_menu`, rol }, process.env.JWT_SECRET);
+      const token = firmarToken(rol, { usuario_login: `${rol}_menu` });
       for (const [pagina, ruta] of Object.entries(ENDPOINT_PAGINA)) {
         const res = await fetch(base + ruta, { headers: { Authorization: `Bearer ${token}` } });
         await res.arrayBuffer();
@@ -378,7 +379,9 @@ test("integración: los endpoints que usan las secciones responden con la forma 
   const { id_venta } = await db.uno("INSERT INTO ventas (tipo, id_usuario, total) VALUES ('mostrador', $1, 20000) RETURNING id_venta", [id_usuario]);
   await db.ejecutar("INSERT INTO venta_detalle (id_venta, id_producto, cantidad, precio_unitario) VALUES ($1, $2, 2, 10000)", [id_venta, id_producto]);
 
-  const firmar = (rol) => jwt.sign({ id_usuario, usuario_login: `${rol}_web`, rol }, process.env.JWT_SECRET);
+  // El cajero es un usuario real (consulta real de auth.js); los demás roles, simulados.
+  const firmar = (rol) =>
+    rol === "cajero" ? jwt.sign({ id_usuario, usuario_login: "cajero_web", rol }, process.env.JWT_SECRET) : firmarToken(rol, { usuario_login: `${rol}_web` });
   const pedir = async (ruta, rol = "cajero", opciones = {}) => {
     const r = await fetch(`${base}${ruta}`, {
       ...opciones,
