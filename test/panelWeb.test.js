@@ -117,6 +117,13 @@ test("cada página del panel (menos login) tiene las tres entradas solo-gestion 
 });
 
 // DOM mínimo para ejecutar menu.js en Node: solo lo que el script usa.
+// Los enlaces del menú salen del HTML real de la página (href y clases).
+function enlacesDelMenu(pagina) {
+  const html = fs.readFileSync(path.join(PANEL, pagina), "utf8");
+  const nav = /<nav class="sidebar-nav">([\s\S]*?)<\/nav>/.exec(html)[1];
+  return [...nav.matchAll(/<a href="([^"]+)" class="([^"]+)">/g)].map(([, href, clase]) => ({ href, class: clase }));
+}
+
 function simularMenu({ rol, token = "eyJ.prueba.firma0123456789abcdef", ruta = "/panel/ventas.html", sesion = {}, respuesta }) {
   const clases = (c) => c.split(/\s+/).filter(Boolean);
   const elemento = (atributos = {}) => ({
@@ -131,6 +138,9 @@ function simularMenu({ rol, token = "eyJ.prueba.firma0123456789abcdef", ruta = "
     setAttribute(n, v) {
       this.atributos[n] = v;
     },
+    getAttribute(n) {
+      return n in this.atributos ? this.atributos[n] : null;
+    },
     appendChild(h) {
       this.hijos.push(h);
       return h;
@@ -142,14 +152,12 @@ function simularMenu({ rol, token = "eyJ.prueba.firma0123456789abcdef", ruta = "
       return sel === ".nav-contador" ? this.hijos.find((h) => h.className === "nav-contador" && !h.removido) || null : null;
     },
   });
-  const enlaces = ["login.html", "ventas.html", "alertas.html", "reportes.html", "asistente.html", "negocio.html"].map((href) =>
-    elemento({
-      href,
-      class: `nav-item${["alertas.html", "reportes.html", "asistente.html"].includes(href) ? " solo-gestion" : ""}${href === "negocio.html" ? " solo-admin" : ""}`,
-    })
-  );
+  const enlaces = enlacesDelMenu(ruta.split("/").pop()).map((a) => elemento(a));
   const nav = elemento();
-  nav.querySelectorAll = (sel) => enlaces.filter((e) => !e.removido && clases(e.className).includes(sel.slice(1)));
+  nav.querySelectorAll = (sel) => {
+    const clase = sel.replace(/^a?\./, "");
+    return enlaces.filter((e) => !e.removido && clases(e.className).includes(clase));
+  };
   nav.querySelector = (sel) => {
     const href = /a\[href="([^"]+)"\]/.exec(sel)[1];
     return enlaces.find((e) => !e.removido && e.atributos.href === href) || null;
@@ -188,7 +196,10 @@ function simularMenu({ rol, token = "eyJ.prueba.firma0123456789abcdef", ruta = "
     Array,
   };
   vm.createContext(contexto);
-  vm.runInContext(`${fs.readFileSync(path.join(PANEL, "menu.js"), "utf8")}\nthis.MenuPanel = MenuPanel;`, contexto);
+  vm.runInContext(
+    `${fs.readFileSync(path.join(PANEL, "menu.js"), "utf8")}\nthis.MenuPanel = MenuPanel; this.ROLES_POR_PAGINA = ROLES_POR_PAGINA; this.puedeVerPagina = puedeVerPagina;`,
+    contexto
+  );
   const visibles = () => enlaces.filter((e) => !e.removido).map((e) => e.atributos.href);
   const contador = () => {
     const alertas = enlaces.find((e) => e.atributos.href === "alertas.html");
@@ -201,13 +212,80 @@ function simularMenu({ rol, token = "eyJ.prueba.firma0123456789abcdef", ruta = "
 
 const esperar = () => new Promise((r) => setImmediate(r));
 
-test("menú: solo administrador y cajero ven Alertas, Reportes y Asistente; solo el administrador ve Datos del negocio", () => {
-  assert.deepStrictEqual(simularMenu({ rol: "administrador" }).visibles(), ["ventas.html", "alertas.html", "reportes.html", "asistente.html", "negocio.html"]);
-  assert.deepStrictEqual(simularMenu({ rol: "cajero" }).visibles(), ["ventas.html", "alertas.html", "reportes.html", "asistente.html"]);
-  assert.deepStrictEqual(simularMenu({ rol: "mesero" }).visibles(), ["ventas.html"]);
-  assert.deepStrictEqual(simularMenu({ rol: "otro" }).visibles(), ["ventas.html"]);
-  // Sin sesión: se ocultan igual y se conserva "Login".
-  assert.deepStrictEqual(simularMenu({ rol: null, token: null }).visibles(), ["login.html", "ventas.html"]);
+// Menú por rol (tabla de CLAUDE.md, "Menú del panel web por rol"). Mismo orden en todas las páginas.
+const TODAS = ["mesas.html", "pedidos.html", "productos.html", "proveedores.html", "inventario.html", "alertas.html", "ventas.html", "reportes.html", "asistente.html", "negocio.html"];
+const MENU_ESPERADO = {
+  administrador: TODAS,
+  cajero: TODAS.filter((h) => h !== "negocio.html"),
+  mesero: ["mesas.html", "pedidos.html"],
+};
+
+test("menú por rol: cada rol ve solo sus páginas, en todas las páginas del panel", () => {
+  const paginas = fs.readdirSync(PANEL).filter((f) => f.endsWith(".html") && f !== "login.html");
+  for (const pagina of paginas) {
+    const ruta = `/panel/${pagina}`;
+    // El menú de cada página tiene las 10 entradas (más Login) en el mismo orden.
+    assert.deepStrictEqual(enlacesDelMenu(pagina).map((e) => e.href), ["login.html", ...TODAS], pagina);
+    for (const [rol, esperado] of Object.entries(MENU_ESPERADO)) {
+      assert.deepStrictEqual(simularMenu({ rol, ruta }).visibles(), esperado, `${pagina} (${rol})`);
+    }
+    // Rol desconocido o sesión sin usuario: nada restringido (lo más conservador).
+    assert.deepStrictEqual(simularMenu({ rol: "otro", ruta }).visibles(), [], `${pagina} (otro)`);
+    // Sin sesión: se conserva "Login" (la página igual pide iniciar sesión).
+    assert.deepStrictEqual(simularMenu({ rol: null, token: null, ruta }).visibles(), ["login.html"], `${pagina} (sin sesión)`);
+  }
+  // La función pura coincide con la tabla esperada.
+  const { contexto } = simularMenu({ rol: "cajero" });
+  for (const [rol, esperado] of Object.entries(MENU_ESPERADO)) {
+    assert.deepStrictEqual(TODAS.filter((h) => contexto.puedeVerPagina(rol, h)), esperado, rol);
+  }
+  assert.deepStrictEqual(Object.keys(contexto.ROLES_POR_PAGINA).sort(), [...TODAS].sort());
+});
+
+test("toda página oculta para algún rol tiene su aviso de permiso si se abre escribiendo la URL", () => {
+  const { contexto } = simularMenu({ rol: "cajero" });
+  for (const pagina of TODAS) {
+    if (["administrador", "cajero", "mesero"].every((rol) => contexto.puedeVerPagina(rol, pagina))) continue;
+    const html = fs.readFileSync(path.join(PANEL, pagina), "utf8");
+    assert.match(html, /No tienes permiso|Solo el administrador puede editar/, pagina);
+    // Con el 403 de la API, o por rol antes de pedir nada (Datos del negocio).
+    assert.match(html, /status === 403|!esAdmin\(\)/, pagina);
+  }
+});
+
+// Endpoint principal de cada página (con el que carga sus datos).
+const ENDPOINT_PAGINA = {
+  "mesas.html": "/api/mesas",
+  "pedidos.html": "/api/pedidos",
+  "productos.html": "/api/productos",
+  "proveedores.html": "/api/proveedores",
+  "inventario.html": "/api/inventario/movimientos",
+  "alertas.html": "/api/alertas-stock",
+  "ventas.html": "/api/ventas",
+  "reportes.html": "/api/reportes?periodo=dia",
+  "asistente.html": "/api/chatbot/preguntas",
+  "negocio.html": "/api/emisor/resolucion",
+};
+
+test("menú por rol = permisos reales de la API: una entrada visible nunca recibe 403 y una oculta siempre", async () => {
+  const { contexto } = simularMenu({ rol: "cajero" });
+  assert.deepStrictEqual(Object.keys(ENDPOINT_PAGINA).sort(), Object.keys(contexto.ROLES_POR_PAGINA).sort());
+  const servidor = app.listen(0);
+  try {
+    const base = `http://127.0.0.1:${servidor.address().port}`;
+    for (const rol of ["administrador", "cajero", "mesero"]) {
+      const token = jwt.sign({ id_usuario: 1, usuario_login: `${rol}_menu`, rol }, process.env.JWT_SECRET);
+      for (const [pagina, ruta] of Object.entries(ENDPOINT_PAGINA)) {
+        const res = await fetch(base + ruta, { headers: { Authorization: `Bearer ${token}` } });
+        await res.arrayBuffer();
+        // Sin base de datos un rol permitido llega al controlador (500); con base, 200. Nunca 401/403.
+        if (contexto.puedeVerPagina(rol, pagina)) assert.ok(![401, 403].includes(res.status), `${rol} ${ruta}: ${res.status}`);
+        else assert.strictEqual(res.status, 403, `${rol} ${ruta}`);
+      }
+    }
+  } finally {
+    await new Promise((r) => servidor.close(r));
+  }
 });
 
 test("contador de alertas: una consulta al entrar al panel, guardada en la pestaña; mesero nunca consulta", async () => {

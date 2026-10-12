@@ -1,8 +1,10 @@
 // Menú lateral del panel (lo cargan todas las páginas menos el login):
-// - Oculta los enlaces "solo-admin" (p. ej. Datos del negocio) cuando quien
-//   inició sesión no es administrador, y los "solo-gestion" (Alertas de stock,
-//   Reportes, Asistente) cuando no es administrador ni cajero. Es solo
-//   presentación: el backend igual responde 403 a los demás roles.
+// - Cada rol ve solo las páginas cuyo endpoint principal le responde 200
+//   (ROLES_POR_PAGINA, igual que requireRole en src/routes/*.routes.js; las
+//   pruebas los comparan). Un rol desconocido no ve ninguna. También se quitan
+//   los enlaces "solo-admin" y "solo-gestion" como antes. Es solo
+//   presentación: el backend igual responde 403 a los demás roles, y cada
+//   página muestra "No tienes permiso…" si se abre escribiendo la URL.
 // - Con sesión, quita el enlace "Login" (el login redirige a Pedidos si ya hay
 //   sesión) y agrega "Cerrar sesión" al final del menú.
 // - Contador de productos en alerta junto a "Alertas de stock": se consulta
@@ -10,6 +12,32 @@
 //   se actualiza cada vez que se abre la sección. Sin consultas periódicas: se
 //   guarda en sessionStorage junto con el final del token, así otra sesión no
 //   ve el número de la anterior.
+// Página → roles que pueden usarla, según el endpoint con que carga:
+// mesas GET /api/mesas, pedidos GET /api/pedidos, productos GET /api/productos,
+// proveedores GET /api/proveedores, inventario GET /api/inventario/movimientos,
+// alertas GET /api/alertas-stock, ventas GET /api/ventas, reportes
+// GET /api/reportes, asistente /api/chatbot, negocio GET /api/emisor/resolucion
+// (el cajero puede leer /api/emisor, pero la página es de edición: solo admin).
+const ROLES_POR_PAGINA = {
+  "mesas.html": ["administrador", "cajero", "mesero"],
+  "pedidos.html": ["administrador", "cajero", "mesero"],
+  "productos.html": ["administrador", "cajero"],
+  "proveedores.html": ["administrador", "cajero"],
+  "inventario.html": ["administrador", "cajero"],
+  "alertas.html": ["administrador", "cajero"],
+  "ventas.html": ["administrador", "cajero"],
+  "reportes.html": ["administrador", "cajero"],
+  "asistente.html": ["administrador", "cajero"],
+  "negocio.html": ["administrador"],
+};
+
+// Función pura: ¿el rol ve esta página en el menú? Las que no están en la
+// tabla (login) no dependen del rol.
+function puedeVerPagina(rol, href) {
+  const roles = ROLES_POR_PAGINA[href];
+  return !roles || roles.includes(rol);
+}
+
 const MenuPanel = (() => {
   const CLAVE_CONTADOR = "contadorAlertas";
   const nav = document.querySelector(".sidebar .sidebar-nav");
@@ -81,6 +109,9 @@ const MenuPanel = (() => {
     }
     if (!gestiona) {
       for (const enlace of nav.querySelectorAll(".solo-gestion")) enlace.remove();
+    }
+    for (const enlace of nav.querySelectorAll("a.nav-item")) {
+      if (!puedeVerPagina(rol, enlace.getAttribute("href"))) enlace.remove();
     }
 
     if (token) {
