@@ -51,6 +51,32 @@ servicio, sin tocar código.
 Panel de prueba en el navegador: **http://localhost:3000/panel/login.html**
 Catálogo de cliente (Sprint 3), vía QR: **http://localhost:3000/catalogo/index.html?token=&lt;codigo_qr_token de la mesa&gt;**
 
+### Pantallas del panel web por rol
+
+El menú lateral oculta lo que el rol no puede usar (es solo presentación: la API
+igual responde 403). Si alguien abre la página directamente, ve "No tienes
+permiso…" en vez de los datos.
+
+| Pantalla (`/panel/…`) | Administrador | Cajero | Mesero |
+|---|---|---|---|
+| Mesas (`mesas.html`) | Sí | Sí | Sí (sin crear mesas ni ver QR) |
+| Pedidos entrantes (`pedidos.html`) | Sí | Sí | Sí (sin cancelar ni cobrar) |
+| Productos (`productos.html`) | Sí | Sí (impuestos de solo lectura) | Visible en el menú, la API responde 403 |
+| Proveedores (`proveedores.html`) | Sí | Sí | Visible en el menú, la API responde 403 |
+| Inventario (`inventario.html`) | Sí | Sí | Visible en el menú, la API responde 403 |
+| **Alertas de stock** (`alertas.html`, con contador en el menú) | Sí | Sí | No (oculta; 403) |
+| Ventas (`ventas.html`) | Sí (anula facturas) | Sí (sin anular) | Visible en el menú, la API responde 403 |
+| **Reportes** (`reportes.html`) | Sí | Sí | No (oculta; 403) |
+| **Asistente** (`asistente.html`) | Sí | Sí | No (oculta; 403) |
+| Datos del negocio (`negocio.html`) | Sí | No (oculta) | No (oculta) |
+
+Reportes, Alertas de stock y Asistente usan `GET /api/reportes`,
+`GET /api/alertas-stock` y `/api/chatbot`. Solo están en el panel interno: el
+catálogo público no las carga ni las enlaza. Las cifras y textos de la API se
+muestran siempre como texto (nunca como HTML). Las funciones puras (fechas de
+Colombia, rango legible, pesos, gráfica, agrupación de alertas, reglas del chat)
+están en `public/panel/gestion.js` y se prueban con `node --test` sin navegador.
+
 ## Estructura
 
 ```

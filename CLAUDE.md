@@ -195,15 +195,20 @@ secundario, deshabilitado y con `title` explicativo si no hay filas):
     tienen botón de exportar.
 
 **Reportes por periodo (`GET /api/reportes`, API): COMPLETO** (2026-10-11). Ver la sección *Reportes por periodo*
-más abajo. Sin cambios de esquema. Pantalla "Reportes" en la app Android (app `e9e3de7`); aún sin página en el panel web.
+más abajo. Sin cambios de esquema. Pantalla "Reportes" en la app Android (app `e9e3de7`) y en el panel web
+(`reportes.html`, 2026-10-11).
 
 **Alertas de stock (`GET /api/alertas-stock`, API): COMPLETO** (2026-10-11). Ver la sección *Alertas de stock* más
 abajo. Sin cambios de esquema. Pantalla "Alertas de stock" con contador en el menú en la app Android (app `c014e48`,
-`115a2bf`); aún sin página en el panel web. Sin notificaciones push.
+`115a2bf`) y en el panel web (`alertas.html` + contador en el menú, 2026-10-11). Sin notificaciones push.
 
 **Chatbot del personal (`POST /api/chatbot`, `GET /api/chatbot/preguntas`, API): COMPLETO** (2026-10-11). Ver la
 sección *Chatbot para el personal* más abajo. Gemini opcional (`GEMINI_API_KEY`); sin clave responde en modo básico.
-Sin cambios de esquema ni dependencias nuevas. Aún sin pantalla en el panel web ni en la app Android.
+Sin cambios de esquema ni dependencias nuevas. Pantalla "Asistente" en la app Android (app `2c525ca`) y en el panel web
+(`asistente.html`, 2026-10-11).
+
+**Panel web: Reportes, Alertas de stock y Asistente: COMPLETO** (2026-10-11). Ver la sección *Panel web: Reportes,
+Alertas de stock y Asistente* más abajo. Solo frontend (`public/panel/`); la API no cambió.
 
 **Manejo de errores central y logging con Pino: COMPLETO.** Ver la sección *Manejo de errores* más abajo.
 
@@ -680,12 +685,88 @@ en SQL, en paralelo) + `utils/periodoReporte.js` (rango del periodo, función pu
   module.exports = Csv`, así el servidor y las pruebas lo cargan con `require`. No hay pruebas de frontend ni navegador
   en las pruebas; se verifica con `node --test` y, a mano, con Chrome headless.
 
+### Implementación (COMPLETA, 2026-10-11)
+Archivos nuevos, todos en `public/panel/` (el catálogo no los carga ni los enlaza): `reportes.html`, `alertas.html`,
+`asistente.html` (misma estructura que las demás: barra lateral copiada, `<script>` en línea, `<meta name="viewport">`)
+y `gestion.js` (funciones puras, objeto global `Gestion` + `module.exports`). Cambios compatibles en lo compartido:
+- **Menú:** las 7 páginas que ya existían y las 3 nuevas tienen en la barra lateral "Alertas de stock" (después de
+  Inventario), "Reportes" y "Asistente" (después de Ventas): mismo orden que la app Android. Llevan la clase nueva
+  **`.solo-gestion`**, que `menu.js` quita si el rol no es administrador ni cajero (como `.solo-admin`). Las demás
+  entradas no cambiaron (el mesero sigue viéndolas como antes).
+- **Contador de alertas** (`menu.js`, `MenuPanel.actualizarContadorAlertas(n)`): número de productos con estado conocido
+  (`agotado`, `bajo_minimo`, `por_agotarse`; "99+" si pasa de 99; nada si es 0) en `span.nav-contador` junto a "Alertas
+  de stock". Se consulta **una vez al entrar al panel** (primera página con sesión de la pestaña) y se guarda en
+  `sessionStorage` (`contadorAlertas`, con los últimos 16 caracteres del token para no mostrar el de otra sesión); las
+  demás páginas lo reutilizan sin consultar, y `alertas.html` lo actualiza cada vez que carga. Sin consultas periódicas.
+  Un error (sin red, 401, 403) no muestra contador ni avisos. "Cerrar sesión" también lo borra.
+- **`Api.pedir`** ganó `timeoutMs` opcional (solo lo usa el Asistente, 150 s): al vencer, `ApiError` con `status` 0 y
+  `tiempoAgotado = true`. Sin la opción, todo funciona exactamente como antes.
+- **`panel.css`:** solo clases nuevas al final (`.nav-contador`, `.chip`, `.navegador-periodo`, `.caja-error`,
+  `.estado-*`, `.grafica`, `.burbuja*`, …). Ojo: `.caja-error` declara `display: flex` después de `.oculto`, por eso
+  existe `.caja-error.oculto { display: none }` (sin eso la caja oculta se veía; lo detectó la captura de Chrome).
+
+**Reportes (`reportes.html`):** chips Día/Semana/Mes/Año (`aria-pressed`), "‹ Anterior" / "Siguiente ›" (desactivado si el
+periodo siguiente empieza después de hoy; si lo contiene, la fecha queda en hoy), `input type=date` con `max` = hoy en
+Colombia (una fecha futura o borrada se lleva a hoy) y "Hoy". Rango legible del `rango` de la respuesta (mientras carga,
+el calculado en el navegador). Tarjetas total vendido / número de ventas / ticket promedio en pesos; gráfica SVG propia
+(`geometriaBarras`, `<title>` por barra, máximo encima; año agrupado por mes; ≤ 12 barras rotuladas, si no la primera y la
+última; vacía → "Sin datos para graficar."); tablas Más/Menos vendidos (#, producto, unidades, total); movimientos
+(entradas, salidas, ajustes: unidades y movimientos). Estados: "Cargando reporte…", error con Reintentar (403: "No tienes
+permiso para ver reportes", sin Reintentar), vacío "Sin ventas en este periodo" con los movimientos. Solo cuenta la última
+consulta (cambios rápidos de periodo).
+**Alertas (`alertas.html`):** sin parámetros (los del backend), texto con lo que significan; una sección por estado
+(Agotado `.badge-agotado`, Bajo mínimo `.badge-alerta`, Por agotarse `.badge-nuevo`) con tabla Producto (con categoría ·
+unidad) / Stock actual / Mínimo / Días de cobertura ("4,5 días", "—" sin ventas) / Cantidad sugerida ("—" si es 0). Sin
+ventas recientes (`dias_cobertura` null): "Sin ventas recientes: no se calcula cobertura; se sugiere reponer hasta el
+doble del mínimo." Estado desconocido u "ok": se ignora. "Actualizar", cargando, error con Reintentar (403 sin) y vacío
+"Todo el stock está en orden".
+**Asistente (`asistente.html`):** burbujas (usuario a la derecha, asistente a la izquierda) con **`textContent`** y
+`white-space: pre-wrap`; etiqueta "IA" solo si `origen === "ia"`, cualquier otro valor "Rápida". Preguntas rápidas de
+`GET /api/chatbot/preguntas` (solo las que traen `id` y `texto`; un `id` repetido sale una vez), que envían `pregunta_id`
+(la burbuja del usuario muestra su texto). `textarea maxlength=500` + recorte por puntos de código (emojis) y contador
+"N/500"; Enter envía, Mayús+Enter salta de línea. Un envío a la vez (botón y preguntas deshabilitados). "Escribiendo…" y a
+los 10 s "El servidor puede estar despertando; la respuesta puede tardar hasta un par de minutos.". Espera de 150 s.
+Errores (`Gestion.errorAsistente`): 401 → login; 403 → "No tienes permiso para usar el asistente" y chat bloqueado; 429 →
+"Espera un momento antes de enviar otro mensaje" + Reintentar; 400 → mensaje del backend sin Reintentar; espera agotada →
+"El asistente tardó demasiado…" + Reintentar; red o 5xx → mensaje + Reintentar; respuesta vacía → reintentable. Reintentar
+reenvía el mismo cuerpo sin repetir la burbuja del usuario. La conversación vive solo en memoria y se borra al salir
+(`pagehide`, y `pageshow` si el navegador devuelve la página desde su caché).
+
+**Decisiones ante ambigüedad (la más conservadora):**
+- **401 en las secciones nuevas → login:** se borran `token` y `usuario` y se va a `login.html` con `location.replace`
+  (como pide el diseño y como hace la app). Las páginas que ya existían siguen mostrando solo el aviso "Tu sesión
+  expiró…"; no se cambiaron. Sin bucle: el login sin token muestra el formulario.
+- **"Al entrar al panel"** = la primera página con sesión de la pestaña (el panel es de varias páginas, no SPA): una
+  consulta por pestaña y sesión, no una por cada página visitada. El contador puede quedar desactualizado tras una venta
+  hasta que se abre Alertas de stock.
+- **Hoy** = hoy en Colombia (UTC-5) con el reloj del navegador, igual que el backend.
+- Las tablas de cantidades muestran "—" en vez de "0" para la cantidad sugerida 0 (no hay nada que pedir).
+- Menú en celular: las páginas nuevas declaran viewport (como Inventario); las demás siguen a 980 px como antes.
+
+**Pruebas** (sin navegador): `test/panelGestion.test.js` (9: hoy en Colombia, rangos idénticos a
+`utils/periodoReporte.js` para cada periodo y fecha, anterior/siguiente, rango legible, pesos y números, serie y
+agrupación por mes, geometría de barras con vacío/un punto/ceros, agrupación de alertas con estados desconocidos, límite
+de 500, etiqueta de origen y errores del asistente) y `test/panelWeb.test.js` (9: las páginas y `gestion.js` se sirven
+en `/panel` y dan 404 en `/catalogo`; el catálogo solo carga `/panel/api.js` y no menciona nada de las secciones;
+ninguna página del panel usa scripts externos ni referencias rotas; las 10 páginas tienen las 3 entradas
+`solo-gestion` en orden y una sola activa; `menu.js` ejecutado con un DOM mínimo en `vm`: entradas por rol, contador una
+vez por pestaña, otra sesión consulta de nuevo, mesero nunca consulta, error sin contador, cerrar sesión lo borra; sin
+`innerHTML` con datos; e integración con base local: los 3 endpoints con la forma de siempre, mesero 403 y sin token 401).
+Verificado el 2026-10-11: 9/9 + 9/9 contra PGlite en memoria; `npm test` 93 + 4 saltadas sin base; y **Chrome headless**
+(protocolo de depuración desde Node, script desechable fuera del repo, backend local + PGlite, sin `GEMINI_API_KEY`):
+61 comprobaciones de administrador, cajero, mesero, 401 y catálogo (cifras, rango, fecha futura → hoy, año por meses,
+vacío con movimientos, grupos y aviso sin ventas, contador, un nombre de producto `<img onerror>` mostrado como texto y
+sin ejecutarse, preguntas rápidas, 500 caracteres, Enter, 429 + Reintentar sin duplicar, "Escribiendo…" y aviso a los
+10 s, 400 sin Reintentar, timeout, chat vacío al volver, 403 del mesero en las tres) y capturas a 1366 y 390 px.
+PGlite y Chrome cerrados al terminar.
+
 ## Pendientes futuros (no urgentes)
 - La app Android ya refleja todo lo de este backend: campos nuevos de productos y proveedores,
   impuestos deshabilitados para el cajero y `cliente.correo` al cobrar (app `82941d4`, `c887b11`,
   `e861c27`), y `GET /api/reportes` y `GET /api/alertas-stock` tienen pantalla en la app.
-- Reportes por periodo y alertas de stock aún no tienen página en el panel web (solo API y app Android).
-- Chatbot: sin pantalla en el panel web ni en la app Android (solo API). Para usar la IA en producción hay que poner
+- Panel web: Reportes, Alertas de stock y Asistente probados en Chrome headless contra backend local; falta la prueba del
+  usuario contra producción (Render debe tener desplegado este `main`).
+- Chatbot: para usar la IA en producción hay que poner
   `GEMINI_API_KEY` en Render (ver README); sin ella responde en modo básico. No se probó contra el Gemini real (las
   pruebas lo simulan): la primera prueba real dirá si el modelo por defecto y el formato de `functionResponse` sirven tal
   cual; si no, el chatbot cae al modo básico y el log muestra el `motivo` (p. ej. `http_400` o `http_404`).
