@@ -230,7 +230,41 @@ const Gestion = (() => {
     return { texto: mensaje || "No se pudo obtener la respuesta. Intenta de nuevo.", reintentable: true, bloquear: false, irAlLogin: false };
   }
 
+  // ---------- Usuarios ----------
+
+  // "AAAA-MM-DD HH:MM:SS" guardado en UTC (como sale de la API) → "AAAA-MM-DD
+  // HH:MM" en hora de Colombia (UTC-5 fijo, igual que hoyColombia). "—" si no
+  // es una fecha.
+  function fechaHoraColombia(texto) {
+    const m = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/.exec(String(texto || ""));
+    if (!m) return "—";
+    const utc = Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]);
+    if (Number.isNaN(utc)) return "—";
+    const co = new Date(utc - 5 * 3600 * 1000);
+    const dos = (n) => String(n).padStart(2, "0");
+    return `${co.getUTCFullYear()}-${dos(co.getUTCMonth() + 1)}-${dos(co.getUTCDate())} ${dos(co.getUTCHours())}:${dos(co.getUTCMinutes())}`;
+  }
+
+  const ROLES_USUARIO = { administrador: "Administrador", cajero: "Cajero", mesero: "Mesero" };
+  const MINIMO_CONTRASENA = 8;
+
+  // Revisión previa del formulario (el backend es la autoridad y repite todo).
+  // modo "crear": todo obligatorio; "editar": la contraseña es opcional.
+  // Devuelve el texto del problema o null.
+  function errorFormularioUsuario({ modo, nombre, usuario_login, rol, password, confirmacion }) {
+    if (!String(nombre || "").trim()) return "Escribe el nombre.";
+    if (modo === "crear" && !String(usuario_login || "").trim()) return "Escribe el usuario.";
+    if (!(rol in ROLES_USUARIO)) return "Elige un rol.";
+    const clave = String(password || "");
+    if (modo === "crear" || clave || confirmacion) {
+      if ([...clave].length < MINIMO_CONTRASENA) return `La contraseña debe tener al menos ${MINIMO_CONTRASENA} caracteres.`;
+      if (clave !== String(confirmacion || "")) return "Las contraseñas no coinciden.";
+    }
+    return null;
+  }
+
   return {
+    fechaHoraColombia, ROLES_USUARIO, errorFormularioUsuario,
     PERIODOS, MAXIMO_MENSAJE, ESTADOS_ALERTA, SIN_VENTAS_RECIENTES,
     leerFecha, hoyColombia, sumarDias, sumarMeses, rangoPeriodo, moverPeriodo, periodoSiguiente, fechaPermitida,
     textoDia, textoRango, formatoNumero, formatoPesos, serieGrafica, geometriaBarras,

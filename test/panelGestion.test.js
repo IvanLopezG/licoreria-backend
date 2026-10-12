@@ -156,3 +156,26 @@ test("asistente: límite de 500 caracteres, etiqueta de origen y manejo de error
   assert.strictEqual(Gestion.errorAsistente({ status: 0, tiempoAgotado: true }).reintentable, true);
   assert.strictEqual(Gestion.errorAsistente({ status: 502, mensaje: "Error del servidor (502)." }).reintentable, true);
 });
+
+test("usuarios: fecha de creación en hora de Colombia y revisión previa del formulario", () => {
+  // UTC 2026-10-12 03:30 = 11 de octubre 10:30 p. m. en Colombia (cambia el día).
+  assert.strictEqual(Gestion.fechaHoraColombia("2026-10-12 03:30:15"), "2026-10-11 22:30");
+  assert.strictEqual(Gestion.fechaHoraColombia("2026-01-01 04:59:00"), "2025-12-31 23:59");
+  assert.strictEqual(Gestion.fechaHoraColombia("2026-10-12 15:00:00"), "2026-10-12 10:00");
+  for (const malo of [null, undefined, "", "ayer", 5]) assert.strictEqual(Gestion.fechaHoraColombia(malo), "—");
+
+  const base = { modo: "crear", nombre: "Ana", usuario_login: "ana", rol: "cajero", password: "Clave1234", confirmacion: "Clave1234" };
+  assert.strictEqual(Gestion.errorFormularioUsuario(base), null);
+  assert.match(Gestion.errorFormularioUsuario({ ...base, nombre: "  " }), /nombre/);
+  assert.match(Gestion.errorFormularioUsuario({ ...base, usuario_login: "" }), /usuario/);
+  assert.match(Gestion.errorFormularioUsuario({ ...base, rol: "jefe" }), /rol/);
+  assert.match(Gestion.errorFormularioUsuario({ ...base, password: "corta", confirmacion: "corta" }), /al menos 8/);
+  assert.match(Gestion.errorFormularioUsuario({ ...base, confirmacion: "Otra12345" }), /no coinciden/);
+  assert.match(Gestion.errorFormularioUsuario({ ...base, password: "", confirmacion: "" }), /al menos 8/);
+  // Editar: la contraseña es opcional y el usuario no se pide.
+  const editar = { modo: "editar", nombre: "Ana", rol: "mesero", password: "", confirmacion: "" };
+  assert.strictEqual(Gestion.errorFormularioUsuario(editar), null);
+  assert.match(Gestion.errorFormularioUsuario({ ...editar, confirmacion: "x" }), /al menos 8|no coinciden/);
+  assert.match(Gestion.errorFormularioUsuario({ ...editar, password: "Nueva12345", confirmacion: "" }), /no coinciden/);
+  assert.deepStrictEqual(Object.keys(Gestion.ROLES_USUARIO), ["administrador", "cajero", "mesero"]);
+});

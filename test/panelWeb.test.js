@@ -38,6 +38,7 @@ const app = require("../src/app");
 const PANEL = path.join(__dirname, "..", "public", "panel");
 const CATALOGO = path.join(__dirname, "..", "public", "catalogo");
 const NUEVAS = ["reportes.html", "alertas.html", "asistente.html"];
+const PAGINA_USUARIOS = "usuarios.html"; // solo administrador
 const SCRIPT_NUEVO = "gestion.js";
 
 let servidor;
@@ -56,7 +57,7 @@ const obtener = async (ruta, opciones) => {
 // ---------- 1) Archivos y menú (sin base) ----------
 
 test("las páginas y el script nuevos se sirven en /panel y no en /catalogo", async () => {
-  for (const archivo of [...NUEVAS, SCRIPT_NUEVO]) {
+  for (const archivo of [...NUEVAS, PAGINA_USUARIOS, SCRIPT_NUEVO]) {
     const panel = await obtener(`/panel/${archivo}`);
     assert.strictEqual(panel.status, 200, archivo);
     assert.match(panel.tipo, archivo.endsWith(".js") ? /javascript/ : /text\/html/, archivo);
@@ -67,7 +68,7 @@ test("las páginas y el script nuevos se sirven en /panel y no en /catalogo", as
 
 test("el catálogo público no referencia ni carga nada de las secciones nuevas", () => {
   const html = fs.readFileSync(path.join(CATALOGO, "index.html"), "utf8");
-  for (const prohibido of [...NUEVAS, SCRIPT_NUEVO, "menu.js", "/api/reportes", "/api/alertas-stock", "/api/chatbot", "Asistente"]) {
+  for (const prohibido of [...NUEVAS, PAGINA_USUARIOS, SCRIPT_NUEVO, "menu.js", "/api/reportes", "/api/alertas-stock", "/api/chatbot", "/api/usuarios", "Asistente"]) {
     assert.ok(!html.includes(prohibido), `el catálogo menciona ${prohibido}`);
   }
   // Solo carga api.js del panel (avisos y llamadas), como antes.
@@ -83,7 +84,7 @@ test("las páginas nuevas cargan solo scripts locales del panel, sin CDNs ni lib
       assert.ok(fs.existsSync(path.join(PANEL, f)), `${archivo} referencia ${f}, que no existe`);
     }
   }
-  for (const archivo of NUEVAS) {
+  for (const archivo of [...NUEVAS, PAGINA_USUARIOS]) {
     const html = fs.readFileSync(path.join(PANEL, archivo), "utf8");
     assert.deepStrictEqual(
       [...html.matchAll(/<script[^>]*\bsrc="([^"]+)"/g)].map((m) => m[1]),
@@ -96,7 +97,7 @@ test("las páginas nuevas cargan solo scripts locales del panel, sin CDNs ni lib
 
 test("cada página del panel (menos login) tiene las tres entradas solo-gestion y una sola activa", () => {
   const paginas = fs.readdirSync(PANEL).filter((f) => f.endsWith(".html") && f !== "login.html");
-  assert.strictEqual(paginas.length, 10); // 7 que ya existían + 3 nuevas
+  assert.strictEqual(paginas.length, 11); // 7 que ya existían + Reportes, Alertas, Asistente + Usuarios
   for (const archivo of paginas) {
     const html = fs.readFileSync(path.join(PANEL, archivo), "utf8");
     for (const [href, texto] of [["alertas.html", "Alertas de stock"], ["reportes.html", "Reportes"], ["asistente.html", "Asistente"]]) {
@@ -105,8 +106,8 @@ test("cada página del panel (menos login) tiene las tres entradas solo-gestion 
     }
     const activos = [...html.matchAll(/class="nav-item[^"]*\bactivo\b[^"]*"/g)];
     assert.strictEqual(activos.length, 1, `${archivo}: ${activos.length} entradas activas`);
-    // Orden igual que la app: Inventario, Alertas, Ventas, Reportes, Asistente, Datos del negocio.
-    const orden = ["inventario.html", "alertas.html", "ventas.html", "reportes.html", "asistente.html", "negocio.html"].map((h) =>
+    // Orden igual que la app: Inventario, Alertas, Ventas, Reportes, Asistente, Datos del negocio (y Usuarios, solo web).
+    const orden = ["inventario.html", "alertas.html", "ventas.html", "reportes.html", "asistente.html", "negocio.html", "usuarios.html"].map((h) =>
       html.indexOf(`<a href="${h}"`)
     );
     assert.deepStrictEqual([...orden].sort((a, b) => a - b), orden, `${archivo}: orden del menú`);
@@ -114,6 +115,10 @@ test("cada página del panel (menos login) tiene las tres entradas solo-gestion 
   // Las nuevas marcan su propia entrada.
   for (const archivo of NUEVAS) {
     assert.match(fs.readFileSync(path.join(PANEL, archivo), "utf8"), new RegExp(`<a href="${archivo.replace(".", "\\.")}" class="nav-item solo-gestion activo">`));
+  }
+  for (const archivo of paginas) {
+    const activo = archivo === PAGINA_USUARIOS ? " activo" : "";
+    assert.match(fs.readFileSync(path.join(PANEL, archivo), "utf8"), new RegExp(`<a href="usuarios\\.html" class="nav-item solo-admin${activo}">[\\s\\S]*?<span>Usuarios</span>`), archivo);
   }
 });
 
@@ -214,10 +219,10 @@ function simularMenu({ rol, token = "eyJ.prueba.firma0123456789abcdef", ruta = "
 const esperar = () => new Promise((r) => setImmediate(r));
 
 // Menú por rol (tabla de CLAUDE.md, "Menú del panel web por rol"). Mismo orden en todas las páginas.
-const TODAS = ["mesas.html", "pedidos.html", "productos.html", "proveedores.html", "inventario.html", "alertas.html", "ventas.html", "reportes.html", "asistente.html", "negocio.html"];
+const TODAS = ["mesas.html", "pedidos.html", "productos.html", "proveedores.html", "inventario.html", "alertas.html", "ventas.html", "reportes.html", "asistente.html", "negocio.html", "usuarios.html"];
 const MENU_ESPERADO = {
-  administrador: TODAS,
-  cajero: TODAS.filter((h) => h !== "negocio.html"),
+  administrador: TODAS, // 11 entradas
+  cajero: TODAS.filter((h) => h !== "negocio.html" && h !== "usuarios.html"),
   mesero: ["mesas.html", "pedidos.html"],
 };
 
@@ -266,6 +271,7 @@ const ENDPOINT_PAGINA = {
   "reportes.html": "/api/reportes?periodo=dia",
   "asistente.html": "/api/chatbot/preguntas",
   "negocio.html": "/api/emisor/resolucion",
+  "usuarios.html": "/api/usuarios",
 };
 
 test("menú por rol = permisos reales de la API: una entrada visible nunca recibe 403 y una oculta siempre", async () => {
@@ -342,7 +348,7 @@ test("cerrar sesión borra el token, el usuario y el contador guardado", async (
 });
 
 test("las respuestas de la API se insertan como texto, nunca como HTML", () => {
-  for (const archivo of NUEVAS) {
+  for (const archivo of [...NUEVAS, PAGINA_USUARIOS]) {
     const script = fs.readFileSync(path.join(PANEL, archivo), "utf8").match(/<script>([\s\S]*?)<\/script>/)[1];
     // innerHTML solo con texto fijo (aviso sin sesión y encabezado de tabla), nunca con datos.
     for (const linea of script.split("\n").filter((l) => l.includes("innerHTML"))) {
@@ -350,6 +356,11 @@ test("las respuestas de la API se insertan como texto, nunca como HTML", () => {
     }
     assert.ok(!/insertAdjacentHTML|outerHTML|document\.write/.test(script), archivo);
   }
+  const usuarios = fs.readFileSync(path.join(PANEL, PAGINA_USUARIOS), "utf8");
+  assert.match(usuarios, /<input type="password" id="password"/);
+  assert.match(usuarios, /<input type="password" id="confirmacion"/);
+  assert.ok(!/console\./.test(usuarios), "usuarios.html sin console.*");
+  assert.match(usuarios, /celda\(u\.usuario_login/);
   const asistente = fs.readFileSync(path.join(PANEL, "asistente.html"), "utf8");
   assert.match(asistente, /caja\.textContent = m\.texto;/);
   assert.match(asistente, /maxlength="500"/);

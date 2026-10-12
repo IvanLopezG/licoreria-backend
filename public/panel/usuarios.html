@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Licorería — Usuarios</title>
+<link rel="stylesheet" href="panel.css">
+<script src="menu.js" defer></script>
+<script src="api.js"></script>
+<script src="gestion.js"></script>
+<style>
+  #formUsuario { max-width: 720px; }
+  #formUsuario h2 { margin-top: 0; }
+  .etiqueta-tu { color: var(--gris-texto); font-size: 12px; margin-left: 6px; }
+  .acciones-usuario, .celda-fecha { white-space: nowrap; }
+  .acciones-usuario button:disabled { opacity: .4; cursor: not-allowed; }
+</style>
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="sidebar-marca">Licorería</div>
+    <nav class="sidebar-nav">
+      <a href="login.html" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 24 24"><path d="M12 4h6a1 1 0 0 1 1 1v14a1 1 0 0 1 -1 1h-6" /><path d="M3 12h13" /><path d="M13 15l3 -3l-3 -3" /></svg>
+        <span>Login</span>
+      </a>
+      <a href="mesas.html" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 24 24"><rect x="4" y="4" width="6" height="6" rx="1" /><rect x="14" y="4" width="6" height="6" rx="1" /><rect x="4" y="14" width="6" height="6" rx="1" /><rect x="14" y="14" width="6" height="6" rx="1" /></svg>
+        <span>Mesas</span>
+      </a>
+      <a href="pedidos.html" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 24 24"><path d="M4 8l2 -4h12l2 4" /><path d="M4 8h4l2 3h4l2 -3h4" /><path d="M4 8v9a1 1 0 0 0 1 1h14a1 1 0 0 0 1 -1v-9" /></svg>
+        <span>Pedidos entrantes</span>
+      </a>
+      <a href="productos.html" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 24 24"><path d="M12 3l8 4.5v9l-8 4.5l-8 -4.5v-9z" /><path d="M12 12l8 -4.5" /><path d="M12 12v9" /><path d="M12 12l-8 -4.5" /></svg>
+        <span>Productos</span>
+      </a>
+      <a href="proveedores.html" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 24 24"><rect x="3" y="9" width="10" height="7" rx="1" /><path d="M13 12h4l3 3v1h-7z" /><circle cx="7" cy="17.5" r="1.5" /><circle cx="17" cy="17.5" r="1.5" /></svg>
+        <span>Proveedores</span>
+      </a>
+      <a href="inventario.html" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 24 24"><rect x="6" y="4" width="12" height="16" rx="2" /><path d="M9 4a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v1a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z" /><path d="M9 11h6" /><path d="M9 15h6" /></svg>
+        <span>Inventario</span>
+      </a>
+      <a href="alertas.html" class="nav-item solo-gestion">
+        <svg class="nav-icon" viewBox="0 0 24 24"><path d="M10.4 3.9l-7.3 12.6a1.8 1.8 0 0 0 1.6 2.7h14.6a1.8 1.8 0 0 0 1.6 -2.7l-7.3 -12.6a1.8 1.8 0 0 0 -3.2 0z" /><path d="M12 9v4" /><path d="M12 16h.01" /></svg>
+        <span>Alertas de stock</span>
+      </a>
+      <a href="ventas.html" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 24 24"><path d="M5 3h14v18l-3 -2l-2 2l-2 -2l-2 2l-2 -2l-3 2z" /><path d="M8 8h8" /><path d="M8 12h8" /></svg>
+        <span>Ventas</span>
+      </a>
+      <a href="reportes.html" class="nav-item solo-gestion">
+        <svg class="nav-icon" viewBox="0 0 24 24"><path d="M4 20h16" /><rect x="6" y="11" width="3" height="6" rx="1" /><rect x="11" y="7" width="3" height="10" rx="1" /><rect x="16" y="13" width="3" height="4" rx="1" /></svg>
+        <span>Reportes</span>
+      </a>
+      <a href="asistente.html" class="nav-item solo-gestion">
+        <svg class="nav-icon" viewBox="0 0 24 24"><path d="M4 18v-11a3 3 0 0 1 3 -3h10a3 3 0 0 1 3 3v6a3 3 0 0 1 -3 3h-8z" /><path d="M9 10h6" /><path d="M9 13h4" /></svg>
+        <span>Asistente</span>
+      </a>
+      <a href="negocio.html" class="nav-item solo-admin">
+        <svg class="nav-icon" viewBox="0 0 24 24"><path d="M3 21h18" /><path d="M5 21v-12l7 -5l7 5v12" /><path d="M9 21v-6h6v6" /></svg>
+        <span>Datos del negocio</span>
+      </a>
+      <a href="usuarios.html" class="nav-item solo-admin activo">
+        <svg class="nav-icon" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5" /><path d="M3 20v-1a5 5 0 0 1 5 -5h2a5 5 0 0 1 5 5v1" /><path d="M16 4.5a3.5 3.5 0 0 1 0 7" /><path d="M21 20v-1a5 5 0 0 0 -3.5 -4.8" /></svg>
+        <span>Usuarios</span>
+      </a>
+    </nav>
+  </aside>
+
+  <main class="contenido-principal">
+    <h1>Usuarios</h1>
+    <div id="contenido">
+      <p class="ayuda" style="margin-top: 0">
+        Los usuarios no se borran (sus ventas y movimientos los siguen nombrando): se desactivan. Un usuario
+        desactivado no puede entrar y su sesión abierta se corta en su siguiente acción.
+      </p>
+      <div class="barra-filtros" style="margin-top: 0">
+        <button type="button" class="btn btn-primario" id="btnNuevo" style="margin-top: 0">Nuevo usuario</button>
+      </div>
+
+      <form id="formUsuario" class="seccion oculto" novalidate>
+        <h2 id="tituloForm">Nuevo usuario</h2>
+        <div class="fila-form">
+          <label>Nombre
+            <input id="nombre" maxlength="100" autocomplete="off">
+          </label>
+          <label>Usuario (para iniciar sesión)
+            <input id="usuario_login" maxlength="50" autocomplete="off" autocapitalize="none" spellcheck="false">
+          </label>
+          <label>Rol
+            <select id="rol">
+              <option value="mesero">Mesero</option>
+              <option value="cajero">Cajero</option>
+              <option value="administrador">Administrador</option>
+            </select>
+          </label>
+        </div>
+        <p class="ayuda oculto" id="ayudaPropio">Es tu propio usuario: no puedes cambiar tu rol ni desactivarte.</p>
+        <p class="ayuda oculto" id="ayudaLogin">El usuario no se puede cambiar.</p>
+        <div class="fila-form">
+          <label><span id="etiquetaClave">Contraseña</span>
+            <input type="password" id="password" autocomplete="new-password">
+          </label>
+          <label><span id="etiquetaConfirmacion">Confirmar contraseña</span>
+            <input type="password" id="confirmacion" autocomplete="new-password">
+          </label>
+        </div>
+        <p class="ayuda" id="ayudaClave">Mínimo 8 caracteres.</p>
+        <div class="caja-error oculto" id="errorForm" role="alert"><span id="errorFormTexto"></span></div>
+        <button type="submit" class="btn" id="btnGuardar">Guardar</button>
+        <button type="button" class="btn btn-secundario" id="btnCancelar">Cancelar</button>
+      </form>
+
+      <p class="estado-carga oculto" id="cargando" role="status">Cargando usuarios…</p>
+      <div class="caja-error oculto" id="error" role="alert">
+        <span id="errorTexto"></span>
+        <button type="button" class="btn" id="btnReintentar">Reintentar</button>
+      </div>
+      <div class="tabla-desplazable" id="tablaUsuarios">
+        <table>
+          <thead>
+            <tr><th>Nombre</th><th>Usuario</th><th>Rol</th><th>Estado</th><th>Creado</th><th>Acciones</th></tr>
+          </thead>
+          <tbody id="filas"></tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+<script>
+  // Usuarios (solo administrador): GET/POST /api/usuarios y PUT /api/usuarios/:id.
+  // El backend es la autoridad (rol, propio usuario, último administrador);
+  // aquí solo se evita ofrecer lo que de todos modos respondería 409. Nombres
+  // y usuarios se pintan con textContent. Las contraseñas no se guardan ni se
+  // registran en ningún lado: se leen al enviar y los campos se vacían.
+  function token() { return localStorage.getItem("token"); }
+  function irAlLogin() {
+    localStorage.removeItem("token");
+    localStorage.removeItem("usuario");
+    window.location.replace("login.html");
+  }
+  function loginActual() {
+    try {
+      return JSON.parse(localStorage.getItem("usuario") || "null")?.usuario_login ?? null;
+    } catch {
+      return null;
+    }
+  }
+  const $ = (id) => document.getElementById(id);
+  const propio = (u) => u.usuario_login === loginActual();
+
+  let usuarios = [];
+  let editando = null; // usuario en edición, o null al crear
+
+  function mostrarPermisoDenegado() {
+    $("contenido").innerHTML = '<p class="error-permiso">No tienes permiso para ver esta sección.</p>';
+  }
+  // 401 → login; 403 → aviso en la página; lo demás donde corresponda.
+  function manejarError(err, alMostrar) {
+    if (err.status === 401) return irAlLogin();
+    if (err.status === 403) return mostrarPermisoDenegado();
+    alMostrar(Api.mensajeDe(err));
+  }
+
+  function estadoCarga(cual) {
+    $("cargando").classList.toggle("oculto", cual !== "cargando");
+    $("error").classList.toggle("oculto", cual !== "error");
+    $("tablaUsuarios").classList.toggle("oculto", cual !== "lista");
+  }
+
+  async function cargar() {
+    estadoCarga("cargando");
+    try {
+      usuarios = (await Api.pedir("/api/usuarios")) || [];
+    } catch (err) {
+      return manejarError(err, (texto) => {
+        $("errorTexto").textContent = texto;
+        estadoCarga("error");
+      });
+    }
+    pintar();
+    estadoCarga("lista");
+  }
+
+  function celda(texto, clase) {
+    const td = document.createElement("td");
+    td.textContent = texto;
+    if (clase) td.className = clase;
+    return td;
+  }
+  function boton(texto, clase, alHacerClic) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = `btn btn-chico${clase ? ` ${clase}` : ""}`;
+    b.textContent = texto;
+    b.addEventListener("click", alHacerClic);
+    return b;
+  }
+
+  function pintar() {
+    const cuerpo = $("filas");
+    cuerpo.replaceChildren();
+    for (const u of usuarios) {
+      const activo = Number(u.activo) === 1;
+      const tr = document.createElement("tr");
+      if (!activo) tr.className = "fila-inactiva";
+
+      const nombre = celda(u.nombre || "");
+      if (propio(u)) {
+        const tu = document.createElement("span");
+        tu.className = "etiqueta-tu";
+        tu.textContent = "(tú)";
+        nombre.appendChild(tu);
+      }
+      const estado = document.createElement("td");
+      const badge = document.createElement("span");
+      badge.className = `badge ${activo ? "badge-entrada" : "badge-inactivo"}`;
+      badge.textContent = activo ? "Activo" : "Inactivo";
+      estado.appendChild(badge);
+
+      const acciones = document.createElement("td");
+      acciones.className = "acciones-usuario";
+      acciones.appendChild(boton("Editar", "", () => abrirFormulario(u)));
+      const alternar = boton(activo ? "Desactivar" : "Activar", activo ? "btn-peligro" : "", () => cambiarEstado(u, !activo));
+      if (propio(u)) {
+        alternar.disabled = true;
+        alternar.title = "No puedes desactivar tu propio usuario.";
+      }
+      acciones.appendChild(alternar);
+
+      tr.append(
+        nombre,
+        celda(u.usuario_login || ""),
+        celda(Gestion.ROLES_USUARIO[u.rol] || u.rol || ""),
+        estado,
+        celda(Gestion.fechaHoraColombia(u.fecha_creacion), "celda-fecha"),
+        acciones
+      );
+      cuerpo.appendChild(tr);
+    }
+  }
+
+  function mostrarErrorForm(texto) {
+    $("errorFormTexto").textContent = texto;
+    $("errorForm").classList.toggle("oculto", !texto);
+  }
+  function vaciarClaves() {
+    $("password").value = "";
+    $("confirmacion").value = "";
+  }
+
+  // u: usuario a editar; sin u, formulario de usuario nuevo.
+  function abrirFormulario(u) {
+    editando = u || null;
+    const esPropio = !!u && propio(u);
+    $("tituloForm").textContent = u ? `Editar usuario: ${u.usuario_login}` : "Nuevo usuario";
+    $("nombre").value = u ? u.nombre || "" : "";
+    $("usuario_login").value = u ? u.usuario_login || "" : "";
+    $("usuario_login").disabled = !!u;
+    $("ayudaLogin").classList.toggle("oculto", !u);
+    $("rol").value = u ? u.rol : "mesero";
+    $("rol").disabled = esPropio;
+    $("ayudaPropio").classList.toggle("oculto", !esPropio);
+    $("etiquetaClave").textContent = u ? "Nueva contraseña (opcional)" : "Contraseña";
+    $("etiquetaConfirmacion").textContent = u ? "Confirmar nueva contraseña" : "Confirmar contraseña";
+    $("ayudaClave").textContent = u
+      ? "Déjala en blanco para no cambiarla. Mínimo 8 caracteres."
+      : "Mínimo 8 caracteres.";
+    vaciarClaves();
+    mostrarErrorForm("");
+    $("formUsuario").classList.remove("oculto");
+    $("nombre").focus();
+  }
+  function cerrarFormulario() {
+    editando = null;
+    vaciarClaves();
+    mostrarErrorForm("");
+    $("formUsuario").classList.add("oculto");
+  }
+
+  async function guardar(evento) {
+    evento.preventDefault();
+    const datos = {
+      modo: editando ? "editar" : "crear",
+      nombre: $("nombre").value.trim(),
+      usuario_login: $("usuario_login").value.trim(),
+      rol: $("rol").value,
+      password: $("password").value,
+      confirmacion: $("confirmacion").value,
+    };
+    vaciarClaves(); // las contraseñas no quedan en la página tras enviar
+    const problema = Gestion.errorFormularioUsuario(datos);
+    if (problema) return mostrarErrorForm(problema);
+
+    let ruta = "/api/usuarios";
+    let metodo = "POST";
+    let cuerpo;
+    if (editando) {
+      ruta = `/api/usuarios/${encodeURIComponent(editando.id_usuario)}`;
+      metodo = "PUT";
+      cuerpo = { nombre: datos.nombre };
+      if (!propio(editando)) cuerpo.rol = datos.rol;
+      if (datos.password) cuerpo.password = datos.password;
+    } else {
+      cuerpo = { nombre: datos.nombre, usuario_login: datos.usuario_login, rol: datos.rol, password: datos.password };
+    }
+
+    $("btnGuardar").disabled = true;
+    try {
+      const usuario = await Api.pedir(ruta, { method: metodo, body: cuerpo });
+      Api.exito(editando ? `Usuario "${usuario.usuario_login}" actualizado.` : `Usuario "${usuario.usuario_login}" creado.`);
+      cerrarFormulario();
+      cargar();
+    } catch (err) {
+      manejarError(err, mostrarErrorForm);
+    } finally {
+      $("btnGuardar").disabled = false;
+    }
+  }
+
+  async function cambiarEstado(u, activar) {
+    const pregunta = activar
+      ? `¿Activar a ${u.nombre} (${u.usuario_login})? Podrá volver a iniciar sesión.`
+      : `¿Desactivar a ${u.nombre} (${u.usuario_login})? No podrá iniciar sesión y su sesión abierta se cortará.`;
+    if (!window.confirm(pregunta)) return;
+    try {
+      await Api.pedir(`/api/usuarios/${encodeURIComponent(u.id_usuario)}`, { method: "PUT", body: { activo: activar ? 1 : 0 } });
+      Api.exito(`Usuario "${u.usuario_login}" ${activar ? "activado" : "desactivado"}.`);
+      if (editando && editando.id_usuario === u.id_usuario) cerrarFormulario();
+      cargar();
+    } catch (err) {
+      manejarError(err, (texto) => Api.error(texto));
+    }
+  }
+
+  $("btnNuevo").addEventListener("click", () => abrirFormulario(null));
+  $("btnCancelar").addEventListener("click", cerrarFormulario);
+  $("formUsuario").addEventListener("submit", guardar);
+  $("btnReintentar").addEventListener("click", cargar);
+
+  if (!token()) {
+    document.body.innerHTML = "<p>Debes iniciar sesión primero en <a href='login.html'>login.html</a>.</p>";
+  } else {
+    cargar();
+  }
+</script>
+</body>
+</html>

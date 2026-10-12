@@ -17,7 +17,8 @@
 // proveedores GET /api/proveedores, inventario GET /api/inventario/movimientos,
 // alertas GET /api/alertas-stock, ventas GET /api/ventas, reportes
 // GET /api/reportes, asistente /api/chatbot, negocio GET /api/emisor/resolucion
-// (el cajero puede leer /api/emisor, pero la página es de edición: solo admin).
+// (el cajero puede leer /api/emisor, pero la página es de edición: solo admin),
+// usuarios GET /api/usuarios.
 const ROLES_POR_PAGINA = {
   "mesas.html": ["administrador", "cajero", "mesero"],
   "pedidos.html": ["administrador", "cajero", "mesero"],
@@ -29,6 +30,7 @@ const ROLES_POR_PAGINA = {
   "reportes.html": ["administrador", "cajero"],
   "asistente.html": ["administrador", "cajero"],
   "negocio.html": ["administrador"],
+  "usuarios.html": ["administrador"],
 };
 
 // Función pura: ¿el rol ve esta página en el menú? Las que no están en la
