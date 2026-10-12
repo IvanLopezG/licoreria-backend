@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Licorería — Alertas de stock</title>
+<link rel="stylesheet" href="panel.css">
+<script src="menu.js" defer></script>
+<script src="api.js"></script>
+<script src="gestion.js"></script>
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="sidebar-marca">Licorería</div>
+    <nav class="sidebar-nav">
+      <a href="login.html" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 24 24"><path d="M12 4h6a1 1 0 0 1 1 1v14a1 1 0 0 1 -1 1h-6" /><path d="M3 12h13" /><path d="M13 15l3 -3l-3 -3" /></svg>
+        <span>Login</span>
+      </a>
+      <a href="mesas.html" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 24 24"><rect x="4" y="4" width="6" height="6" rx="1" /><rect x="14" y="4" width="6" height="6" rx="1" /><rect x="4" y="14" width="6" height="6" rx="1" /><rect x="14" y="14" width="6" height="6" rx="1" /></svg>
+        <span>Mesas</span>
+      </a>
+      <a href="pedidos.html" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 24 24"><path d="M4 8l2 -4h12l2 4" /><path d="M4 8h4l2 3h4l2 -3h4" /><path d="M4 8v9a1 1 0 0 0 1 1h14a1 1 0 0 0 1 -1v-9" /></svg>
+        <span>Pedidos entrantes</span>
+      </a>
+      <a href="productos.html" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 24 24"><path d="M12 3l8 4.5v9l-8 4.5l-8 -4.5v-9z" /><path d="M12 12l8 -4.5" /><path d="M12 12v9" /><path d="M12 12l-8 -4.5" /></svg>
+        <span>Productos</span>
+      </a>
+      <a href="proveedores.html" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 24 24"><rect x="3" y="9" width="10" height="7" rx="1" /><path d="M13 12h4l3 3v1h-7z" /><circle cx="7" cy="17.5" r="1.5" /><circle cx="17" cy="17.5" r="1.5" /></svg>
+        <span>Proveedores</span>
+      </a>
+      <a href="inventario.html" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 24 24"><rect x="6" y="4" width="12" height="16" rx="2" /><path d="M9 4a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v1a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z" /><path d="M9 11h6" /><path d="M9 15h6" /></svg>
+        <span>Inventario</span>
+      </a>
+      <a href="alertas.html" class="nav-item solo-gestion activo">
+        <svg class="nav-icon" viewBox="0 0 24 24"><path d="M10.4 3.9l-7.3 12.6a1.8 1.8 0 0 0 1.6 2.7h14.6a1.8 1.8 0 0 0 1.6 -2.7l-7.3 -12.6a1.8 1.8 0 0 0 -3.2 0z" /><path d="M12 9v4" /><path d="M12 16h.01" /></svg>
+        <span>Alertas de stock</span>
+      </a>
+      <a href="ventas.html" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 24 24"><path d="M5 3h14v18l-3 -2l-2 2l-2 -2l-2 2l-2 -2l-3 2z" /><path d="M8 8h8" /><path d="M8 12h8" /></svg>
+        <span>Ventas</span>
+      </a>
+      <a href="reportes.html" class="nav-item solo-gestion">
+        <svg class="nav-icon" viewBox="0 0 24 24"><path d="M4 20h16" /><rect x="6" y="11" width="3" height="6" rx="1" /><rect x="11" y="7" width="3" height="10" rx="1" /><rect x="16" y="13" width="3" height="4" rx="1" /></svg>
+        <span>Reportes</span>
+      </a>
+      <a href="asistente.html" class="nav-item solo-gestion">
+        <svg class="nav-icon" viewBox="0 0 24 24"><path d="M4 18v-11a3 3 0 0 1 3 -3h10a3 3 0 0 1 3 3v6a3 3 0 0 1 -3 3h-8z" /><path d="M9 10h6" /><path d="M9 13h4" /></svg>
+        <span>Asistente</span>
+      </a>
+      <a href="negocio.html" class="nav-item solo-admin">
+        <svg class="nav-icon" viewBox="0 0 24 24"><path d="M3 21h18" /><path d="M5 21v-12l7 -5l7 5v12" /><path d="M9 21v-6h6v6" /></svg>
+        <span>Datos del negocio</span>
+      </a>
+    </nav>
+  </aside>
+
+  <main class="contenido-principal">
+    <h1>Alertas de stock</h1>
+
+    <div id="contenido">
+      <div class="barra-filtros" style="margin-top: 0">
+        <p class="ayuda" id="parametros" style="flex: 1 1 320px; margin: 0"></p>
+        <button type="button" class="btn" id="btnActualizar" style="margin-top: 0">Actualizar</button>
+      </div>
+
+      <p class="estado-carga oculto" id="cargando" role="status">Cargando alertas…</p>
+      <div class="caja-error oculto" id="error" role="alert">
+        <span id="errorTexto"></span>
+        <button type="button" class="btn" id="btnReintentar">Reintentar</button>
+      </div>
+      <p class="estado-vacio oculto" id="vacio">Todo el stock está en orden</p>
+      <div id="grupos"></div>
+    </div>
+  </main>
+
+<script>
+  // Alertas de stock (GET /api/alertas-stock, con los valores por defecto del
+  // backend). Agrupadas por estado en orden de urgencia; un estado desconocido
+  // se ignora (igual que la app). Los nombres se insertan con textContent.
+  function token() { return localStorage.getItem("token"); }
+
+  function irAlLogin() {
+    localStorage.removeItem("token");
+    localStorage.removeItem("usuario");
+    window.location.replace("login.html");
+  }
+
+  const $ = (id) => document.getElementById(id);
+  let consulta = 0;
+
+  function mostrar(cual) {
+    $("cargando").classList.toggle("oculto", cual !== "cargando");
+    $("error").classList.toggle("oculto", cual !== "error");
+    $("vacio").classList.toggle("oculto", cual !== "vacio");
+    $("grupos").classList.toggle("oculto", cual !== "lista");
+  }
+
+  function mostrarError(texto, reintentable) {
+    $("errorTexto").textContent = texto;
+    $("btnReintentar").classList.toggle("oculto", !reintentable);
+    mostrar("error");
+  }
+
+  function actualizarContador(n) {
+    if (typeof MenuPanel !== "undefined") MenuPanel.actualizarContadorAlertas(n);
+  }
+
+  async function cargar() {
+    const propia = ++consulta;
+    $("btnActualizar").disabled = true;
+    mostrar("cargando");
+    try {
+      const datos = (await Api.pedir("/api/alertas-stock")) || {};
+      if (propia !== consulta) return;
+      pintar(datos);
+    } catch (err) {
+      if (propia !== consulta) return;
+      if (err.status === 401) return irAlLogin();
+      if (err.status === 403) return mostrarError("No tienes permiso para ver las alertas de stock", false);
+      mostrarError(Api.mensajeDe(err), true);
+    } finally {
+      if (propia === consulta) $("btnActualizar").disabled = false;
+    }
+  }
+
+  // Qué significan los números, con los parámetros que usó el backend.
+  function textoParametros(p) {
+    if (!p) return "";
+    const partes = [];
+    if (p.ventana_dias) partes.push(`Cobertura según las ventas de los últimos ${p.ventana_dias} días.`);
+    if (p.cobertura_alerta_dias) partes.push(`Por agotarse: menos de ${Gestion.textoCobertura(p.cobertura_alerta_dias)} de cobertura.`);
+    if (p.dias_objetivo) partes.push(`Cantidad sugerida para ${Gestion.textoCobertura(p.dias_objetivo)} de venta.`);
+    return partes.join(" ");
+  }
+
+  function celda(texto, clase) {
+    const td = document.createElement("td");
+    td.textContent = texto;
+    if (clase) td.className = clase;
+    return td;
+  }
+
+  function pintar(datos) {
+    $("parametros").textContent = textoParametros(datos.parametros);
+    const grupos = Gestion.agruparAlertas(datos.productos);
+    actualizarContador(Gestion.contarAlertas(datos.productos));
+    const caja = $("grupos");
+    caja.replaceChildren();
+    if (grupos.length === 0) return mostrar("vacio");
+
+    for (const grupo of grupos) {
+      const seccion = document.createElement("div");
+      seccion.className = "seccion grupo-alertas";
+      const h2 = document.createElement("h2");
+      const badge = document.createElement("span");
+      badge.className = `badge ${grupo.clase}`;
+      badge.textContent = grupo.titulo;
+      const cuenta = document.createElement("span");
+      cuenta.textContent = grupo.productos.length === 1 ? "1 producto" : `${grupo.productos.length} productos`;
+      h2.append(badge, cuenta);
+
+      const tabla = document.createElement("table");
+      tabla.innerHTML =
+        "<thead><tr><th>Producto</th><th class=\"celda-numero\">Stock actual</th><th class=\"celda-numero\">Mínimo</th>" +
+        "<th class=\"celda-numero\">Días de cobertura</th><th class=\"celda-numero\">Cantidad sugerida</th></tr></thead>";
+      const tbody = document.createElement("tbody");
+      for (const p of grupo.productos) {
+        const tr = document.createElement("tr");
+        const nombre = document.createElement("td");
+        nombre.textContent = p.nombre || "(sin nombre)";
+        const detalle = [p.categoria_nombre, p.unidad_medida].filter(Boolean).join(" · ");
+        if (detalle) {
+          const d = document.createElement("div");
+          d.className = "dato-secundario";
+          d.textContent = detalle;
+          nombre.appendChild(d);
+        }
+        if (Gestion.sinVentasRecientes(p)) {
+          const nota = document.createElement("div");
+          nota.className = "nota-sin-ventas";
+          nota.textContent = Gestion.SIN_VENTAS_RECIENTES;
+          nombre.appendChild(nota);
+        }
+        const sugerida = Number(p.cantidad_sugerida) || 0;
+        tr.append(
+          nombre,
+          celda(Gestion.formatoNumero(p.stock_actual), "celda-numero"),
+          celda(Gestion.formatoNumero(p.umbral_alerta), "celda-numero"),
+          celda(Gestion.textoCobertura(p.dias_cobertura), "celda-numero"),
+          celda(sugerida > 0 ? Gestion.formatoNumero(sugerida) : "—", "celda-numero")
+        );
+        tbody.appendChild(tr);
+      }
+      tabla.appendChild(tbody);
+      const desplazable = document.createElement("div");
+      desplazable.className = "tabla-desplazable";
+      desplazable.appendChild(tabla);
+      seccion.append(h2, desplazable);
+      caja.appendChild(seccion);
+    }
+    mostrar("lista");
+  }
+
+  $("btnActualizar").addEventListener("click", cargar);
+  $("btnReintentar").addEventListener("click", cargar);
+
+  if (!token()) {
+    document.body.innerHTML = "<p>Debes iniciar sesión primero en <a href='login.html'>login.html</a>.</p>";
+  } else {
+    cargar();
+  }
+</script>
+</body>
+</html>
