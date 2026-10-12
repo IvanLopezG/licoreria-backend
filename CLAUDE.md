@@ -654,6 +654,32 @@ en SQL, en paralelo) + `utils/periodoReporte.js` (rango del periodo, función pu
   local recién creada: las 5 preguntas rápidas con datos reales (venta anulada excluida). Verificado el 2026-10-11:
   13/13 contra PGlite en memoria (cerrado al terminar) y `npm test` 76 + 3 saltadas sin base.
 
+## Panel web: Reportes, Alertas de stock y Asistente
+### Inspección (Paso 0, 2026-10-11, sobre `d04de21`)
+- **Archivos:** `public/panel/` (panel interno: una página HTML por sección con su `<script>` inline, más `api.js`,
+  `menu.js`, `csv.js`, `factura.js` y `panel.css`) y `public/catalogo/index.html` (catálogo público, carga solo
+  `/panel/api.js`). Express sirve cada carpeta aparte (`/panel`, `/catalogo`); las páginas son estáticas y públicas como
+  archivo, los datos los protege la API (JWT + roles).
+- **Login y token:** `login.html` guarda `token` y `usuario` (`{nombre, usuario_login, rol}`) en `localStorage`; si ya
+  hay token lo valida con `GET /api/auth/me` y va a `pedidos.html`. Cada página: `if (!token())` reemplaza el `body` por
+  "Debes iniciar sesión primero en login.html". **Ninguna página redirige al login con un 401**: `Api.pedir` lanza
+  `ApiError(status)` y la página muestra el aviso ("Tu sesión expiró. Vuelve a iniciar sesión.").
+- **Llamadas a la API:** `Api.pedir(ruta, {method, body, auth, respuesta})` (agrega `Bearer`, convierte todo error en
+  `ApiError(mensaje, status)`, `status` 0 sin red; sin timeout propio) y avisos `Api.error`/`Api.exito` (toasts).
+- **Menú:** la barra lateral (`aside.sidebar` > `nav.sidebar-nav` con `a.nav-item` + ícono SVG en línea) está **repetida
+  en cada HTML**; la página actual lleva `.activo`. `menu.js` (todas las páginas menos login) quita los `.solo-admin` si
+  el rol no es administrador, quita "Login" con sesión y agrega "Cerrar sesión". **No hay clase para "solo
+  administrador y cajero"**: hoy el mesero ve todas las entradas salvo "Datos del negocio" y recibe el 403 en la página.
+- **Roles en pantalla:** `JSON.parse(localStorage.usuario).rol` (p. ej. `puedeCancelar()` en Pedidos); un 403 de carga
+  reemplaza `#contenido` por `<p class="error-permiso">No tienes permiso para ver esta sección.</p>`.
+- **Estilo:** `panel.css` (variables `--azul-oscuro`, `--gris-*`, `--rojo`; `.tarjetas/.tarjeta .numero/.etiqueta`,
+  `.seccion`, tablas con `thead th` en versalitas, `.badge-*` incl. `.badge-agotado` y `.badge-alerta`, `.btn`,
+  `.btn-primario` (uno por página), `.oculto`, `.tabla-desplazable`, `.celda-aviso`). Solo las páginas con `<meta
+  name="viewport">` (hoy Inventario) usan el diseño de celular (`@media (max-width: 720px)`).
+- **Código compartido con Node:** `csv.js` define un objeto global y al final `if (typeof module !== "undefined")
+  module.exports = Csv`, así el servidor y las pruebas lo cargan con `require`. No hay pruebas de frontend ni navegador
+  en las pruebas; se verifica con `node --test` y, a mano, con Chrome headless.
+
 ## Pendientes futuros (no urgentes)
 - La app Android ya refleja todo lo de este backend: campos nuevos de productos y proveedores,
   impuestos deshabilitados para el cajero y `cliente.correo` al cobrar (app `82941d4`, `c887b11`,
