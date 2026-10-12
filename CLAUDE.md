@@ -28,7 +28,8 @@ verdad si algo aquí queda ambiguo.
 - Antes de cambiar una consulta, correr `scripts/escenario-api.js` contra una base
   vacía y `scripts/comparar-muestras.js sqlite <carpeta>`: la app Android depende de
   estos JSON.
-- Middlewares en `src/middlewares/`: `auth.js` (verifica JWT), `roles.js` (RBAC por rol),
+- Middlewares en `src/middlewares/`: `auth.js` (verifica JWT y, en cada petición, que el usuario exista y esté activo;
+  usa el rol de la base), `roles.js` (RBAC por rol),
   `auditoria.js` (escribe en `log_auditoria` automáticamente cuando un controlador
   fija `req.auditoria = { accion, entidad, id_entidad }` — no lo hagas manualmente
   en el servicio, usa ese patrón), `manejoErrores.js` (único lugar donde un error se vuelve respuesta
@@ -209,6 +210,11 @@ Sin cambios de esquema ni dependencias nuevas. Pantalla "Asistente" en la app An
 
 **Panel web: Reportes, Alertas de stock y Asistente: COMPLETO** (2026-10-11). Ver la sección *Panel web: Reportes,
 Alertas de stock y Asistente* más abajo. Solo frontend (`public/panel/`); la API no cambió.
+
+**Gestión de usuarios: COMPLETA** (2026-10-12). `PUT /api/usuarios/:id` (nombre, rol, contraseña, activar/desactivar;
+sin DELETE), contraseña de 8 caracteres a 72 bytes, corte inmediato (cada petición consulta si el usuario sigue activo
+y usa su rol de la base) y página `usuarios.html` solo para el administrador. Ver la sección *Gestión de usuarios* más
+abajo.
 
 **Menú del panel web por rol: COMPLETO** (2026-10-12). Cada rol ve solo las páginas que su API le permite (mesero: Mesas y
 Pedidos, como la app Android). Ver la sección *Menú del panel web por rol* más abajo. Solo frontend; la API no cambió.
@@ -783,12 +789,13 @@ PGlite y Chrome cerrados al terminar.
   sección."; Alertas, Reportes y Asistente tienen su mensaje de 403; Datos del negocio "Solo el administrador puede
   editar…". **Productos no**: solo un aviso pasajero (toast de 7 s) y el formulario vacío.
 
-**Entradas que ve cada rol** (además de "Cerrar sesión"; mismo orden en las 10 páginas):
+**Entradas que ve cada rol** (además de "Cerrar sesión"; mismo orden en todas las páginas; desde el 2026-10-12 son 11
+páginas con Usuarios, ver *Gestión de usuarios*):
 
 | Rol | Entradas del menú |
 |---|---|
-| Administrador | Mesas, Pedidos entrantes, Productos, Proveedores, Inventario, Alertas de stock, Ventas, Reportes, Asistente, Datos del negocio |
-| Cajero | Las mismas menos Datos del negocio |
+| Administrador (11) | Mesas, Pedidos entrantes, Productos, Proveedores, Inventario, Alertas de stock, Ventas, Reportes, Asistente, Datos del negocio, Usuarios |
+| Cajero (9) | Las mismas menos Datos del negocio y Usuarios |
 | Mesero | Mesas, Pedidos entrantes |
 | Rol desconocido o sin usuario guardado | Ninguna (solo "Login" sin token / "Cerrar sesión" con token) |
 
@@ -803,7 +810,7 @@ PGlite y Chrome cerrados al terminar.
   Datos del negocio sigue solo para administrador aunque el cajero pueda leer `GET /api/emisor`; el aviso de Productos
   se agregó porque el pedido exige un aviso claro al abrir una página oculta por URL y el toast no lo era.
 - **Pruebas** (`test/panelWeb.test.js`): `simularMenu` ahora arma los enlaces con el menú **real** de cada página.
-  (1) menú de las 10 páginas para administrador, cajero, mesero, rol desconocido y sin sesión, y `puedeVerPagina` =
+  (1) menú de las 10 páginas (11 con Usuarios) para administrador, cajero, mesero, rol desconocido y sin sesión, y `puedeVerPagina` =
   tabla esperada; (2) toda página oculta para algún rol tiene su aviso de permiso; (3) para cada rol y página se pide el
   endpoint principal con un JWT de ese rol a la app real: visible → nunca 401/403 (500 sin base, 200 con base), oculta →
   siempre 403. Así un cambio de permisos en la API sin tocar el menú hace fallar `npm test`.
@@ -811,6 +818,97 @@ PGlite y Chrome cerrados al terminar.
   Chrome headless (script desechable fuera del repo, backend local + PGlite): menú por rol en Pedidos, Mesas y Productos,
   el mesero ve el aviso en las 8 páginas ocultas abiertas por URL, el cajero ve el formulario de Productos, y el login
   con sesión de mesero lleva a Pedidos sin aviso (29/29). PGlite y Chrome cerrados al terminar.
+
+## Gestión de usuarios (`/api/usuarios`, panel `usuarios.html`)
+### Inspección (Paso 0, 2026-10-12, sobre `54cdc27`)
+- **Tabla `usuarios`:** `id_usuario`, `nombre`, `usuario_login` (único), `password_hash` (bcryptjs, costo 10), `rol`
+  (CHECK administrador/mesero/cajero), `activo` (0/1, defecto 1), `fecha_creacion` (UTC). Solo existían
+  `POST`/`GET /api/usuarios` (administrador); nada ponía `activo` en 0 aunque el login ya rechazaba inactivos.
+- **Claves foráneas sin `ON DELETE`** desde `ventas`, `movimientos_inventario`, `log_auditoria` y `facturas`
+  (`id_usuario`, `id_usuario_anulacion`): borrar un usuario con historial falla (23503). Por eso **no hay DELETE**.
+- **`auth.js`** solo verificaba el JWT (2 h, `JWT_EXPIRES_IN`); `requireRole` usa `req.usuario.rol`. `/api/auth/me`
+  devuelve `req.usuario` tal cual (contenido del token: `id_usuario`, `usuario_login`, `rol`, `iat`, `exp`).
+- **Logs y bitácora:** ningún middleware guarda cuerpos de petición (`registroPeticiones` solo método, ruta, código y
+  tiempo; Pino redacta `password`, `password_hash`, `token`… por nombre). `log_auditoria.detalle` solo lo llena el
+  controlador vía `req.auditoria.detalle`; `POST /api/usuarios` no lo usaba. No hubo nada que corregir.
+- **Transacciones:** `db.conTransaccion(fn)` (un client con BEGIN/COMMIT/ROLLBACK) y `SELECT … FOR UPDATE` (ya usado
+  en la numeración de facturas y las sesiones de mesa). PGlite atiende **una conexión a la vez** (`PG_POOL_MAX=1`).
+- **Panel:** el front conoce `localStorage.usuario = {nombre, usuario_login, rol}`; para marcar "(tú)" se compara
+  `usuario_login` (único y no editable).
+
+### Implementación (COMPLETA, 2026-10-12)
+- **Corte inmediato (`middlewares/auth.js`):** tras verificar el JWT consulta `usuarioModel.buscarAcceso(id)`
+  (`id_usuario, rol, activo`; una consulta por petición autenticada). Usuario inexistente o `activo != 1` → **401
+  "Token inválido o expirado."** (el mismo mensaje genérico de siempre). `req.usuario` conserva su forma (el contenido del
+  token) con el **rol de la base**: un cambio de rol aplica en la siguiente petición con el mismo token. Si la base falla
+  → 500 (nunca deja pasar sin saber si el usuario sigue activo). Login y rutas públicas (catálogo) no cambian.
+  Las pruebas sin base firman sus tokens con `test/apoyo/usuariosSimulados.js` (`firmarToken(rol)`).
+- **Contraseña (`utils/contrasena.js`):** mínimo **8 caracteres** (Unicode) y máximo **72 bytes** UTF-8 (bcrypt ignora lo
+  que pase de 72 bytes; tildes y ñ cuentan 2). Se aplica al crear y al cambiarla; el login no valida largo (las
+  contraseñas existentes siguen sirviendo). Sin recortar espacios.
+- **`PUT /api/usuarios/:id`** (solo administrador, auditado): cuerpo parcial `nombre`, `rol`, `activo` (0/1 o
+  true/false → 0/1), `password`. Respuesta 200 con los campos del listado (`id_usuario, nombre, usuario_login, rol,
+  activo, fecha_creacion`), nunca `password_hash`.
+  - 400: id no entero positivo, ningún campo editable, nombre vacío (se recorta), rol inválido, `activo` de otro tipo,
+    contraseña fuera de las reglas, `usuario_login` distinto del guardado (no es editable; igual al guardado se ignora).
+  - 404 "Usuario no encontrado.".
+  - 409 "No puedes desactivar tu propio usuario.", "No puedes cambiar tu propio rol." y "Debe quedar al menos un
+    administrador activo: activa o crea otro administrador antes de hacer este cambio.". El administrador sí cambia su
+    propio nombre y contraseña (enviar su mismo rol o `activo: 1` no es un cambio → 200).
+  - **Atomicidad:** todo en `conTransaccion`. Si llega `rol` o `activo`, `bloquearParaEditar` toma con
+    `SELECT … FOR UPDATE` el usuario editado **y todos los administradores activos, en orden de id** antes de contar:
+    dos administradores que se desactivan entre sí a la vez se turnan (sin interbloqueo) y el segundo, al reevaluar las
+    filas, ve 0 administradores restantes → 409. El hash de bcrypt se calcula antes de abrir la transacción.
+  - **Bitácora:** `accion: "editar"`, `detalle` con valor anterior y nuevo de nombre, rol y activo (p. ej.
+    `rol: mesero → cajero; activo: 1 → 0`) y de la contraseña solo `contraseña cambiada`; "Sin cambios" si nada cambió.
+- **`POST /api/usuarios`:** igual que antes (201/400/409, mismo cuerpo sin `password_hash`) más la regla de contraseña.
+  **`GET`** sin cambios. **Sin DELETE.**
+- **Panel (`public/panel/usuarios.html`, solo administrador):** tabla Nombre / Usuario / Rol / Estado (Activo/Inactivo) /
+  Creado (hora de Colombia, `Gestion.fechaHoraColombia`, UTC−5 fijo) / Acciones (Editar, Desactivar/Activar con
+  `confirm()`). "Nuevo usuario" (nombre, usuario, rol, contraseña y confirmación) y "Editar" (nombre, rol, nueva
+  contraseña opcional; el usuario se muestra bloqueado). Fila propia con "(tú)", Desactivar deshabilitado y rol
+  deshabilitado al editarse. Revisión previa en el navegador (`Gestion.errorFormularioUsuario`), pero los 400/409 del
+  backend se muestran tal cual en el formulario. Contraseñas `type=password`, vaciadas al enviar (también si hay error),
+  sin `console.*`. Todo dato con `textContent`. 401 → login; 403 → "No tienes permiso para ver esta sección.".
+  Entrada "Usuarios" (`.solo-admin`) al final del menú de las 11 páginas y `"usuarios.html": ["administrador"]` en
+  `ROLES_POR_PAGINA`: el administrador ve **11 entradas**; cajero y mesero igual que antes.
+- **App Android:** sin cambios. Mismas respuestas; un usuario desactivado recibe 401 en su siguiente petición y la app ya
+  manda al login con un 401. La app no tiene pantalla de usuarios.
+
+**Decisiones ante ambigüedad (la más conservadora):**
+- Inactivo con sesión abierta → **401** (no 403) con el mensaje genérico de token: los clientes ya vuelven al login con 401.
+- **Cambiar la contraseña no cierra las sesiones abiertas** de ese usuario (su JWT sigue valiendo hasta vencer). Revocarlas
+  exigiría una columna nueva (versión de token) en el esquema; queda como pendiente. Para cortar el acceso ya: desactivar.
+- `usuario_login` distinto → 400 (no se ignora en silencio); igual al guardado → se ignora.
+- `activo` solo acepta 0, 1, true o false (no "0"/"1" como texto).
+- El 409 de "último administrador" no se alcanza por HTTP sin carrera (quien edita siempre es otro administrador activo,
+  y editarse a sí mismo ya da 409 propio); se prueba llamando al servicio y con la carrera.
+- **Menú con rol viejo:** el panel lee el rol de `localStorage` (guardado al entrar). Si el administrador le cambia el rol a
+  alguien con la sesión abierta, su menú sigue el rol anterior hasta que vuelva a entrar; la API ya aplica el nuevo (las
+  páginas no permitidas muestran el aviso de permiso).
+- Contraseñas: se cuentan caracteres para el mínimo y bytes para el máximo; no se exigen mayúsculas ni números.
+
+**Pruebas:**
+- `npm test` (sin base): 97 + 4 saltadas. Nuevas: `test/contrasena.test.js` (reglas), `test/panelGestion.test.js`
+  (fecha en Colombia, revisión del formulario) y `test/panelWeb.test.js` (menú de 11 páginas, Usuarios solo admin y
+  comparado con el `requireRole` real de `GET /api/usuarios`, aviso 403, `type=password`, sin `console`, `textContent`).
+- `PRUEBA_DATABASE_URL=<postgres local recién creado> node scripts/test-usuarios.js` (se niega a correr si no es localhost
+  o si la base ya tiene usuarios): 64 comprobaciones — permisos 401/403, crear 201/400/409 sin `password_hash`, editar
+  nombre/rol/contraseña (login nuevo sí, viejo no), 400/404, desactivar (login 401 y token previo 401 al instante),
+  reactivar, cambio de rol con el mismo token, 409 propios, último administrador, carrera (HTTP: uno se aplica y el otro
+  409 o 401; servicio: 200 y 409; siempre queda un administrador activo) y bitácora sin contraseñas ni hashes.
+- **Limitación de la prueba de carrera:** PGlite atiende una conexión a la vez, así que las dos transacciones corren en
+  serie, no solapadas. La exclusión real depende del `FOR UPDATE` en orden de id (comportamiento estándar de Postgres);
+  no se pudo probar con un Postgres real con concurrencia (no hay Postgres ni Docker en la máquina).
+- **Verificado el 2026-10-12** contra PGlite en memoria (una base nueva por prueba, cerrada al terminar; nunca Supabase):
+  `test-usuarios.js` 64/64; `reportes` 11/11, `alertasStock` 6/6, `chatbot` 13/13, `panelWeb` 11/11;
+  `prueba-sesiones-mesa.js` 109/109; `escenario-api.js` en `54cdc27` y en este código: 136 respuestas iguales salvo el
+  `token_sesion` aleatorio (`comparar-muestras.js`). **Chrome headless** (script desechable fuera del repo): 27/27 —
+  menú de administrador (11), cajero (9) y mesero (2); crear (con un nombre `<img onerror>` que se muestra como texto y no
+  se ejecuta), aviso de contraseña corta sin enviar, campos vaciados, 409 de login duplicado con el mensaje del backend,
+  editar nombre/rol/contraseña, rol bloqueado en la fila propia, desactivar con confirmación y reactivar, fecha = UTC − 5 h,
+  sin desborde a 390 px, cajero y mesero ven el aviso en `usuarios.html`, y un cajero desactivado con la sesión abierta
+  va al login en la siguiente página. Capturas a 1366 y 390 px. PGlite y Chrome cerrados al terminar.
 
 ## Pendientes futuros (no urgentes)
 - La app Android ya refleja todo lo de este backend: campos nuevos de productos y proveedores,
@@ -824,6 +922,8 @@ PGlite y Chrome cerrados al terminar.
   cual; si no, el chatbot cae al modo básico y el log muestra el `motivo` (p. ej. `http_400` o `http_404`).
 - Desplegar en Render: `/api/reportes` y `/api/alertas-stock` solo existen en producción cuando Render tenga
   desplegado este `main`; la app muestra "No se encontró el recurso solicitado." mientras tanto.
+- Usuarios: cambiar la contraseña no cierra las sesiones abiertas (haría falta una versión de token en el esquema); la app
+  Android no tiene pantalla de usuarios (se gestionan desde el panel web).
 - Siguen vigentes los ya descritos en **Estado actual**: tarifas de IVA/INC por validar con el
   contador, transmisión a la DIAN vía proveedor tecnológico (hoy 501) y nota crédito (CUDE).
 
@@ -854,7 +954,8 @@ esta tabla** (y la de `LicoreriaPanel/CLAUDE.md`).
 | Alertas de stock (`GET /api/alertas-stock`) | Sí | Sí | No |
 | Chatbot del personal (`POST /api/chatbot`, `GET /api/chatbot/preguntas`) | Sí | Sí | No |
 | Bitácora de auditoría (`GET /api/auditoria`) | Sí | No | No |
-| Usuarios: listar y crear | Sí | No | No |
+| Usuarios: listar y crear (`GET`/`POST /api/usuarios`) | Sí | No | No |
+| Usuarios: editar nombre, rol y contraseña, activar/desactivar (`PUT /api/usuarios/:id`; sin borrar) | Sí (no a sí mismo: rol ni desactivar) | No | No |
 | Ver datos del emisor (`GET /api/emisor`) | Sí | Sí | No |
 | Editar datos del emisor: negocio, NIT (`PUT /api/emisor`) | Sí | No | No |
 | Cambiar título del documento (`PUT /api/emisor`) | Sí | No | No |

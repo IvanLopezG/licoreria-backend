@@ -71,6 +71,7 @@ todos los roles van a Pedidos, que los tres pueden usar.
 | **Reportes** (`reportes.html`) | Sí | Sí | No (oculta; 403) |
 | **Asistente** (`asistente.html`) | Sí | Sí | No (oculta; 403) |
 | Datos del negocio (`negocio.html`) | Sí | No (oculta) | No (oculta) |
+| **Usuarios** (`usuarios.html`) | Sí (no puede desactivarse ni cambiarse el rol) | No (oculta; 403) | No (oculta; 403) |
 
 La tabla está en `public/panel/menu.js` (`ROLES_POR_PAGINA`); `test/panelWeb.test.js`
 la compara con el `requireRole` real de cada endpoint, así que un cambio de
@@ -98,7 +99,7 @@ src/
                   categoriaController, productoController, proveedorController,
                   movimientoInventarioController, mesaController, catalogoController,
                   pedidoController, ventaController
-  middlewares/   auth.js (JWT), roles.js (RBAC), auditoria.js (bitácora automática)
+  middlewares/   auth.js (JWT + usuario activo en la base), roles.js (RBAC), auditoria.js (bitácora automática)
   utils/         csv.js (serialización CSV para los reportes exportables, US-19)
   routes/        auth, usuarios, auditoria, categorias, productos, proveedores,
                   inventario (entradas/salidas/historial), mesas, catalogo (público),
@@ -120,8 +121,9 @@ esquema (`schema.sql`) definido desde Sprint 1.
 |---|---|---|---|
 | POST | `/api/auth/login` | público | RF-01. Devuelve `{ token, usuario }`. |
 | GET | `/api/auth/me` | autenticado | Info del usuario del token actual. |
-| POST | `/api/usuarios` | administrador | RF-02. Crea un usuario (hash bcrypt). |
+| POST | `/api/usuarios` | administrador | RF-02. Crea un usuario (hash bcrypt; contraseña de 8 caracteres a 72 bytes). |
 | GET | `/api/usuarios` | administrador | Lista usuarios (sin password_hash). |
+| PUT | `/api/usuarios/:id` | administrador | Edición parcial: `nombre`, `rol`, `activo` (0/1 o booleano), `password`. 409 si se desactiva o se cambia el rol a sí mismo, o si no quedaría ningún administrador activo. Sin DELETE: se desactiva. |
 | GET | `/api/auditoria` | administrador | RF-03. Bitácora, filtrable por `?id_usuario=` y `?entidad=`. |
 | POST | `/api/categorias` | administrador, cajero | Crea una categoría (nombre único). |
 | GET | `/api/categorias` | administrador, cajero | Lista categorías. |
