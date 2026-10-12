@@ -201,6 +201,10 @@ más abajo. Sin cambios de esquema. Pantalla "Reportes" en la app Android (app `
 abajo. Sin cambios de esquema. Pantalla "Alertas de stock" con contador en el menú en la app Android (app `c014e48`,
 `115a2bf`); aún sin página en el panel web. Sin notificaciones push.
 
+**Chatbot del personal (`POST /api/chatbot`, `GET /api/chatbot/preguntas`, API): COMPLETO** (2026-10-11). Ver la
+sección *Chatbot para el personal* más abajo. Gemini opcional (`GEMINI_API_KEY`); sin clave responde en modo básico.
+Sin cambios de esquema ni dependencias nuevas. Aún sin pantalla en el panel web ni en la app Android.
+
 **Manejo de errores central y logging con Pino: COMPLETO.** Ver la sección *Manejo de errores* más abajo.
 
 **Sesiones de mesa en el catálogo QR (factura y estado de pedidos en el celular): COMPLETA.** Ver la
@@ -595,11 +599,70 @@ en SQL, en paralelo) + `utils/periodoReporte.js` (rango del periodo, función pu
   calling: `gemini-3.8-flash` (GA 2026-09-02). Google recomienda la nueva Interactions API para proyectos nuevos, pero
   `generateContent` sigue soportada; se usa esta por ser la REST documentada con function calling.
 
+### Implementación (COMPLETA, 2026-10-11)
+`routes/chatbot.routes.js` (auth + `requireRole("administrador", "cajero")`; límite solo en el POST) →
+`chatbotController` (al servicio solo le pasa `{mensaje, pregunta_id}` del cuerpo, nunca `req.usuario`) →
+`chatbotService` (validación, preguntas rápidas, bucle de herramientas, caída al modo básico) → `geminiService`
+(una llamada HTTP) y `chatbotPlantillas` (textos y formato de pesos con `Intl` es-CO, igual que el PDF).
+- **`GET /api/chatbot/preguntas`** → `{preguntas:[{id, texto}]}`: `ventas_hoy`, `ventas_semana`, `mas_vendidos_mes`,
+  `reabastecer`, `agotados`.
+- **`POST /api/chatbot`** `{mensaje}` o `{pregunta_id}` → `{respuesta, origen: "ia" | "basico"}`. 400: sin ninguno,
+  con ambos, `mensaje` que no es texto, vacío tras quitar espacios o de más de 500 caracteres (se cuentan caracteres
+  Unicode después de `trim`), `pregunta_id` desconocido (también nombres del prototipo como "constructor"). 429 tras 20
+  mensajes en un minuto del mismo usuario (`Retry-After`).
+- **Gemini** (`geminiService.generar`): `GEMINI_API_KEY` (sin ella: `sin_clave`, no se llama) y `GEMINI_MODEL` (por
+  defecto `gemini-3.8-flash`; solo `[\w.-]`, si no `modelo_invalido`). Clave en `x-goog-api-key`. Timeout de 20 s por
+  llamada con `AbortController` (incluye leer el cuerpo). Devuelve `candidates[0].content` tal cual o lanza `ErrorGemini`
+  con un `motivo` fijo: `timeout`, `red`, `http_<código>`, `respuesta_invalida`.
+- **Bucle** (`responderConIA`): prompt de sistema en español con la fecha de hoy en Colombia; herramientas
+  `obtener_reporte(periodo, fecha?)` y `obtener_alertas_stock()`; máximo **3 rondas** de herramientas por mensaje (una
+  4.ª petición de herramientas → modo básico). El turno del modelo vuelve tal cual (conserva `thoughtSignature`, que
+  Gemini 3 exige) y cada `functionResponse` lleva el `id` de su llamada si vino. Texto final: partes de texto sin
+  `thought`; vacío o de más de 4000 caracteres → inválido.
+- **Validación de argumentos de Gemini** (antes de tocar la base): `periodo` en `dia|semana|mes|anio`; `fecha`
+  opcional, fecha real AAAA-MM-DD y no posterior a hoy en Colombia. Un argumento inválido o una herramienta desconocida
+  vuelve a Gemini como `{error: "..."}` (no se consulta nada) y el prompt le exige decir que no tiene el dato.
+  `obtener_alertas_stock` ignora cualquier argumento y usa los valores por defecto del endpoint.
+- **Datos que recibe Gemini:** resúmenes armados en `resumenReporte`/`resumenAlertas`: periodo y rango, totales,
+  número de ventas, ticket promedio, más y menos vendidos (nombre, unidades, total), movimientos, días con ventas, y por
+  alerta nombre, estado, stock, mínimo, vendidas, cobertura y sugerida. El dinero va además como `*_texto` ya formateado
+  ("$ 425.000") para que el modelo no formatee. Sin ids, usuarios, clientes ni tokens.
+- **Modo básico:** las 5 plantillas de `chatbotPlantillas` (top 3 de hoy; mejor día de la semana; top 5 del mes;
+  alertas con "pedir N" o "sin cantidad sugerida (pocas ventas recientes)", máximo 15 y "… y N más"; agotados).
+  Texto libre sin IA → "Ahora mismo solo puedo responder las preguntas rápidas:" + la lista.
+- **Decisiones ante ambigüedad (la más conservadora):**
+  - **Nunca error por Gemini:** cualquier falla del camino con IA (también una excepción al leer los datos dentro de
+    una herramienta) responde el modo básico con 200. Las preguntas rápidas sí pueden dar 500 si la base falla (no hay
+    nada que responder sin datos).
+  - **`mensaje` y `pregunta_id` juntos → 400** (no se elige uno en silencio).
+  - **Límite:** cuenta todos los POST del usuario en ventana fija de 60 s (también los 400 y las preguntas rápidas);
+    `GET /preguntas` no cuenta. En memoria y por instancia (Render free corre una). `limiteIntentos` ganó las opciones
+    `clave` (por defecto la IP) y `mensaje`; el catálogo no cambió.
+  - **Log:** solo `warn` con `motivo` y `tipo` al caer al modo básico (no si es `sin_clave`, que es la configuración
+    normal sin IA). Nunca el mensaje, la respuesta, el cuerpo enviado ni la clave. La clave además tiene la forma
+    `AIza…` de 39 caracteres, que `limpiarTexto` ya censura por patrón.
+  - **Peor caso de tiempo:** hasta 4 llamadas de 20 s (3 rondas + texto final) ≈ 80 s; el cliente debe esperar más
+    que eso o mostrar "pensando…". Con un fallo, cae al modo básico apenas ocurre.
+  - Temperatura 0,2 y `maxOutputTokens` 1024 (respuestas cortas, pocas variaciones).
+- **Pruebas:** `test/chatbot.test.js` (13). 12 sin base: preguntas y permisos (200/403/401, token inválido),
+  validaciones 400, límite (20 → 429 con `Retry-After`, otro usuario sigue), cada plantilla con datos fijos y sin datos,
+  sin clave, flujo con herramienta simulada (URL, encabezado, prompt, herramientas, `thoughtSignature`, `id`,
+  `functionResponse`, nada de usuarios ni tokens en el cuerpo), argumentos inválidos que no llegan a la lógica,
+  `GEMINI_MODEL`, caídas (HTTP 500 y 429, red, timeout, sin candidates, JSON roto, texto vacío, solo razonamiento, texto
+  enorme, 4 rondas) con su `motivo` en el log, y la clave nunca en respuestas ni logs. Gemini siempre simulado
+  (`geminiService.dependencias.fetch`) y además `globalThis.fetch` bloquea `googleapis.com`. 1 de integración con base
+  local recién creada: las 5 preguntas rápidas con datos reales (venta anulada excluida). Verificado el 2026-10-11:
+  13/13 contra PGlite en memoria (cerrado al terminar) y `npm test` 76 + 3 saltadas sin base.
+
 ## Pendientes futuros (no urgentes)
 - La app Android ya refleja todo lo de este backend: campos nuevos de productos y proveedores,
   impuestos deshabilitados para el cajero y `cliente.correo` al cobrar (app `82941d4`, `c887b11`,
   `e861c27`), y `GET /api/reportes` y `GET /api/alertas-stock` tienen pantalla en la app.
 - Reportes por periodo y alertas de stock aún no tienen página en el panel web (solo API y app Android).
+- Chatbot: sin pantalla en el panel web ni en la app Android (solo API). Para usar la IA en producción hay que poner
+  `GEMINI_API_KEY` en Render (ver README); sin ella responde en modo básico. No se probó contra el Gemini real (las
+  pruebas lo simulan): la primera prueba real dirá si el modelo por defecto y el formato de `functionResponse` sirven tal
+  cual; si no, el chatbot cae al modo básico y el log muestra el `motivo` (p. ej. `http_400` o `http_404`).
 - Desplegar en Render: `/api/reportes` y `/api/alertas-stock` solo existen en producción cuando Render tenga
   desplegado este `main`; la app muestra "No se encontró el recurso solicitado." mientras tanto.
 - Siguen vigentes los ya descritos en **Estado actual**: tarifas de IVA/INC por validar con el
@@ -630,6 +693,7 @@ esta tabla** (y la de `LicoreriaPanel/CLAUDE.md`).
 | Reportes: ventas y movimientos de inventario (JSON y CSV) | Sí | Sí | No |
 | Reporte por periodo (`GET /api/reportes`) | Sí | Sí | No |
 | Alertas de stock (`GET /api/alertas-stock`) | Sí | Sí | No |
+| Chatbot del personal (`POST /api/chatbot`, `GET /api/chatbot/preguntas`) | Sí | Sí | No |
 | Bitácora de auditoría (`GET /api/auditoria`) | Sí | No | No |
 | Usuarios: listar y crear | Sí | No | No |
 | Ver datos del emisor (`GET /api/emisor`) | Sí | Sí | No |

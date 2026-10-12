@@ -116,6 +116,8 @@ esquema (`schema.sql`) definido desde Sprint 1.
 | GET | `/api/ventas` | administrador, cajero | RF-17. Reporte de ventas, filtrable por `?desde=`, `?hasta=`, `?tipo=` (mesa/mostrador); `?formato=csv` lo descarga como CSV (RF-19); con `&excel=1` (opcional, lo usa el panel) sale con BOM UTF-8, separador `;`, CRLF, total con coma decimal y factura numérica como texto, para Excel en configuración regional de Colombia. Excluye las ventas anuladas salvo `?incluir_anuladas=true`; cada venta trae `estado`, `id_factura` y `numero_factura`. |
 | GET | `/api/reportes` | administrador, cajero | Reporte por periodo: `?periodo=dia|semana|mes|anio` (obligatorio) y `?fecha=AAAA-MM-DD` (opcional, por defecto hoy en Colombia; la semana va de lunes a domingo). Devuelve `rango` (`desde`, `hasta`, `zona_horaria`), `total_vendido`, `numero_ventas`, `ticket_promedio`, `top_productos` (10), `productos_menos_vendidos` (5), `movimientos_inventario` (`entradas`, `salidas`, `ajustes`: `movimientos` y `unidades`) y `ventas_por_dia` (un punto por día, con ceros). Agregado en SQL; sin las ventas anuladas. Ver *Reportes por periodo* en `CLAUDE.md`. |
 | GET | `/api/alertas-stock` | administrador, cajero | Productos activos `agotado`, `bajo_minimo` o `por_agotarse` (orden de urgencia y luego más vendidos), con `unidades_vendidas`, `promedio_diario`, `dias_cobertura` y `cantidad_sugerida` (sin ventas y agotado o bajo el mínimo: `umbral_alerta × 2 − stock_actual`, mínimo 0). Opcionales (enteros 1-365): `ventana_dias` (30), `cobertura_alerta_dias` (5), `dias_objetivo` (14). Incluye `parametros` y `resumen` por estado. Calculado en SQL, días de Colombia, sin ventas anuladas. Ver *Alertas de stock* en `CLAUDE.md`. |
+| GET | `/api/chatbot/preguntas` | administrador, cajero | Preguntas rápidas del chatbot: `{ preguntas: [{ id, texto }] }` (`ventas_hoy`, `ventas_semana`, `mas_vendidos_mes`, `reabastecer`, `agotados`). |
+| POST | `/api/chatbot` | administrador, cajero | Asistente del personal. Body `{ mensaje }` (texto libre, 1-500 caracteres) o `{ pregunta_id }`. Responde `{ respuesta, origen: "ia" | "basico" }`. Las cifras salen siempre de reportes y alertas; Gemini solo redacta. Sin Gemini disponible responde en modo básico, nunca con error. 20 mensajes por minuto por usuario (429). Ver *Chatbot del personal*. |
 | GET | `/api/inventario/movimientos` | administrador, cajero | RF-09/RF-18. Historial filtrable por `?id_producto=`, `?desde=`, `?hasta=` y `?id_usuario=` (responsable); `?formato=csv` lo descarga como CSV (RF-19); con `&excel=1` (opcional, lo usa el panel) sale con BOM UTF-8, separador `;` y CRLF para Excel en configuración regional de Colombia. |
 | GET | `/api/facturas` | administrador, cajero | Lista facturas, filtrable por `?desde=` y `?hasta=`. |
 | GET | `/api/facturas/:id` | administrador, cajero | Factura con sus `items`. |
@@ -128,6 +130,42 @@ esquema (`schema.sql`) definido desde Sprint 1.
 | GET | `/api/emisor/resolucion` | administrador | Resolución de numeración activa e históricas: rango, consecutivo, números que quedan, vigencia y avisos. Nunca devuelve la clave técnica (solo `clave_tecnica_configurada`). |
 | PUT | `/api/emisor/resolucion` | administrador | Edita la resolución activa solo si aún no emitió facturas (si no, 409). Clave técnica vacía = se conserva. |
 | POST | `/api/emisor/resolucion` | administrador | Registra una resolución nueva (queda activa; la anterior pasa a histórica). El rango debe empezar después del último número emitido con ese prefijo. |
+
+## Chatbot del personal (Gemini)
+
+`POST /api/chatbot` responde preguntas sobre ventas, más vendidos y
+reabastecimiento. **La IA solo redacta:** todas las cifras salen de la misma
+lógica de `GET /api/reportes` y `GET /api/alertas-stock`, que el chatbot llama
+directamente (function calling de Gemini con las herramientas
+`obtener_reporte(periodo, fecha?)` y `obtener_alertas_stock()`). Sin
+dependencias nuevas: usa `fetch` nativo de Node (18 o más) contra la API REST de
+Gemini (`generateContent`).
+
+- `{ "pregunta_id": "ventas_hoy" }` (o `ventas_semana`, `mas_vendidos_mes`,
+  `reabastecer`, `agotados`; lista en `GET /api/chatbot/preguntas`): respuesta
+  armada con una plantilla, sin IA (`origen: "basico"`).
+- `{ "mensaje": "¿Qué debo pedir para el fin de semana?" }`: Gemini
+  (`origen: "ia"`). Si no hay clave, Gemini falla, tarda más de 20 s o responde
+  algo inválido, **no hay error**: responde "Ahora mismo solo puedo responder
+  las preguntas rápidas" con la lista (`origen: "basico"`).
+- A Gemini solo van el mensaje y datos agregados (productos, cantidades,
+  totales). Nunca usuarios, contraseñas, tokens ni datos de clientes. No se
+  guarda historial. El log solo registra el motivo de una caída al modo básico.
+
+### Configurarlo en Render
+
+1. Crea una clave en Google AI Studio (https://aistudio.google.com/apikey).
+2. En Render: el servicio → **Environment** → **Add Environment Variable**:
+   - `GEMINI_API_KEY` = la clave (nunca en el repo ni en `.env.example`).
+   - `GEMINI_MODEL` = opcional. Por defecto **`gemini-3.8-flash`** (modelo estable
+     con function calling, GA desde el 2026-09-02). Cámbialo aquí, sin tocar
+     código, si Google lo retira o prefieres otro (por ejemplo
+     `gemini-3.1-flash-lite`, más barato). Solo letras, números, `.`, `-` y `_`.
+3. Guarda: Render reinicia el servicio con las variables nuevas.
+
+Sin `GEMINI_API_KEY` todo sigue funcionando en modo básico. Para comprobarlo:
+`POST /api/chatbot` con `{ "mensaje": "hola" }` debe responder `origen: "ia"`
+cuando la clave es válida. En local, la misma variable va en `.env`.
 
 ## Facturación (comprobante interno de venta)
 
