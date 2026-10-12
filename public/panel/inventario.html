@@ -52,45 +52,7 @@
     <h1>Inventario</h1>
 
     <div id="contenido">
-      <div class="seccion">
-        <h2>Productos en inventario</h2>
-        <div class="barra-filtros barra-inventario">
-          <label class="buscador">Buscar
-            <input id="invBuscar" type="search" placeholder="Nombre del producto" oninput="pintarInventario()">
-          </label>
-          <label class="filtro-categoria">Categoría
-            <select id="invCategoria" onchange="pintarInventario()">
-              <option value="">Todas las categorías</option>
-            </select>
-          </label>
-          <button type="button" class="btn btn-exportar" id="invExportar" onclick="exportarProductosCSV()" disabled
-                  title="No hay productos para exportar">Exportar CSV</button>
-        </div>
-        <p id="invResumen" class="ayuda"></p>
-
-        <div class="tabla-desplazable">
-          <table class="tabla-inventario">
-            <thead>
-              <tr>
-                <th aria-sort="ascending"><button type="button" class="orden" data-columna="nombre">Producto</button></th>
-                <th><button type="button" class="orden" data-columna="categoria">Categoría</button></th>
-                <th><button type="button" class="orden" data-columna="marca">Marca</button></th>
-                <th><button type="button" class="orden" data-columna="unidad">Unidad</button></th>
-                <th><button type="button" class="orden" data-columna="stock">Stock</button></th>
-                <th><button type="button" class="orden" data-columna="umbral">Umbral</button></th>
-                <th><button type="button" class="orden" data-columna="estado">Estado</button></th>
-                <th><button type="button" class="orden" data-columna="precio">Precio</button></th>
-                <th><button type="button" class="orden" data-columna="costo">Costo</button></th>
-              </tr>
-            </thead>
-            <tbody id="invFilas">
-              <tr><td colspan="9" class="celda-aviso">Cargando productos…</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <div class="tarjetas tarjetas-inventario">
+      <div class="tarjetas">
         <div class="tarjeta">
           <div class="numero" id="cardEntradas">0</div>
           <div class="etiqueta">Unidades ingresadas (filtro actual)</div>
@@ -139,6 +101,44 @@
             </label>
             <button type="submit" class="btn">Registrar salida</button>
           </form>
+        </div>
+      </div>
+
+      <div class="seccion">
+        <h2>Productos en inventario</h2>
+        <div class="barra-filtros barra-inventario">
+          <label class="buscador">Buscar
+            <input id="invBuscar" type="search" placeholder="Nombre del producto" oninput="pintarInventario()">
+          </label>
+          <label class="filtro-categoria">Categoría
+            <select id="invCategoria" onchange="pintarInventario()">
+              <option value="">Todas las categorías</option>
+            </select>
+          </label>
+          <button type="button" class="btn btn-exportar" id="invExportar" onclick="exportarProductosCSV()" disabled
+                  title="No hay productos para exportar">Exportar CSV</button>
+        </div>
+        <p id="invResumen" class="ayuda"></p>
+
+        <div class="tabla-desplazable">
+          <table class="tabla-inventario">
+            <thead>
+              <tr>
+                <th aria-sort="ascending"><button type="button" class="orden" data-columna="nombre">Producto</button></th>
+                <th><button type="button" class="orden" data-columna="categoria">Categoría</button></th>
+                <th><button type="button" class="orden" data-columna="marca">Marca</button></th>
+                <th><button type="button" class="orden" data-columna="unidad">Unidad</button></th>
+                <th><button type="button" class="orden" data-columna="stock">Stock</button></th>
+                <th><button type="button" class="orden" data-columna="umbral">Umbral</button></th>
+                <th><button type="button" class="orden" data-columna="estado">Estado</button></th>
+                <th><button type="button" class="orden" data-columna="precio">Precio</button></th>
+                <th><button type="button" class="orden" data-columna="costo">Costo</button></th>
+              </tr>
+            </thead>
+            <tbody id="invFilas">
+              <tr><td colspan="9" class="celda-aviso">Cargando productos…</td></tr>
+            </tbody>
+          </table>
         </div>
       </div>
 
