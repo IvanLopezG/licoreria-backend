@@ -570,6 +570,31 @@ en SQL, en paralelo) + `utils/periodoReporte.js` (rango del periodo, función pu
   `total_vendido` de `/api/reportes?periodo=dia` (425000, 3 ventas) coincidió con la suma de las ventas de prueba
   activas. Se hizo antes de la regla del doble del mínimo (con ella, los dos sin ventas sugerirían 10 y 7).
 
+## Chatbot para el personal (`/api/chatbot`, Gemini)
+### Inspección (Paso 0, 2026-10-11, sobre `ca30aec`)
+- **Lógica a reutilizar sin HTTP:** `reporteService.porPeriodo({periodo, fecha})` (valida y lanza `ErrorValidacion`;
+  `fecha` por defecto `hoyColombia()`) y `alertaStockService.listar(query, hoy)`; los dos devuelven el mismo objeto que
+  sus endpoints. Se llaman como propiedad del módulo (`reporteService.porPeriodo(...)`), así las pruebas pueden
+  reemplazarlas. `utils/periodoReporte.js` exporta `PERIODOS`, `leerFecha` (fecha real AAAA-MM-DD) y `rangoPeriodo`.
+- **Rutas y roles:** `router.use(auth, requireRole("administrador", "cajero"))`; `auth` deja `req.usuario =
+  {id_usuario, usuario_login, rol}` del JWT. `app.use(express.json())` + `req.body` normalizado a `{}`.
+- **Límite de peticiones:** `middlewares/limiteIntentos.js` (ventana fija en memoria, por IP, `ErrorDemasiadosIntentos`
+  → 429 con `Retry-After`). Para el chatbot hace falta contar por usuario.
+- **Logs:** Pino con `redact` por nombre de campo y `limpiarTexto` (JWT y cadenas base64url/hex de 32+ caracteres, que
+  incluye la forma de las claves de Google `AIza…`, 39). `registroPeticiones` nunca registra cuerpos, encabezados ni
+  query string. `logger.test.js` muestra cómo capturar la salida (`registro.logger = crearLogger({destino})`) y firmar
+  JWT sin base de datos.
+- **Node:** v24.18.0 en local (`fetch` y `AbortController` nativos desde Node 18). `package.json` no fija `engines`;
+  Render usa su Node por defecto (≥ 18 desde 2023).
+- **Entorno:** `.env` (no versionado) no tiene variables de Gemini. Ojo: `app.js` y `db.js` cargan `.env` con dotenv
+  desde el directorio actual; las pruebas fijan sus variables antes y nunca llaman al Gemini real.
+- **Gemini (docs oficiales, consultadas el 2026-10-11):** `POST https://generativelanguage.googleapis.com/v1beta/models/
+  {modelo}:generateContent` con la clave en el encabezado `x-goog-api-key` (no en la URL, para que nunca quede en un log);
+  `tools[].functionDeclarations`, la respuesta trae `candidates[0].content.parts[]` con `functionCall {name, args}` o
+  `text`; la respuesta de la herramienta vuelve como `functionResponse`. Modelo estable más reciente con function
+  calling: `gemini-3.8-flash` (GA 2026-09-02). Google recomienda la nueva Interactions API para proyectos nuevos, pero
+  `generateContent` sigue soportada; se usa esta por ser la REST documentada con function calling.
+
 ## Pendientes futuros (no urgentes)
 - La app Android ya refleja todo lo de este backend: campos nuevos de productos y proveedores,
   impuestos deshabilitados para el cajero y `cliente.correo` al cobrar (app `82941d4`, `c887b11`,
