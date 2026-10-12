@@ -446,6 +446,20 @@ una falla real salga como 400/401 con el mensaje de pg. Con clases tipadas el se
   apaga. Nivel: `LOG_LEVEL` (por defecto `info`; bajo `node --test`, `silent`). dotenv va con `quiet: true`
   para que stdout sea solo JSON. Ninguna variable nueva es obligatoria en Render.
 
+## Reportes por periodo (`GET /api/reportes`)
+### Inspección (Paso 0, 2026-10-11, sobre `c617382`)
+- **(a) Ventas:** `ventas` (`id_venta`, `tipo` mesa/mostrador, `id_mesa`, `id_usuario`, `total`, `fecha_hora`
+  `timestamp(0)` en UTC, `estado` activa/anulada; las anuladas no se borran). El detalle por producto ya existe:
+  `venta_detalle` (`id_venta`, `id_producto`, `cantidad`, `precio_unitario` copiado al vender), única fuente de
+  líneas vendidas para mesa y mostrador. El nombre sale de `productos.nombre`.
+- **(b) Movimientos:** `movimientos_inventario` (Kardex): `tipo` solo `entrada`/`salida` (CHECK) y `motivo` libre;
+  en uso: entrada `compra` (con proveedor) y `anulacion` (devuelve stock de una venta anulada); salida `venta`
+  (descuento automático al vender, con `id_venta`) y `ajuste` (salida manual). **No hay tipo "ajuste"**: un ajuste es
+  una salida con motivo `ajuste`. `fecha_hora` igual que en ventas (UTC).
+- **(c) Productos:** `stock_actual` y `umbral_alerta` (el "stock mínimo"; `alerta_stock_bajo` = `stock_actual <=
+  umbral_alerta`, calculado en `productoService`), además de `activo`.
+- **Conclusión:** no falta fecha ni detalle por producto; **no se agregó ninguna columna ni migración**.
+
 ## Pendientes futuros (no urgentes)
 - La app Android ya refleja todo lo de este backend: campos nuevos de productos y proveedores,
   impuestos deshabilitados para el cajero y `cliente.correo` al cobrar (app `82941d4`, `c887b11`,
