@@ -180,12 +180,24 @@
     }[c]));
   }
 
+  // Sin permiso (403, p. ej. el mesero que abre la URL a mano) la sección
+  // entera se reemplaza por un aviso, como en Proveedores, Inventario y Ventas;
+  // el resto de errores se muestra como aviso.
+  function mostrarPermisoDenegado() {
+    document.querySelector("main.contenido-principal").innerHTML =
+      '<h1>Productos</h1><p class="error-permiso">No tienes permiso para ver esta sección.</p>';
+  }
+  function manejarError(err) {
+    if (err.status === 403) mostrarPermisoDenegado();
+    else Api.error(err);
+  }
+
   async function cargarCategorias() {
     let categorias;
     try {
       categorias = await Api.pedir("/api/categorias");
     } catch (err) {
-      Api.error(err);
+      manejarError(err);
       return;
     }
     el("id_categoria").innerHTML = categorias.map((c) => `<option value="${c.id_categoria}">${escapeHtml(c.nombre)}</option>`).join("");
@@ -203,7 +215,7 @@
     try {
       productosLista = await Api.pedir(url);
     } catch (err) {
-      Api.error(err);
+      manejarError(err);
       return;
     }
     productosCache = {};
