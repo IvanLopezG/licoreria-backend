@@ -40,6 +40,16 @@ function puedeVerPagina(rol, href) {
   return !roles || roles.includes(rol);
 }
 
+// Función pura: scrollLeft que deja la entrada activa centrada en la barra,
+// limitado a [0, máximo]. Posiciones en px de pantalla (getBoundingClientRect).
+// Si la barra no desborda (escritorio: menú vertical), devuelve el actual.
+function scrollParaCentrar({ barraIzq, barraAncho, scrollActual, scrollAncho, itemIzq, itemAncho }) {
+  const maximo = scrollAncho - barraAncho;
+  if (!(maximo > 0)) return scrollActual;
+  const destino = scrollActual + (itemIzq + itemAncho / 2) - (barraIzq + barraAncho / 2);
+  return Math.round(Math.min(maximo, Math.max(0, destino)));
+}
+
 const MenuPanel = (() => {
   const CLAVE_CONTADOR = "contadorAlertas";
   const nav = document.querySelector(".sidebar .sidebar-nav");
@@ -53,6 +63,32 @@ const MenuPanel = (() => {
   const gestiona = rol === "administrador" || rol === "cajero";
   const token = localStorage.getItem("token");
   const firma = token ? token.slice(-16) : null;
+
+  // En celular el menú es una fila con scroll horizontal (panel.css, 720 px):
+  // al cargar cada página se desplaza para dejar centrada la entrada .activo.
+  // Solo mueve la barra (scrollLeft), nunca la página en vertical. En
+  // escritorio la barra no desborda y no hace nada; sin entrada activa (o sin
+  // las APIs del DOM) tampoco. Se llama después de armar el menú (quitar
+  // entradas y agregar "Cerrar sesión") y otra vez si aparece el contador de
+  // alertas, que cambia el ancho de las entradas.
+  function centrarActiva() {
+    try {
+      const activa = nav && nav.querySelector(".nav-item.activo");
+      if (!activa || typeof nav.getBoundingClientRect !== "function") return;
+      const barra = nav.getBoundingClientRect();
+      const item = activa.getBoundingClientRect();
+      nav.scrollLeft = scrollParaCentrar({
+        barraIzq: barra.left,
+        barraAncho: nav.clientWidth,
+        scrollActual: nav.scrollLeft,
+        scrollAncho: nav.scrollWidth,
+        itemIzq: item.left,
+        itemAncho: item.width,
+      });
+    } catch {
+      // solo presentación: nunca rompe el menú
+    }
+  }
 
   function mostrarContador(n) {
     const enlace = nav && nav.querySelector('a[href="alertas.html"]');
@@ -69,6 +105,7 @@ const MenuPanel = (() => {
     }
     contador.textContent = n > 99 ? "99+" : String(n);
     contador.setAttribute("aria-label", `${n} ${n === 1 ? "producto" : "productos"} en alerta`);
+    centrarActiva();
   }
 
   // La sección Alertas de stock llama esto con el número que acaba de mostrar.
@@ -146,7 +183,9 @@ const MenuPanel = (() => {
         else if (!/alertas\.html$/.test(window.location.pathname)) consultarContador();
       }
     }
+
+    centrarActiva();
   }
 
-  return { actualizarContadorAlertas };
+  return { actualizarContadorAlertas, centrarActiva };
 })();

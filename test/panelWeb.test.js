@@ -203,7 +203,7 @@ function simularMenu({ rol, token = "eyJ.prueba.firma0123456789abcdef", ruta = "
   };
   vm.createContext(contexto);
   vm.runInContext(
-    `${fs.readFileSync(path.join(PANEL, "menu.js"), "utf8")}\nthis.MenuPanel = MenuPanel; this.ROLES_POR_PAGINA = ROLES_POR_PAGINA; this.puedeVerPagina = puedeVerPagina;`,
+    `${fs.readFileSync(path.join(PANEL, "menu.js"), "utf8")}\nthis.MenuPanel = MenuPanel; this.ROLES_POR_PAGINA = ROLES_POR_PAGINA; this.puedeVerPagina = puedeVerPagina; this.scrollParaCentrar = scrollParaCentrar;`,
     contexto
   );
   const visibles = () => enlaces.filter((e) => !e.removido).map((e) => e.atributos.href);
@@ -427,4 +427,22 @@ test("integración: los endpoints que usan las secciones responden con la forma 
     assert.strictEqual((await pedir(ruta, "mesero")).status, 403, ruta);
     assert.strictEqual((await pedir(ruta, null)).status, 401, ruta);
   }
+});
+
+test("barra del menú en celular: la entrada activa queda centrada; en escritorio no se mueve", () => {
+  const { contexto } = simularMenu({ rol: "administrador" });
+  const centrar = contexto.scrollParaCentrar;
+  // Barra de 360 px que mide 1500 px por dentro, sin desplazar; entrada activa al final (x = 1300..1400).
+  const base = { barraIzq: 0, barraAncho: 360, scrollActual: 0, scrollAncho: 1500 };
+  assert.strictEqual(centrar({ ...base, itemIzq: 1300, itemAncho: 100 }), 1140); // límite: 1500 - 360
+  // En medio: centro de la entrada (700 + 50) al centro de la barra (180) → 570.
+  assert.strictEqual(centrar({ ...base, itemIzq: 700, itemAncho: 100 }), 570);
+  // Al inicio: no baja de 0.
+  assert.strictEqual(centrar({ ...base, itemIzq: 10, itemAncho: 80 }), 0);
+  // Ya desplazada: la posición en pantalla es relativa al scroll actual.
+  assert.strictEqual(centrar({ ...base, scrollActual: 400, itemIzq: 300, itemAncho: 100 }), 570);
+  // Escritorio (sin desborde): conserva el scroll actual.
+  assert.strictEqual(centrar({ barraIzq: 0, barraAncho: 220, scrollActual: 0, scrollAncho: 220, itemIzq: 0, itemAncho: 200 }), 0);
+  // El DOM simulado no tiene getBoundingClientRect ni entrada .activo: centrarActiva no falla.
+  assert.doesNotThrow(() => contexto.MenuPanel.centrarActiva());
 });
