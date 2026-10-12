@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Licorería — Reportes</title>
+<link rel="stylesheet" href="panel.css">
+<script src="menu.js" defer></script>
+<script src="api.js"></script>
+<script src="gestion.js"></script>
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="sidebar-marca">Licorería</div>
+    <nav class="sidebar-nav">
+      <a href="login.html" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 24 24"><path d="M12 4h6a1 1 0 0 1 1 1v14a1 1 0 0 1 -1 1h-6" /><path d="M3 12h13" /><path d="M13 15l3 -3l-3 -3" /></svg>
+        <span>Login</span>
+      </a>
+      <a href="mesas.html" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 24 24"><rect x="4" y="4" width="6" height="6" rx="1" /><rect x="14" y="4" width="6" height="6" rx="1" /><rect x="4" y="14" width="6" height="6" rx="1" /><rect x="14" y="14" width="6" height="6" rx="1" /></svg>
+        <span>Mesas</span>
+      </a>
+      <a href="pedidos.html" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 24 24"><path d="M4 8l2 -4h12l2 4" /><path d="M4 8h4l2 3h4l2 -3h4" /><path d="M4 8v9a1 1 0 0 0 1 1h14a1 1 0 0 0 1 -1v-9" /></svg>
+        <span>Pedidos entrantes</span>
+      </a>
+      <a href="productos.html" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 24 24"><path d="M12 3l8 4.5v9l-8 4.5l-8 -4.5v-9z" /><path d="M12 12l8 -4.5" /><path d="M12 12v9" /><path d="M12 12l-8 -4.5" /></svg>
+        <span>Productos</span>
+      </a>
+      <a href="proveedores.html" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 24 24"><rect x="3" y="9" width="10" height="7" rx="1" /><path d="M13 12h4l3 3v1h-7z" /><circle cx="7" cy="17.5" r="1.5" /><circle cx="17" cy="17.5" r="1.5" /></svg>
+        <span>Proveedores</span>
+      </a>
+      <a href="inventario.html" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 24 24"><rect x="6" y="4" width="12" height="16" rx="2" /><path d="M9 4a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v1a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z" /><path d="M9 11h6" /><path d="M9 15h6" /></svg>
+        <span>Inventario</span>
+      </a>
+      <a href="alertas.html" class="nav-item solo-gestion">
+        <svg class="nav-icon" viewBox="0 0 24 24"><path d="M10.4 3.9l-7.3 12.6a1.8 1.8 0 0 0 1.6 2.7h14.6a1.8 1.8 0 0 0 1.6 -2.7l-7.3 -12.6a1.8 1.8 0 0 0 -3.2 0z" /><path d="M12 9v4" /><path d="M12 16h.01" /></svg>
+        <span>Alertas de stock</span>
+      </a>
+      <a href="ventas.html" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 24 24"><path d="M5 3h14v18l-3 -2l-2 2l-2 -2l-2 2l-2 -2l-3 2z" /><path d="M8 8h8" /><path d="M8 12h8" /></svg>
+        <span>Ventas</span>
+      </a>
+      <a href="reportes.html" class="nav-item solo-gestion activo">
+        <svg class="nav-icon" viewBox="0 0 24 24"><path d="M4 20h16" /><rect x="6" y="11" width="3" height="6" rx="1" /><rect x="11" y="7" width="3" height="10" rx="1" /><rect x="16" y="13" width="3" height="4" rx="1" /></svg>
+        <span>Reportes</span>
+      </a>
+      <a href="asistente.html" class="nav-item solo-gestion">
+        <svg class="nav-icon" viewBox="0 0 24 24"><path d="M4 18v-11a3 3 0 0 1 3 -3h10a3 3 0 0 1 3 3v6a3 3 0 0 1 -3 3h-8z" /><path d="M9 10h6" /><path d="M9 13h4" /></svg>
+        <span>Asistente</span>
+      </a>
+      <a href="negocio.html" class="nav-item solo-admin">
+        <svg class="nav-icon" viewBox="0 0 24 24"><path d="M3 21h18" /><path d="M5 21v-12l7 -5l7 5v12" /><path d="M9 21v-6h6v6" /></svg>
+        <span>Datos del negocio</span>
+      </a>
+    </nav>
+  </aside>
+
+  <main class="contenido-principal">
+    <h1>Reportes</h1>
+
+    <div id="contenido">
+      <div class="seccion">
+        <div class="chips" id="periodos" role="group" aria-label="Periodo">
+          <button type="button" class="chip" data-periodo="dia">Día</button>
+          <button type="button" class="chip" data-periodo="semana">Semana</button>
+          <button type="button" class="chip" data-periodo="mes">Mes</button>
+          <button type="button" class="chip" data-periodo="anio">Año</button>
+        </div>
+        <div class="navegador-periodo">
+          <button type="button" class="btn" id="btnAnterior" aria-label="Periodo anterior">‹ Anterior</button>
+          <div class="rango" id="rango" aria-live="polite"></div>
+          <button type="button" class="btn" id="btnSiguiente" aria-label="Periodo siguiente">Siguiente ›</button>
+        </div>
+        <div class="fecha-referencia">
+          <label>Fecha de referencia
+            <input id="fecha" type="date">
+          </label>
+          <button type="button" class="btn" id="btnHoy">Hoy</button>
+        </div>
+        <p class="ayuda">Días de Colombia. La semana va de lunes a domingo. Las ventas anuladas no cuentan.</p>
+      </div>
+
+      <p class="estado-carga oculto" id="cargando" role="status">Cargando reporte…</p>
+      <div class="caja-error oculto" id="error" role="alert">
+        <span id="errorTexto"></span>
+        <button type="button" class="btn" id="btnReintentar">Reintentar</button>
+      </div>
+      <p class="estado-vacio oculto" id="vacio">Sin ventas en este periodo</p>
+
+      <div id="reporte" class="oculto">
+        <div id="conVentas">
+          <div class="tarjetas" style="margin-top: 20px">
+            <div class="tarjeta">
+              <div class="numero" id="totalVendido">$ 0</div>
+              <div class="etiqueta">Total vendido</div>
+            </div>
+            <div class="tarjeta">
+              <div class="numero" id="numeroVentas">0</div>
+              <div class="etiqueta">Número de ventas</div>
+            </div>
+            <div class="tarjeta">
+              <div class="numero" id="ticketPromedio">$ 0</div>
+              <div class="etiqueta">Ticket promedio</div>
+            </div>
+          </div>
+
+          <div class="seccion">
+            <h2 id="tituloGrafica">Ventas por día</h2>
+            <p class="ayuda" id="maximoGrafica"></p>
+            <div id="grafica"></div>
+          </div>
+
+          <div class="secciones-lado-a-lado">
+            <div class="seccion">
+              <h2>Más vendidos</h2>
+              <div class="tabla-desplazable">
+                <table>
+                  <thead><tr><th>#</th><th>Producto</th><th class="celda-numero">Unidades</th><th class="celda-numero">Total</th></tr></thead>
+                  <tbody id="masVendidos"></tbody>
+                </table>
+              </div>
+            </div>
+            <div class="seccion">
+              <h2>Menos vendidos</h2>
+              <div class="tabla-desplazable">
+                <table>
+                  <thead><tr><th>#</th><th>Producto</th><th class="celda-numero">Unidades</th><th class="celda-numero">Total</th></tr></thead>
+                  <tbody id="menosVendidos"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="seccion">
+          <h2>Movimientos de inventario</h2>
+          <div class="tarjetas" style="margin: 12px 0 0">
+            <div class="tarjeta">
+              <div class="numero" id="movEntradas">0</div>
+              <div class="etiqueta" id="movEntradasDetalle">Entradas (compras y devoluciones por anulación)</div>
+            </div>
+            <div class="tarjeta">
+              <div class="numero" id="movSalidas">0</div>
+              <div class="etiqueta" id="movSalidasDetalle">Salidas (ventas)</div>
+            </div>
+            <div class="tarjeta">
+              <div class="numero" id="movAjustes">0</div>
+              <div class="etiqueta" id="movAjustesDetalle">Ajustes (salidas manuales)</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+<script>
+  // Reportes por periodo (GET /api/reportes). Las cifras salen tal cual de la
+  // API; aquí solo se formatean. Los textos de la API se insertan con
+  // textContent (nunca como HTML).
+  function token() { return localStorage.getItem("token"); }
+
+  // 401: la sesión ya no sirve; se borra y se vuelve al login (sin bucle: el
+  // login sin token muestra el formulario).
+  function irAlLogin() {
+    localStorage.removeItem("token");
+    localStorage.removeItem("usuario");
+    window.location.replace("login.html");
+  }
+
+  const $ = (id) => document.getElementById(id);
+  const hoy = Gestion.hoyColombia();
+  const estado = { periodo: "dia", fecha: hoy, consulta: 0 };
+
+  function pintarControles(desde, hasta) {
+    for (const chip of document.querySelectorAll("#periodos .chip")) {
+      chip.setAttribute("aria-pressed", String(chip.dataset.periodo === estado.periodo));
+    }
+    const rango = Gestion.rangoPeriodo(estado.periodo, estado.fecha);
+    $("rango").textContent = Gestion.textoRango(estado.periodo, desde || rango.desde, hasta || rango.hasta);
+    $("btnSiguiente").disabled = Gestion.periodoSiguiente(estado.periodo, estado.fecha, hoy) === null;
+    $("fecha").max = hoy;
+    $("fecha").value = estado.fecha;
+  }
+
+  function mostrar(cual) {
+    $("cargando").classList.toggle("oculto", cual !== "cargando");
+    $("error").classList.toggle("oculto", cual !== "error");
+    $("reporte").classList.toggle("oculto", cual !== "reporte");
+  }
+
+  function mostrarError(texto, reintentable) {
+    $("errorTexto").textContent = texto;
+    $("btnReintentar").classList.toggle("oculto", !reintentable);
+    $("vacio").classList.add("oculto");
+    mostrar("error");
+  }
+
+  // Solo cuenta la última consulta: si se cambia de periodo rápido, las
+  // respuestas anteriores se descartan.
+  async function cargar() {
+    const consulta = ++estado.consulta;
+    pintarControles();
+    $("vacio").classList.add("oculto");
+    mostrar("cargando");
+    try {
+      const datos = await Api.pedir(`/api/reportes?periodo=${estado.periodo}&fecha=${estado.fecha}`);
+      if (consulta !== estado.consulta) return;
+      pintarReporte(datos || {});
+    } catch (err) {
+      if (consulta !== estado.consulta) return;
+      if (err.status === 401) return irAlLogin();
+      if (err.status === 403) return mostrarError("No tienes permiso para ver reportes", false);
+      mostrarError(Api.mensajeDe(err), true);
+    }
+  }
+
+  function pintarReporte(r) {
+    const rango = r.rango || {};
+    pintarControles(Gestion.leerFecha(rango.desde) ? rango.desde : null, Gestion.leerFecha(rango.hasta) ? rango.hasta : null);
+    const numeroVentas = Number(r.numero_ventas) || 0;
+    const sinVentas = numeroVentas === 0;
+    $("vacio").classList.toggle("oculto", !sinVentas);
+    $("conVentas").classList.toggle("oculto", sinVentas);
+
+    $("totalVendido").textContent = Gestion.formatoPesos(r.total_vendido);
+    $("numeroVentas").textContent = Gestion.formatoNumero(numeroVentas);
+    $("ticketPromedio").textContent = Gestion.formatoPesos(r.ticket_promedio);
+    pintarGrafica(Gestion.serieGrafica(estado.periodo, r.ventas_por_dia));
+    pintarTabla($("masVendidos"), r.top_productos);
+    pintarTabla($("menosVendidos"), r.productos_menos_vendidos);
+
+    const mov = r.movimientos_inventario || {};
+    pintarMovimiento("movEntradas", mov.entradas, "Entradas (compras y devoluciones por anulación)");
+    pintarMovimiento("movSalidas", mov.salidas, "Salidas (ventas)");
+    pintarMovimiento("movAjustes", mov.ajustes, "Ajustes (salidas manuales)");
+    mostrar("reporte");
+  }
+
+  function pintarMovimiento(id, total, texto) {
+    const unidades = Number(total && total.unidades) || 0;
+    const movimientos = Number(total && total.movimientos) || 0;
+    $(id).textContent = Gestion.formatoNumero(unidades);
+    $(`${id}Detalle`).textContent =
+      `${texto} · ${unidades === 1 ? "unidad" : "unidades"} en ${movimientos} ${movimientos === 1 ? "movimiento" : "movimientos"}`;
+  }
+
+  function celda(texto, clase) {
+    const td = document.createElement("td");
+    td.textContent = texto;
+    if (clase) td.className = clase;
+    return td;
+  }
+
+  function pintarTabla(tbody, productos) {
+    tbody.replaceChildren();
+    const lista = Array.isArray(productos) ? productos : [];
+    if (lista.length === 0) {
+      const tr = document.createElement("tr");
+      const td = celda("Sin productos en este periodo.", "celda-aviso");
+      td.colSpan = 4;
+      tr.appendChild(td);
+      tbody.appendChild(tr);
+      return;
+    }
+    lista.forEach((p, i) => {
+      const tr = document.createElement("tr");
+      tr.append(
+        celda(String(i + 1)),
+        celda(p && p.nombre ? p.nombre : "(sin nombre)"),
+        celda(Gestion.formatoNumero(p && p.unidades), "celda-numero"),
+        celda(Gestion.formatoPesos(p && p.total), "celda-numero")
+      );
+      tbody.appendChild(tr);
+    });
+  }
+
+  // Barras con SVG propio (sin librerías). Serie vacía → aviso; un punto o
+  // todo en cero → una barra o solo el eje, sin dividir por cero.
+  const SVG = "http://www.w3.org/2000/svg";
+  const ANCHO = 600;
+  const ALTO = 170;
+
+  function pintarGrafica(serie) {
+    $("tituloGrafica").textContent = estado.periodo === "anio" ? "Ventas por mes" : "Ventas por día";
+    const caja = $("grafica");
+    caja.replaceChildren();
+    if (serie.length === 0) {
+      $("maximoGrafica").textContent = "";
+      const p = document.createElement("p");
+      p.className = "estado-vacio";
+      p.textContent = "Sin datos para graficar.";
+      caja.appendChild(p);
+      return;
+    }
+    const mayor = serie.reduce((m, p) => (p.total > m.total ? p : m), serie[0]);
+    $("maximoGrafica").textContent =
+      `Máximo: ${Gestion.formatoPesos(mayor.total)}` + (mayor.total > 0 ? ` (${mayor.titulo})` : "");
+
+    const svg = document.createElementNS(SVG, "svg");
+    svg.setAttribute("class", "grafica");
+    svg.setAttribute("viewBox", `0 0 ${ANCHO} ${ALTO}`);
+    svg.setAttribute("preserveAspectRatio", "none");
+    svg.setAttribute("role", "img");
+    svg.setAttribute("aria-label", `Gráfica de ventas, máximo ${Gestion.formatoPesos(mayor.total)}`);
+    Gestion.geometriaBarras(serie, ANCHO, ALTO).forEach((b, i) => {
+      if (b.alto <= 0) return;
+      const rect = document.createElementNS(SVG, "rect");
+      rect.setAttribute("class", "barra");
+      rect.setAttribute("x", b.x);
+      rect.setAttribute("y", b.y);
+      rect.setAttribute("width", b.ancho);
+      rect.setAttribute("height", b.alto);
+      const titulo = document.createElementNS(SVG, "title");
+      titulo.textContent = `${serie[i].titulo}: ${Gestion.formatoPesos(serie[i].total)}`;
+      rect.appendChild(titulo);
+      svg.appendChild(rect);
+    });
+    const eje = document.createElementNS(SVG, "line");
+    eje.setAttribute("class", "eje");
+    eje.setAttribute("x1", 0);
+    eje.setAttribute("x2", ANCHO);
+    eje.setAttribute("y1", ALTO - 0.5);
+    eje.setAttribute("y2", ALTO - 0.5);
+    svg.appendChild(eje);
+    caja.appendChild(svg);
+
+    // Con pocas barras se rotula cada una; con muchas (mes), la primera y la última.
+    const etiquetas = document.createElement("div");
+    const visibles = serie.length <= 12 ? serie : [serie[0], serie[serie.length - 1]];
+    etiquetas.className = serie.length <= 12 ? "grafica-etiquetas" : "grafica-etiquetas extremos";
+    for (const p of visibles) {
+      const span = document.createElement("span");
+      span.textContent = p.etiqueta;
+      etiquetas.appendChild(span);
+    }
+    caja.appendChild(etiquetas);
+  }
+
+  // ---------- Controles ----------
+
+  for (const chip of document.querySelectorAll("#periodos .chip")) {
+    chip.addEventListener("click", () => {
+      if (chip.dataset.periodo === estado.periodo) return;
+      estado.periodo = chip.dataset.periodo;
+      cargar();
+    });
+  }
+  $("btnAnterior").addEventListener("click", () => {
+    estado.fecha = Gestion.moverPeriodo(estado.periodo, estado.fecha, -1);
+    cargar();
+  });
+  $("btnSiguiente").addEventListener("click", () => {
+    const siguiente = Gestion.periodoSiguiente(estado.periodo, estado.fecha, hoy);
+    if (siguiente === null) return;
+    estado.fecha = siguiente;
+    cargar();
+  });
+  // Una fecha futura (o borrada) se lleva a hoy.
+  $("fecha").addEventListener("change", () => {
+    estado.fecha = Gestion.fechaPermitida($("fecha").value, hoy);
+    cargar();
+  });
+  $("btnHoy").addEventListener("click", () => {
+    estado.fecha = hoy;
+    cargar();
+  });
+  $("btnReintentar").addEventListener("click", cargar);
+
+  if (!token()) {
+    document.body.innerHTML = "<p>Debes iniciar sesión primero en <a href='login.html'>login.html</a>.</p>";
+  } else {
+    cargar();
+  }
+</script>
+</body>
+</html>
